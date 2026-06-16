@@ -31,6 +31,10 @@
 /.nb-gradle/
 build/
 
+### Python ###
+/**/__pycache__
+/**/*.egg-info
+
 ### Other ###
 mvnw
 mvnw.cmd
