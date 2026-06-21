@@ -2,10 +2,10 @@
 
 from baibao.db.db_cfg import DbCfg
 from baibao.db.db_pool import DbPool
-from baibao.db.db import Db
+from baibao.db.db_util import DbUtil
 
 __all__ = [
     'DbCfg',
     'DbPool',
-    'Db',
+    'DbUtil',
 ]

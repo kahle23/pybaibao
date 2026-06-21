@@ -13,7 +13,7 @@ from .db_cfg import DbCfg
 
 class DbPool:
     """
-    数据库连接池管理器
+    数据库连接池
 
     支持两种连接模式：
     1. 连接池模式（默认）：基于 DBUtils.PooledDB 实现，适合高并发场景
@@ -22,9 +22,10 @@ class DbPool:
     支持 MySQL 和 PostgreSQL 两种数据库类型。
     """
 
-    def __init__(self, cfg: DbCfg, use_pool: bool = True, mincached: int = 1, maxcached: int = 10, maxconnections: int = 20):
+    def __init__(self, cfg: DbCfg, use_pool: bool = True,
+                 mincached: int = 1, maxcached: int = 10, maxconnections: int = 20):
         """
-        初始化连接管理器
+        初始化连接池
 
         Args:
             cfg: 数据库配置对象，包含连接所需的主机、端口、用户名、密码等信息
@@ -47,17 +48,20 @@ class DbPool:
         初始化连接池或单连接
 
         根据 use_pool 参数决定初始化连接池还是单连接。
+        对于单连接模式，会确保连接已创建且处于打开状态。
         """
-        from .db import Db
-        driver = Db.get_driver(self.cfg.db_type.lower())
+        from .db_util import DbUtil
+        driver = DbUtil.get_driver(self.cfg.db_type.lower())
 
         if self.use_pool:
             # 连接池模式：使用 DBUtils.PooledDB
             try:
-                PooledDB = Util.import_module('DBUtils.PooledDB', 'dbutils').PooledDB
+                # PooledDB = Util.import_module('DBUtils.PooledDB', 'dbutils').PooledDB
+                PooledDB = Util.import_module('dbutils.pooled_db', 'dbutils').PooledDB
             except ImportError:
-                from dbutils.pooled_db import PooledDB
-
+                # from dbutils.pooled_db import PooledDB
+                PooledDB = Util.import_module('DBUtils.PooledDB').PooledDB
+            # 初始化连接池
             self._pool = PooledDB(
                 creator=driver,
                 host=self.cfg.host,
@@ -72,15 +76,16 @@ class DbPool:
                 cursorclass=driver.cursors.DictCursor if hasattr(driver, 'cursors') else None,
             )
         else:
-            # 单连接模式：直接创建连接
-            self._connection = driver.connect(
-                host=self.cfg.host,
-                port=self.cfg.port,
-                user=self.cfg.username,
-                password=self.cfg.password,
-                database=self.cfg.database,
-                charset=self.cfg.charset,
-            )
+            # 单连接模式：创建或验证连接
+            if self._connection is None or not self._connection.open:
+                self._connection = driver.connect(
+                    host=self.cfg.host,
+                    port=self.cfg.port,
+                    user=self.cfg.username,
+                    password=self.cfg.password,
+                    database=self.cfg.database,
+                    charset=self.cfg.charset,
+                )
 
     def get_connection(self):
         """
@@ -97,6 +102,7 @@ class DbPool:
                 self._init_pool()
             return self._pool.connection()
         else:
+            # 单连接模式：确保连接存在且有效
             if self._connection is None or not self._connection.open:
                 self._init_pool()
             return self._connection
@@ -118,17 +124,21 @@ class DbPool:
                 self._connection = None
 
     @staticmethod
-    def of(cfg: DbCfg, **pool_kwargs) -> 'DbPool':
+    def of(cfg: DbCfg, use_pool: bool = True,
+           mincached: int = 1, maxcached: int = 10, maxconnections: int = 20) -> 'DbPool':
         """
-        获取连接池管理器（工厂方法）
+        创建连接池
 
         提供便捷的方式创建 DbPool 实例。
 
         Args:
             cfg: 数据库配置对象
-            pool_kwargs: DbPool 的构造参数，如 use_pool、mincached、maxcached、maxconnections 等
+            use_pool: 是否使用连接池模式，True 为连接池模式（默认），False 为单连接模式
+            mincached: 最小空闲连接数，连接池维护的最小空闲连接数量，默认为 1
+            maxcached: 最大空闲连接数，连接池允许的最大空闲连接数量，默认为 10
+            maxconnections: 最大连接数，连接池允许的最大总连接数，默认为 20
 
         Returns:
-            DbPool: 连接池管理器实例
+            DbPool: 连接池实例
         """
-        return DbPool(cfg, **pool_kwargs)
+        return DbPool(cfg, use_pool, mincached, maxcached, maxconnections)
