@@ -7,7 +7,8 @@
 自动处理依赖包的安装，支持连接池模式和直连模式两种连接方式。
 """
 
-from baibao.base import Util
+from baibao.base import util
+from baibao.base import log
 from .db_cfg import DbCfg
 
 
@@ -34,6 +35,7 @@ class DbPool:
             maxcached: 最大空闲连接数，连接池允许的最大空闲连接数量，默认为 10
             maxconnections: 最大连接数，连接池允许的最大总连接数，默认为 20
         """
+        log.info(f"数据库连接初始化（use_pool:{use_pool}），地址：{cfg.db_type}://{cfg.host}:{cfg.port}/{cfg.database}")
         self.cfg = cfg
         self.use_pool = use_pool
         self.mincached = mincached
@@ -56,11 +58,11 @@ class DbPool:
         if self.use_pool:
             # 连接池模式：使用 DBUtils.PooledDB
             try:
-                # PooledDB = Util.import_module('DBUtils.PooledDB', 'dbutils').PooledDB
-                PooledDB = Util.import_module('dbutils.pooled_db', 'dbutils').PooledDB
+                # PooledDB = util.import_module('DBUtils.PooledDB', 'dbutils').PooledDB
+                PooledDB = util.import_module('dbutils.pooled_db', 'dbutils').PooledDB
             except ImportError:
                 # from dbutils.pooled_db import PooledDB
-                PooledDB = Util.import_module('DBUtils.PooledDB').PooledDB
+                PooledDB = util.import_module('DBUtils.PooledDB').PooledDB
             # 初始化连接池
             self._pool = PooledDB(
                 creator=driver,

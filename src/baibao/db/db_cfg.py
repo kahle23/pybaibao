@@ -6,11 +6,10 @@
 提供数据库连接所需的配置类定义和配置文件加载功能。
 支持从 JSON 配置文件中读取数据库连接参数，并进行必填字段校验。
 """
-
-import json
 from dataclasses import dataclass, fields, MISSING
 from pathlib import Path
 from typing import Any, Union
+from baibao.base import log
 
 
 @dataclass
@@ -55,17 +54,19 @@ class DbCfg:
             ValueError: 配置文件缺少必填字段时抛出
             json.JSONDecodeError: JSON 格式解析失败时抛出
         """
+        # 确保配置文件路径是 Path 对象
+        log.info(f"加载数据库配置文件: {config_path}")
         config_path = Path(config_path)
         if not config_path.exists():
             raise FileNotFoundError(f"配置文件不存在: {config_path}")
-
+        # 读取 JSON 文件
+        import json
         with open(config_path, 'r', encoding='utf-8') as f:
             cfg: dict[str, Any] = json.load(f)
-
         # 利用 dataclass 的 fields 自动校验必填字段
         required = {f.name for f in fields(DbCfg) if f.default is MISSING}
         missing = required - cfg.keys()
         if missing:
-            raise ValueError(f"db.config 缺少字段: {', '.join(sorted(missing))}")
-
+            raise ValueError(f"DbCfg 缺少字段: {', '.join(sorted(missing))}")
+        # 返回解析后的配置对象
         return DbCfg(**cfg)

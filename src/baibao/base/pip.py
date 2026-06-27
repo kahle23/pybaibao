@@ -18,7 +18,22 @@ DEFAULT_MIRRORS: List[str] = [
 ]
 
 # Python 命令，可修改为其他路径，如 'python3' 或 'D:\\Python39\\python.exe'
-PYTHON_COMMAND: str = 'python'
+_PYTHON_COMMAND: str = 'python'
+
+
+def get_python_command() -> str:
+    """获取当前 Python 命令。"""
+    return _PYTHON_COMMAND
+
+
+def set_python_command(command: str) -> None:
+    """设置 Python 命令。
+
+    Args:
+        command: Python 命令，如 'python3' 或 'D:\\Python39\\python.exe'。
+    """
+    global _PYTHON_COMMAND
+    _PYTHON_COMMAND = command
 
 
 def _install_single(
@@ -45,7 +60,7 @@ def _install_single(
         try:
             host = mirror.split('//')[1].split('/')[0]
             command = [
-                PYTHON_COMMAND, '-m', 'pip', 'install', package,
+                _PYTHON_COMMAND, '-m', 'pip', 'install', package,
                 '-i', mirror,
                 '--trusted-host', host,
             ]
@@ -58,14 +73,14 @@ def _install_single(
                 check=True,
             )
             return (True, f"成功使用镜像 [{mirror}] 安装 {package}")
-        except subprocess.CalledProcessError as exc:
-            errors.append(f"镜像 [{mirror}] 安装失败: {exc.stderr.strip()}")
-        except subprocess.TimeoutExpired:
-            errors.append(f"镜像 [{mirror}] 安装超时")
-        except Exception as exc:
-            errors.append(f"镜像 [{mirror}] 发生异常: {exc}")
+        except subprocess.CalledProcessError as e:
+            errors.append(f"镜像 [{mirror}] 安装失败: {e.stderr.strip()}")
+        except subprocess.TimeoutExpired as e:
+            errors.append(f"镜像 [{mirror}] 安装超时: {e}")
+        except Exception as e:
+            errors.append(f"镜像 [{mirror}] 发生异常: {e}")
     # 所有镜像站点都失败
-    return (False, f"所有镜像站点安装失败:\n" + "\n".join(errors))
+    return (False, "所有镜像站点安装失败:\n" + "\n".join(errors))
 
 
 def install(

@@ -1,7 +1,8 @@
-from typing import Optional, Dict, Union, List, Tuple
+from typing import Dict, Union, List, Optional, Tuple, Any
 from decimal import Decimal
 
-from baibao.base import Util
+from baibao.base import util
+from baibao.base import log
 from .db_cfg import DbCfg
 from .db_pool import DbPool
 
@@ -48,10 +49,10 @@ class DbUtil:
             raise ValueError(f"不支持的数据库类型: {db_type}")
 
         module_name, install_name = driver_tuple
-        return Util.import_module(module_name, install_name)
+        return util.import_module(module_name, install_name)
 
     @staticmethod
-    def get_pool(cfg_name: str = None):
+    def get_pool(cfg_name: Optional[str] = None):
         """
         获取指定配置名对应的 DbPool 实例
 
@@ -96,7 +97,7 @@ class DbUtil:
             raise TypeError(f"dbPool 必须是 DbPool 或 DbCfg 类型，实际类型: {type(db_pool)}")
 
     @staticmethod
-    def remove_pool(cfg_name: str = None):
+    def remove_pool(cfg_name: Optional[str] = None):
         """
         移除指定配置名对应的 DbPool
 
@@ -110,7 +111,7 @@ class DbUtil:
             del DbUtil._pools[cfg_name]
 
     @staticmethod
-    def get_connection(cfg_name: str = None):
+    def get_connection(cfg_name: Optional[str] = None):
         """
         获取数据库连接
 
@@ -127,7 +128,7 @@ class DbUtil:
         return pool.get_connection()
 
     @staticmethod
-    def close(cfg_name: str = None):
+    def close(cfg_name: Optional[str] = None):
         """
         关闭数据库连接池
 
@@ -149,7 +150,7 @@ class DbUtil:
         DbUtil._pools.clear()
 
     @staticmethod
-    def exec(sql: str, params: tuple = None, cfg_name: str = None):
+    def exec(sql: str, params: Optional[Tuple[Any, ...]] = None, cfg_name: Optional[str] = None):
         """
         执行 SQL 语句（自动管理连接生命周期）
 
@@ -179,8 +180,8 @@ class DbUtil:
     @staticmethod
     def query(
         sql: str,
-        params: tuple = None,
-        cfg_name: str = None,
+        params: Optional[Tuple[Any, ...]] = None,
+        cfg_name: Optional[str] = None,
         to_float: bool = False,
     ) -> List[Dict]:
         """
@@ -206,7 +207,8 @@ class DbUtil:
             cursor.execute(sql, params)
             rows = cursor.fetchall()
             # 处理空结果集
-            if not rows: return []
+            if not rows:
+                return []
             # 处理字典格式结果
             if isinstance(rows[0], dict):
                 # 仅当 to_float 为 True 且值为 Decimal 类型时才转换为 float
@@ -233,7 +235,7 @@ class DbUtil:
                     cols = None
             # 无法获取列名描述
             if cols is None:
-                Log.warn("无法获取列名描述，将使用位置索引 field_0, field_1...")
+                log.warn("无法获取列名描述，将使用位置索引 field_0, field_1...")
             # 处理结果集
             result = []
             for row in rows:
@@ -256,7 +258,7 @@ class DbUtil:
             # 返回结果
             return result
         except Exception as e:
-            Log.error(f"Database query failed: {e}")
+            log.error(f"Database query failed: {e}")
             raise
         finally:
             # 关闭游标和连接
