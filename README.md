@@ -11,6 +11,8 @@ BaiBao-Python.
 # 在项目根目录
 python -m pip install -e . -i https://pypi.tuna.tsinghua.edu.cn/simple/
 
+python -m pip install . -i https://pypi.tuna.tsinghua.edu.cn/simple/
+
 # -e (editable) 模式:
 # 1. 包会安装到本地环境
 # 2. 修改源码立刻生效,无需重新安装

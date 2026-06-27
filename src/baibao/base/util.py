@@ -7,7 +7,7 @@
 import importlib
 from datetime import datetime
 
-from .pip_util import PipUtil
+from baibao.base import pip
 
 
 class Log:
@@ -74,7 +74,7 @@ class Util:
             return importlib.import_module(module_name)
         except ImportError:
             Log.warn(f"模块 {module_name} 未安装，开始安装 {install_name}")
-            success, msg = PipUtil.install(install_name)
+            success, msg = pip.install(install_name)
             if not success:
                 raise ImportError(f"安装 {install_name} 失败: {msg}")
             Log.info(f"{install_name} 安装成功，重新导入 {module_name}")
