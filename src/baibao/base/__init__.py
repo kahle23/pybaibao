@@ -1,5 +1,7 @@
 from baibao.base import pip
-from baibao.base.util import Log, Util
+from baibao.base import log
+from baibao.base.util import Util
 
 
-__all__ = ['pip', 'Log', 'Util']
+
+__all__ = ['pip', 'log', 'Util']
