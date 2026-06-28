@@ -62,7 +62,7 @@ class TestLoadDbCfg:
         with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(config_data, f)
 
-        config = DbCfg.load_json_config(config_path)
+        config = DbCfg.load_from_json_cfg(config_path)
 
         assert config.db_type == "mysql"
         assert config.charset == "utf8"
@@ -74,7 +74,7 @@ class TestLoadDbCfg:
 
     def test_load_json_config_file_not_found(self):
         with pytest.raises(FileNotFoundError):
-            DbCfg.load_json_config("/nonexistent/path/config.json")
+            DbCfg.load_from_json_cfg("/nonexistent/path/config.json")
 
     def test_load_json_config_missing_required_fields(self, tmp_path):
         config_data = {
@@ -88,4 +88,4 @@ class TestLoadDbCfg:
             json.dump(config_data, f)
 
         with pytest.raises(ValueError, match="缺少字段"):
-            DbCfg.load_json_config(config_path)
+            DbCfg.load_from_json_cfg(config_path)
