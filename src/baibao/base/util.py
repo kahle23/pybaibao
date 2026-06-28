@@ -29,7 +29,7 @@ def import_module(module_name: str, install_name: Optional[str] = None):
         ImportError: 模块安装失败
     """
     # 如果未指定安装包名，则使用模块名
-    if install_name is None:
+    if not install_name:
         install_name = module_name
     # 尝试导入模块
     try:

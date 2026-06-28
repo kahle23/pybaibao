@@ -7,6 +7,7 @@
 
 from typing import Optional, List, Tuple, Union
 import subprocess
+import sys
 
 
 # 默认镜像站点列表，按优先级从高到低
@@ -17,8 +18,8 @@ DEFAULT_MIRRORS: List[str] = [
     'https://pypi.org/simple/',                      # 官方
 ]
 
-# Python 命令，可修改为其他路径，如 'python3' 或 'D:\\Python39\\python.exe'
-_PYTHON_COMMAND: str = 'python'
+# Python 命令，默认使用当前正在运行的 Python 解释器
+_PYTHON_COMMAND: str = sys.executable
 
 
 def get_python_command() -> str:

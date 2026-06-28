@@ -29,7 +29,7 @@ __all__ = [
 _pools: Dict[str, DbPool] = {}
 
 # 默认配置名
-DEFAULT_CFG_NAME = ""
+DEFAULT_CFG_NAME = "default"
 
 
 def get_driver(db_type: str):
@@ -66,9 +66,10 @@ def get_pool(cfg_name: Optional[str] = None):
     Raises:
         KeyError: 指定的配置名对应的 DbPool 不存在时抛出
     """
-    if cfg_name is None:
+    # 如果未指定配置名，使用默认配置名
+    if not cfg_name:
         cfg_name = DEFAULT_CFG_NAME
-
+    # 如果配置名不存在，并且是默认配置名，尝试从 ./db.config 加载配置
     if cfg_name not in _pools:
         if cfg_name == DEFAULT_CFG_NAME:
             try:
@@ -78,7 +79,7 @@ def get_pool(cfg_name: Optional[str] = None):
                 raise KeyError(f"自动加载默认配置失败: {e}")
         else:
             raise KeyError(f"未找到配置名 '{cfg_name}' 对应的 DbPool，请先调用 set_pool() 设置")
-
+    # 返回对应的 DbPool 实例
     return _pools[cfg_name]
 
 
@@ -92,6 +93,10 @@ def set_pool(cfg_name: str, db_pool: Union[DbPool, DbCfg]) -> None:
         cfg_name: 数据库配置名
         db_pool: DbPool 实例或 DbCfg 配置对象
     """
+    # 如果未指定配置名，使用默认配置名
+    if not cfg_name:
+        cfg_name = DEFAULT_CFG_NAME
+    # 设置对应的 DbPool 实例
     if isinstance(db_pool, DbPool):
         _pools[cfg_name] = db_pool
     elif isinstance(db_pool, DbCfg):
@@ -107,9 +112,10 @@ def remove_pool(cfg_name: Optional[str] = None):
     Args:
         cfg_name: 数据库配置名，如果不传则移除默认配置名
     """
-    if cfg_name is None:
+    # 如果未指定配置名，使用默认配置名
+    if not cfg_name:
         cfg_name = DEFAULT_CFG_NAME
-
+    # 如果配置名存在，移除对应的 DbPool 实例
     if cfg_name in _pools:
         del _pools[cfg_name]
 

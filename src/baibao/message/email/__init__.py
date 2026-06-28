@@ -64,7 +64,7 @@ __all__ = [
 _clients: Dict[str, EmailClient] = {}
 
 # 默认配置名
-DEFAULT_CFG_NAME = ""
+DEFAULT_CFG_NAME = "default"
 
 
 def get_client(cfg_name: Optional[str] = None) -> EmailClient:
@@ -82,9 +82,10 @@ def get_client(cfg_name: Optional[str] = None) -> EmailClient:
     Raises:
         KeyError: 指定的配置名对应的 EmailClient 不存在时抛出
     """
-    if cfg_name is None:
+    # 如果未指定配置名，使用默认配置名
+    if not cfg_name:
         cfg_name = DEFAULT_CFG_NAME
-
+    # 如果配置名不存在，并且是默认配置名，尝试从 ./email.config 加载配置
     if cfg_name not in _clients:
         if cfg_name == DEFAULT_CFG_NAME:
             try:
@@ -94,7 +95,7 @@ def get_client(cfg_name: Optional[str] = None) -> EmailClient:
                 raise KeyError(f"自动加载默认配置失败: {e}")
         else:
             raise KeyError(f"未找到配置名 '{cfg_name}' 对应的 EmailClient，请先调用 set_client() 设置")
-
+    # 返回对应的 EmailClient 实例
     return _clients[cfg_name]
 
 
@@ -108,6 +109,10 @@ def set_client(cfg_name: str, client: Union[EmailClient, EmailCfg, dict]) -> Non
         cfg_name: 邮件配置名
         client: EmailClient 实例、EmailCfg 配置对象或配置字典
     """
+    # 如果未指定配置名，使用默认配置名
+    if not cfg_name:
+        cfg_name = DEFAULT_CFG_NAME
+    # 设置对应的 EmailClient 实例
     if isinstance(client, EmailClient):
         _clients[cfg_name] = client
     elif isinstance(client, EmailCfg):
@@ -125,15 +130,16 @@ def remove_client(cfg_name: Optional[str] = None) -> None:
     Args:
         cfg_name: 邮件配置名，如果不传则移除默认配置名
     """
-    if cfg_name is None:
+    # 如果未指定配置名，使用默认配置名
+    if not cfg_name:
         cfg_name = DEFAULT_CFG_NAME
-
+    # 如果配置名存在，移除对应的 EmailClient 实例
     if cfg_name in _clients:
         del _clients[cfg_name]
 
 
 def send_text(
-    config_name: str,
+    cfg_name: str,
     to: Union[str, list],
     subject: str,
     content: str,
@@ -145,7 +151,7 @@ def send_text(
     快速发送纯文本邮件。
 
     Args:
-        config_name: 配置名称
+        cfg_name: 邮件配置名
         to: 收件人邮箱地址
         subject: 邮件主题
         content: 邮件内容
@@ -159,11 +165,11 @@ def send_text(
     Raises:
         KeyError: 指定的配置名不存在时抛出
     """
-    return get_client(config_name).send(to, subject, content, cc=cc, bcc=bcc, attachments=attachments, is_html=False)
+    return get_client(cfg_name).send(to, subject, content, cc=cc, bcc=bcc, attachments=attachments, is_html=False)
 
 
 def send_html(
-    config_name: str,
+    cfg_name: str,
     to: Union[str, list],
     subject: str,
     html_content: str,
@@ -175,7 +181,7 @@ def send_html(
     快速发送 HTML 邮件。
 
     Args:
-        config_name: 配置名称
+        cfg_name: 邮件配置名
         to: 收件人邮箱地址
         subject: 邮件主题
         html_content: HTML 内容
@@ -189,11 +195,11 @@ def send_html(
     Raises:
         KeyError: 指定的配置名不存在时抛出
     """
-    return get_client(config_name).send(to, subject, html_content, cc=cc, bcc=bcc, attachments=attachments, is_html=True)
+    return get_client(cfg_name).send(to, subject, html_content, cc=cc, bcc=bcc, attachments=attachments, is_html=True)
 
 
 def send(
-    config_name: str,
+    cfg_name: str,
     to: Union[str, list],
     subject: str,
     content: str,
@@ -206,7 +212,7 @@ def send(
     通用邮件发送方法。
 
     Args:
-        config_name: 配置名称
+        cfg_name: 邮件配置名
         to: 收件人邮箱地址
         subject: 邮件主题
         content: 邮件内容
@@ -221,6 +227,6 @@ def send(
     Raises:
         KeyError: 指定的配置名不存在时抛出
     """
-    return get_client(config_name).send(
+    return get_client(cfg_name).send(
         to, subject, content, cc=cc, bcc=bcc, attachments=attachments, is_html=is_html
     )
