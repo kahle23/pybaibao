@@ -66,9 +66,6 @@ _TIME_FORMATS: dict[str, int] = {
     "%Y/%m/%d": 0,                       # 斜杠分隔
     "%Y.%m.%d": 0,                       # 点号分隔
     "%Y%m%d": 0,                         # 紧凑日期
-    # 中文日期
-    "%Y年%m月%d日": 0,                    # 中文日期
-    "%m月%d日": 0,                        # 中文短日期
     # 英文自然语言日期
     "%B %d, %Y": 0,                      # 完整月份名 "January 15, 2024"
     "%B %d %Y": 0,                       # 完整月份名（无逗号）
@@ -252,7 +249,7 @@ def format(time_obj: date | time | datetime | None, fmt: str = "%Y-%m-%d %H:%M:%
     return time_obj.strftime(fmt)
 
 
-def format(time_str: str, fmt: str = "%Y-%m-%d %H:%M:%S") -> str | None:
+def format_str(time_str: str, fmt: str = "%Y-%m-%d %H:%M:%S") -> str | None:
     """
     解析日期/时间字符串后按指定格式输出
 
