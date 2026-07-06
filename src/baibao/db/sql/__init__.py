@@ -1,11 +1,11 @@
 """
-数据库连接工具模块。
+SQL 数据库模块。
 
-提供统一的数据库操作接口。
+提供 SQL 数据库客户端管理和常用操作接口。
 """
 
-from baibao.db.sql import DbCfg, DbClient
-from baibao.db.sql import (
+from .db_client import DbCfg, DbClient
+from .base_sql import (
     get_driver,
     get_client,
     set_client,
@@ -16,7 +16,6 @@ from baibao.db.sql import (
     exec,
     query,
 )
-from baibao.db import sql
 
 __all__ = [
     'DbCfg',
@@ -30,5 +29,4 @@ __all__ = [
     'clear',
     'exec',
     'query',
-    'sql',
 ]

@@ -9,8 +9,7 @@ from importlib.metadata import version, PackageNotFoundError
 
 from baibao.base import pip, log, util, time, validate
 from baibao.data import currency
-from baibao import db
-from baibao.db import DbCfg, DbPool
+from baibao.db import sql, DbCfg, DbClient
 from baibao.message import email
 from baibao.message.email import EmailCfg, EmailClient, EmailSendResult
 
@@ -28,12 +27,11 @@ __all__ = [
     "time",
     "validate",
     "currency",
-    "db",
+    "sql",
     "DbCfg",
-    "DbPool",
+    "DbClient",
     "email",
     "EmailCfg",
     "EmailClient",
     "EmailSendResult",
 ]
-

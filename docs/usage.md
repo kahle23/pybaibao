@@ -104,90 +104,28 @@ pip.get_python_command()
 
 ---
 
-## 4. db - 数据库连接池
+## 4. db - 数据库
 
-支持 MySQL 和 PostgreSQL，提供连接池模式和单连接模式。数据库驱动（pymysql / psycopg2）和 DBUtils 在首次使用时自动安装。
+支持 MySQL 和 PostgreSQL，数据库驱动（pymysql / psycopg2）在首次使用时自动安装。
 
-### 4.1 数据库配置 DbCfg
-
-```python
-from baibao import DbCfg
-
-# 直接构造
-cfg = DbCfg(
-    host="localhost",
-    port=3306,
-    username="root",
-    password="123456",
-    database="test_db",
-    db_type="mysql",     # 支持 "mysql"、"postgresql"，默认 "mysql"
-    charset="utf8mb4"    # 默认 utf8mb4
-)
-
-# 从 JSON 文件加载
-cfg = DbCfg.load_from_json_cfg("db_config.json")
-```
-
-`db_config.json` 示例：
-
-```json
-{
-    "host": "localhost",
-    "port": 3306,
-    "username": "root",
-    "password": "123456",
-    "database": "test_db",
-    "db_type": "mysql"
-}
-```
-
-### 4.2 连接池模式（默认，适合高并发）
+> 完整文档请参考 [SQL 数据库操作模块](db_sql.md)
 
 ```python
-from baibao import DbCfg, DbPool
+from baibao import sql, DbCfg, DbClient
+# 或者通过子模块导入
+# from baibao.db import sql, DbCfg, DbClient
 
+# 1. 配置并注册数据源
 cfg = DbCfg(host="localhost", port=3306, username="root",
             password="123456", database="test_db")
+sql.set_client("default", cfg)
 
-pool = DbPool(cfg, use_pool=True,
-              mincached=1,       # 最小空闲连接数
-              maxcached=10,      # 最大空闲连接数
-              maxconnections=20) # 最大总连接数
+# 2. 执行写操作
+sql.exec("INSERT INTO users (name, email) VALUES (%s, %s)",
+         params=("张三", "zhangsan@example.com"))
 
-conn = pool.get_connection()
-cursor = conn.cursor()
-cursor.execute("SELECT * FROM users")
-rows = cursor.fetchall()
-cursor.close()
-conn.close()  # 连接归还连接池，不会真正关闭
-```
-
-### 4.3 单连接模式（适合低并发）
-
-```python
-pool = DbPool(cfg, use_pool=False)
-conn = pool.get_connection()  # 返回代理对象，close() 不会关闭共享连接
-cursor = conn.cursor()
-cursor.execute("SELECT 1")
-cursor.close()
-conn.close()
-```
-
-### 4.4 多数据源管理
-
-```python
-from baibao.db import set_pool, get_pool, remove_pool
-
-# 注册命名连接池
-set_pool("main", DbPool(main_cfg))
-set_pool("log_db", DbPool(log_cfg))
-
-# 按名称获取
-main_pool = get_pool("main")
-log_pool = get_pool("log_db")
-
-# 移除
-remove_pool("log_db")
+# 3. 执行查询
+users = sql.query("SELECT * FROM users WHERE name = %s", params=("张三",))
 ```
 
 ---
