@@ -7,7 +7,7 @@
 
 from importlib.metadata import version, PackageNotFoundError
 
-from baibao.base import pip, log, util, time
+from baibao.base import pip, log, util, time, validate
 from baibao.data import currency
 from baibao import db
 from baibao.db import DbCfg, DbPool
@@ -26,6 +26,7 @@ __all__ = [
     "log",
     "util",
     "time",
+    "validate",
     "currency",
     "db",
     "DbCfg",
