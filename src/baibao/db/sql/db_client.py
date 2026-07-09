@@ -22,11 +22,10 @@ from typing import Any, Union
 from baibao.base import util
 from baibao.base import log
 from baibao.base.validate import check_required_fields_not_empty
-from baibao.db.base_db import BaseCfg, BaseClient
 
 
 @dataclass
-class DbCfg(BaseCfg):
+class DbCfg:
     """
     SQL 数据库连接配置
 
@@ -50,28 +49,21 @@ class DbCfg(BaseCfg):
     charset: str = 'utf8mb4'
     validation_query: str = 'SELECT 1'
 
-    def validate(self) -> bool:
+    def validate(self) -> None:
         """
         验证数据库配置是否有效
 
-        调用基类验证逻辑，并检查数据库连接参数的完整性。
-
-        Returns:
-            配置有效返回 True
+        检查数据库类型和连接参数的完整性。
 
         Raises:
             ValueError: 配置无效时抛出
         """
-        # 调用基类验证逻辑
-        super().validate()
         # 检查必填字段
         check_required_fields_not_empty(self, 
-            ['host', 'port', 'username', 'password', 'database'], '数据库配置')
+            ['host', 'port', 'username', 'password', 'database', 'db_type'], '数据库配置')
         # 验证端口号范围
         if not (1 <= self.port <= 65535):
             raise ValueError(f"端口号必须在 1-65535 范围内，当前值: {self.port}")
-        # 结果
-        return True
 
     @staticmethod
     def load_from_json_cfg(config_path: Union[str, Path]) -> 'DbCfg':
@@ -96,13 +88,13 @@ class DbCfg(BaseCfg):
         return cfg
 
 
-class DbClient(BaseClient):
+class DbClient:
     """
     SQL 数据库客户端
 
     支持两种连接模式：
-    1. 连接池模式（默认）：基于 DBUtils.PooledDB 实现，适合高并发场景
-    2. 单连接模式：直接使用单个数据库连接，适合低并发或资源受限场景
+    1. 连接池模式（默认）：基于 DBUtils.PooledDB 实现，适合高并发场景，线程安全。
+    2. 单连接模式：直接使用单个数据库连接，适合低并发或资源受限场景，**非线程安全，仅限单线程使用**。
        单连接模式下返回 _SingleConnectionProxy 代理对象，防止调用方 close()
        误关闭共享连接，连接的生命周期由 DbClient 统一管理。
 
@@ -140,7 +132,7 @@ class DbClient(BaseClient):
           pymysql 会额外设置 DictCursor 作为默认游标类型。
         - 单连接模式：通过驱动的 connect() 建立单一连接，仅在连接不存在或已关闭时创建。
         """
-        from .base_sql import get_driver
+        from ._sql import get_driver
         driver = get_driver(self.cfg.db_type.lower())
 
         if self.use_pool:
@@ -259,6 +251,13 @@ class DbClient(BaseClient):
             log.warn(f"数据库连接测试失败: {e}")
             return False
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
+
 
 class _SingleConnectionProxy:
     """
@@ -281,3 +280,4 @@ class _SingleConnectionProxy:
 
     def __setattr__(self, name, value):
         setattr(self._connection, name, value)
+

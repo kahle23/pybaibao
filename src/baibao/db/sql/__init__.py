@@ -4,8 +4,7 @@ SQL 数据库模块。
 提供 SQL 数据库客户端管理和常用操作接口。
 """
 
-from .db_client import DbCfg, DbClient
-from .base_sql import (
+from ._sql import (
     get_driver,
     get_client,
     set_client,
@@ -13,13 +12,12 @@ from .base_sql import (
     get_connection,
     close,
     clear,
-    exec,
+    execute,
     query,
 )
+from .db_client import DbCfg, DbClient
 
 __all__ = [
-    'DbCfg',
-    'DbClient',
     'get_driver',
     'get_client',
     'set_client',
@@ -27,6 +25,8 @@ __all__ = [
     'get_connection',
     'close',
     'clear',
-    'exec',
+    'execute',
     'query',
+    'DbCfg',
+    'DbClient',
 ]

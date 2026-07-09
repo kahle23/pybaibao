@@ -15,7 +15,7 @@ from .db_client import DbCfg, DbClient
 
 # 存储不同配置名对应的 DbClient 实例
 _clients: Dict[str, DbClient] = {}
-_clients_lock = threading.Lock()
+_clients_lock = threading.RLock()
 
 # 默认配置名
 DEFAULT_CFG_NAME = "default"
@@ -127,8 +127,12 @@ def remove_client(cfg_name: Optional[str] = None):
         cfg_name = DEFAULT_CFG_NAME
     # 使用锁保护全局字典的访问
     with _clients_lock:
-        # 如果配置名存在，移除对应的 DbClient 实例
+        # 如果配置名存在，先关闭客户端再移除
         if cfg_name in _clients:
+            try:
+                _clients[cfg_name].close()
+            except Exception:
+                pass
             del _clients[cfg_name]
 
 
@@ -169,10 +173,15 @@ def clear():
     调用后需重新通过 set_client() 初始化客户端。
     """
     with _clients_lock:
+        for client in _clients.values():
+            try:
+                client.close()
+            except Exception:
+                pass
         _clients.clear()
 
 
-def exec(sql: str, params: Optional[Tuple[Any, ...]] = None, cfg_name: Optional[str] = None) -> int:
+def execute(sql: str, params: Optional[Tuple[Any, ...]] = None, cfg_name: Optional[str] = None) -> int:
     """
     执行 SQL 语句（自动管理连接生命周期）
 

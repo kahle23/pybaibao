@@ -107,6 +107,7 @@ pip.get_python_command()
 ## 4. db - 数据库
 
 支持 MySQL 和 PostgreSQL，数据库驱动（pymysql / psycopg2）在首次使用时自动安装。
+连接池模式线程安全，单连接模式仅限单线程使用。
 
 > 完整文档请参考 [SQL 数据库操作模块](db_sql.md)
 

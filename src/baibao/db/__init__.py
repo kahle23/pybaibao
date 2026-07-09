@@ -4,31 +4,11 @@
 提供统一的数据库操作接口。
 """
 
-from baibao.db.sql import DbCfg, DbClient
-from baibao.db.sql import (
-    get_driver,
-    get_client,
-    set_client,
-    remove_client,
-    get_connection,
-    close,
-    clear,
-    exec,
-    query,
-)
 from baibao.db import sql
+from baibao.db.sql import DbCfg, DbClient
 
 __all__ = [
+    'sql',
     'DbCfg',
     'DbClient',
-    'get_driver',
-    'get_client',
-    'set_client',
-    'remove_client',
-    'get_connection',
-    'close',
-    'clear',
-    'exec',
-    'query',
-    'sql',
 ]
