@@ -38,6 +38,9 @@ python -m pip install ".[all]"        # 全部
 
 ## 快速上手
 
+pip install baibao -i https://pypi.tuna.tsinghua.edu.cn/simple/
+
+
 ```python
 from baibao.base import util
 
