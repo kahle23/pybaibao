@@ -6,6 +6,7 @@
 """
 
 from baibao.base import env, file, log, pip, time, util, validate
+from baibao.base import Command, HelpCommand, CommandNotFoundError, CommandService
 from baibao.data import currency
 from baibao.db import sql, DbCfg, DbClient
 from baibao.message import email
@@ -18,6 +19,7 @@ __version__ = env.get_package_version(env.get_current_module_name())
 
 __all__ = [
     'env', 'file', "log", "pip", "time", "util", "validate",
+    "Command", "HelpCommand", "CommandNotFoundError", "CommandService",
     "currency",
     "sql",
     "DbCfg",

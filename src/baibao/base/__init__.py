@@ -5,15 +5,11 @@ from baibao.base import pip
 from baibao.base import time
 from baibao.base import util
 from baibao.base import validate
+from baibao.base.cli import Command, HelpCommand, CommandNotFoundError, CommandService
 
 
 __all__ = [
-    'env',
-    'file',
-    'log',
-    'pip',
-    'time',
-    'util',
-    'validate',
+    'env', 'file', 'log', 'pip', 'time', 'util', 'validate',
+    'Command', 'HelpCommand', 'CommandNotFoundError', 'CommandService',
 ]
 
