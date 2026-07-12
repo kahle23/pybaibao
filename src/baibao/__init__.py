@@ -5,7 +5,7 @@
 涵盖日志、包管理、数据库、消息发送、文字识别等常用场景。
 """
 
-from baibao.base import pip, log, util, time, validate, env
+from baibao.base import env, file, log, pip, time, util, validate
 from baibao.data import currency
 from baibao.db import sql, DbCfg, DbClient
 from baibao.message import email
@@ -17,12 +17,7 @@ __version__ = env.get_package_version(env.get_current_module_name())
 
 
 __all__ = [
-    'env',
-    "log",
-    "pip",
-    "util",
-    "time",
-    "validate",
+    'env', 'file', "log", "pip", "time", "util", "validate",
     "currency",
     "sql",
     "DbCfg",
