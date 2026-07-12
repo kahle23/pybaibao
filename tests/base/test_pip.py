@@ -128,7 +128,7 @@ class TestInstall:
 
         assert isinstance(result, tuple)
         assert result[0] is True
-        mock_execute.assert_called_once_with('install', ['requests'], timeout=120, mirrors=DEFAULT_MIRRORS)
+        mock_execute.assert_called_once_with('install', ['requests'], timeout=300, mirrors=DEFAULT_MIRRORS)
 
     @patch('baibao.base.pip.execute')
     def test_install_multiple_packages_all_success(self, mock_execute):
@@ -181,7 +181,7 @@ class TestInstall:
 
         install('requests', mirrors=custom_mirrors)
 
-        mock_execute.assert_called_once_with('install', ['requests'], timeout=120, mirrors=custom_mirrors)
+        mock_execute.assert_called_once_with('install', ['requests'], timeout=300, mirrors=custom_mirrors)
 
     @patch('baibao.base.pip.execute')
     def test_install_multiple_with_mirrors(self, mock_execute):

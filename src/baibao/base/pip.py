@@ -40,7 +40,7 @@ def set_python_command(command: str) -> None:
 def execute(
     command: str,
     args: Optional[List[str]] = None,
-    timeout: int = 120,
+    timeout: int = 300,
     mirrors: Optional[List[str]] = None,
 ) -> Tuple[bool, str]:
     """执行 pip 命令，支持多镜像站点自动切换。
@@ -50,7 +50,7 @@ def execute(
     Args:
         command: pip 命令，如 'install'、'uninstall'、'list'、'show'、'freeze' 等。
         args: 参数列表，可包含包名（如 ['requests'] 或 ['requests==2.31.0']）和额外选项（如 ['--upgrade'] 或 ['-y']）。
-        timeout: 每个镜像站点的超时时间（秒），默认 120 秒。
+        timeout: 每个镜像站点的超时时间（秒），默认 300 秒。
         mirrors: 镜像站点列表，若为 None 或空列表则不使用镜像。
 
     Returns:
@@ -103,14 +103,14 @@ def execute(
 
 def install(
     packages: Union[str, List[str]],
-    timeout: int = 120,
+    timeout: int = 300,
     mirrors: Optional[List[str]] = None,
 ) -> Union[Tuple[bool, str], Tuple[List[str], List[str]]]:
     """安装包，支持单个安装和批量安装，自动尝试多个镜像站点。
 
     Args:
         packages: 包名（可含版本号）或包名列表。
-        timeout: 每个镜像站点的超时时间（秒），默认 120 秒。
+        timeout: 每个镜像站点的超时时间（秒），默认 300 秒。
         mirrors: 镜像站点列表，若为 None 则使用默认列表。
 
     Returns:
@@ -140,14 +140,14 @@ def install(
 
 def upgrade(
     packages: Union[str, List[str]],
-    timeout: int = 120,
+    timeout: int = 300,
     mirrors: Optional[List[str]] = None,
 ) -> Union[Tuple[bool, str], Tuple[List[str], List[str]]]:
     """升级包，支持单个升级和批量升级，自动尝试多个镜像站点。
 
     Args:
         packages: 包名（可含版本号）或包名列表。
-        timeout: 每个镜像站点的超时时间（秒），默认 120 秒。
+        timeout: 每个镜像站点的超时时间（秒），默认 300 秒。
         mirrors: 镜像站点列表，若为 None 则使用默认列表。
 
     Returns:
@@ -177,13 +177,13 @@ def upgrade(
 
 def uninstall(
     packages: Union[str, List[str]],
-    timeout: int = 120,
+    timeout: int = 300,
 ) -> Union[Tuple[bool, str], Tuple[List[str], List[str]]]:
     """卸载包，支持单个卸载和批量卸载。
 
     Args:
         packages: 包名或包名列表。
-        timeout: 超时时间（秒），默认 120 秒。
+        timeout: 超时时间（秒），默认 300 秒。
 
     Returns:
         - 单个包：元组 (成功标志, 结果信息)
