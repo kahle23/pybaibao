@@ -5,24 +5,21 @@
 涵盖日志、包管理、数据库、消息发送、文字识别等常用场景。
 """
 
-from importlib.metadata import version, PackageNotFoundError
-
-from baibao.base import pip, log, util, time, validate
+from baibao.base import pip, log, util, time, validate, env
 from baibao.data import currency
 from baibao.db import sql, DbCfg, DbClient
 from baibao.message import email
 from baibao.message.email import EmailCfg, EmailClient, EmailSendResult
 
 
-try:
-    __version__ = version("baibao")
-except PackageNotFoundError:
-    __version__ = "0.0.1"
+# 不捕获 PackageNotFoundError：能执行到此处说明包已加载，版本缺失应报错而非静默回退
+__version__ = env.get_package_version(env.get_current_module_name())
 
 
 __all__ = [
-    "pip",
+    'env',
     "log",
+    "pip",
     "util",
     "time",
     "validate",

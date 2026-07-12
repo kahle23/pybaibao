@@ -7,7 +7,7 @@
 
 from typing import Optional, List, Tuple, Union
 import subprocess
-import sys
+from baibao.base import env
 
 
 # 默认镜像站点列表，按优先级从高到低
@@ -19,8 +19,7 @@ DEFAULT_MIRRORS: List[str] = [
 ]
 
 # Python 命令，默认使用当前正在运行的 Python 解释器
-_PYTHON_COMMAND: str = sys.executable
-
+_PYTHON_COMMAND: str = env.get_python_executable()
 
 
 def get_python_command() -> str:
