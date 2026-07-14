@@ -35,7 +35,7 @@ def get_caller_module_name() -> str:
         module = frame_info.frame.f_globals.get('__package__')
         # 检查是否是baibao内部调用
         if module and not module.startswith(current_module):
-            return module.split('.')[0]
+            return str(module.split('.')[0])
     # 如果没有找到不是baibao内部调用的模块，返回当前模块的顶级包名
     return current_module
 

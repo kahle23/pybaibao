@@ -79,3 +79,4 @@ def load_dataclass_from_json_file(file_path: str | Path, data_class: Type[T]) ->
     check_dataclass_required_fields(data, data_class)
     return data_class(**data)
 
+

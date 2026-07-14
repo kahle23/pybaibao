@@ -3,7 +3,6 @@
 """
 
 import os
-import shutil
 from typing import Any, List
 
 from baibao.base import log, Command

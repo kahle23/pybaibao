@@ -5,7 +5,7 @@
 涵盖日志、包管理、数据库、消息发送、文字识别等常用场景。
 """
 
-from baibao.base import env, file, log, pip, time, util, validate
+from baibao.base import attr, env, file, log, pip, time, util, validate
 from baibao.base import Command, HelpCommand, CommandNotFoundError, CommandService
 from baibao.data import currency
 from baibao.db import sql, DbCfg, DbClient
@@ -18,7 +18,7 @@ __version__ = env.get_package_version(env.get_current_module_name())
 
 
 __all__ = [
-    'env', 'file', "log", "pip", "time", "util", "validate",
+    'attr', 'env', 'file', "log", "pip", "time", "util", "validate",
     "Command", "HelpCommand", "CommandNotFoundError", "CommandService",
     "currency",
     "sql",

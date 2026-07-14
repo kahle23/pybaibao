@@ -1,3 +1,4 @@
+from baibao.base import attr
 from baibao.base import env
 from baibao.base import file
 from baibao.base import log
@@ -9,7 +10,7 @@ from baibao.base.cli import Command, HelpCommand, CommandNotFoundError, CommandS
 
 
 __all__ = [
-    'env', 'file', 'log', 'pip', 'time', 'util', 'validate',
+    'attr', 'env', 'file', 'log', 'pip', 'time', 'util', 'validate',
     'Command', 'HelpCommand', 'CommandNotFoundError', 'CommandService',
 ]
 
