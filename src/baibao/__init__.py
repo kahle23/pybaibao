@@ -7,7 +7,8 @@
 
 from baibao.base import attr, env, file, log, pip, time, util, validate
 from baibao.base import Command, HelpCommand, CommandNotFoundError, CommandService
-from baibao.data import currency
+from baibao.data import template, currency
+from baibao.data import TemplateEngine, Jinja2Engine
 from baibao.db import sql, DbCfg, DbClient
 from baibao.message import email
 from baibao.message.email import EmailCfg, EmailClient, EmailSendResult
@@ -20,7 +21,8 @@ __version__ = env.get_package_version(env.get_current_module_name())
 __all__ = [
     'attr', 'env', 'file', "log", "pip", "time", "util", "validate",
     "Command", "HelpCommand", "CommandNotFoundError", "CommandService",
-    "currency",
+    "template", "currency",
+    "TemplateEngine", "Jinja2Engine",
     "sql",
     "DbCfg",
     "DbClient",
