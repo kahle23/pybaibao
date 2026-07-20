@@ -13,6 +13,8 @@ from baibao.data import Style, Field
 from baibao.db import sql, DbCfg, DbClient
 from baibao.message import email
 from baibao.message.email import EmailCfg, EmailClient, EmailSendResult
+from baibao.ai import llm
+from baibao.ai.llm import LlmCfg, ChatMessage, ChatResponse, LlmService
 
 
 # 不捕获 PackageNotFoundError：能执行到此处说明包已加载，版本缺失应报错而非静默回退
@@ -20,6 +22,8 @@ __version__ = env.get_package_version(env.get_current_module_name())
 
 
 __all__ = [
+    "llm",
+    "LlmCfg", "ChatMessage", "ChatResponse", "LlmService",
     'attr', 'env', 'file', "log", "mod", "pip", "time", "util", "validate",
     "Command", "HelpCommand", "CommandNotFoundError", "CommandService",
     "template", "currency",

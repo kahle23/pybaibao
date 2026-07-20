@@ -18,7 +18,7 @@
 ### 基本使用
 
 ```python
-from baibao.ai.llm import chat, set_llm_service
+from baibao.ai.llm import chat, set_llm_service, LlmMessage
 from baibao.ai.llm.openai_llm import OpenAiLlm
 
 # 1. 设置 LLM 服务
@@ -29,7 +29,7 @@ set_llm_service("default", OpenAiLlm(
 ))
 
 # 2. 单轮对话
-response = chat("你好，请介绍一下自己")
+response = chat([LlmMessage(role="user", content="你好，请介绍一下自己")])
 print(response.content)
 ```
 
@@ -93,7 +93,7 @@ llm = OpenAiLlm()  # 使用默认模型 gpt-4o-mini
 可以设置多个 LLM 配置，按需切换：
 
 ```python
-from baibao.ai.llm import chat, set_llm_service
+from baibao.ai.llm import chat, set_llm_service, LlmMessage
 from baibao.ai.llm.openai_llm import OpenAiLlm
 
 # 设置多个配置
@@ -101,14 +101,14 @@ set_llm_service("fast", OpenAiLlm(model="gpt-4o-mini"))
 set_llm_service("code", OpenAiLlm(model="gpt-4o"))
 
 # 使用指定配置
-response = chat("写一个快排算法", llm_name="code")
-response = chat("简要概括", llm_name="fast")
+response = chat([LlmMessage(role="user", content="写一个快排算法")], llm_name="code")
+response = chat([LlmMessage(role="user", content="简要概括")], llm_name="fast")
 ```
 
 ### 多轮对话
 
 ```python
-from baibao.ai.llm import chat_with_history, LlmMessage
+from baibao.ai.llm import chat, LlmMessage
 
 messages = [
     LlmMessage(role="system", content="你是一个有用的助手"),
@@ -117,17 +117,26 @@ messages = [
     LlmMessage(role="user", content="今天天气怎么样？"),
 ]
 
-response = chat_with_history(messages)
+response = chat(messages)
 print(response.content)
 ```
 
 ### 流式输出
 
 ```python
-from baibao.ai.llm import stream_chat
+from baibao.ai.llm import stream_chat, LlmMessage
 
-# 逐步输出，适合长文本生成
-for chunk in stream_chat("讲一个关于人工智能的故事"):
+# 单轮流式输出
+for chunk in stream_chat([LlmMessage(role="user", content="讲一个关于人工智能的故事")]):
+    print(chunk, end="", flush=True)
+
+# 多轮流式输出
+messages = [
+    LlmMessage(role="user", content="你好"),
+    LlmMessage(role="assistant", content="你好！有什么可以帮你的？"),
+    LlmMessage(role="user", content="讲个笑话"),
+]
+for chunk in stream_chat(messages):
     print(chunk, end="", flush=True)
 ```
 
@@ -136,9 +145,9 @@ for chunk in stream_chat("讲一个关于人工智能的故事"):
 `LlmResponse` 包含丰富的元数据：
 
 ```python
-from baibao.ai.llm import chat
+from baibao.ai.llm import chat, LlmMessage
 
-response = chat("你好")
+response = chat([LlmMessage(role="user", content="你好")])
 
 print(response.content)        # 响应文本
 print(response.model)          # 使用的模型名称
@@ -153,8 +162,10 @@ print(response.finish_reason)  # 结束原因: 'stop'、'length' 等
 
 ```python
 response = chat(
-    prompt="写一首诗",
-    system="你是一个诗人",
+    messages=[
+        LlmMessage(role="system", content="你是一个诗人"),
+        LlmMessage(role="user", content="写一首诗"),
+    ],
     temperature=0.9,    # 温度，越高越随机 (0~2)
     max_tokens=500,     # 最大生成 token 数
     top_p=0.9,          # 核采样参数
@@ -331,7 +342,7 @@ remove_ocr_service("my_ocr")
 ### LLM 多服务商切换
 
 ```python
-from baibao.ai.llm import chat, set_llm_service
+from baibao.ai.llm import chat, set_llm_service, LlmMessage
 from baibao.ai.llm.openai_llm import OpenAiLlm
 
 # 配置多个服务商
@@ -347,8 +358,8 @@ set_llm_service("deepseek", OpenAiLlm(
 ))
 
 # 按需切换
-response1 = chat("你好", llm_name="gpt")
-response2 = translate("你好", llm_name="deepseek")
+response1 = chat([LlmMessage(role="user", content="你好")], llm_name="gpt")
+response2 = chat([LlmMessage(role="user", content="你好")], llm_name="deepseek")
 ```
 
 ### OCR 批量识别
