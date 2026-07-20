@@ -9,7 +9,8 @@ from typing import Dict, Optional, Tuple, Any, List, Union
 from decimal import Decimal
 import threading
 
-from baibao.base import log, util
+from baibao.base import log
+from baibao.base import mod
 from .db_client import DbCfg, DbClient
 
 
@@ -50,7 +51,7 @@ def get_driver(db_type: str):
         raise ValueError(f"不支持的数据库类型: {db_type}")
     # 导入驱动模块 
     module_name, install_name = driver_tuple
-    return util.import_module(module_name, install_name)
+    return mod.import_module(module_name, install_name)
 
 
 def get_client(cfg_name: Optional[str] = None):

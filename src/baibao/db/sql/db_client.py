@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Union
 
-from baibao.base import util
+from baibao.base import mod
 from baibao.base import log
 from baibao.base.validate import check_required_fields_not_empty
 
@@ -138,9 +138,9 @@ class DbClient:
         if self.use_pool:
             # 连接池模式：使用 DBUtils.PooledDB
             try:
-                PooledDB = util.import_module('dbutils.pooled_db', 'dbutils').PooledDB
+                PooledDB = mod.import_module('dbutils.pooled_db', 'dbutils').PooledDB
             except ImportError:
-                PooledDB = util.import_module('DBUtils.PooledDB').PooledDB
+                PooledDB = mod.import_module('DBUtils.PooledDB').PooledDB
             # 构建连接池参数
             pool_kwargs = dict(
                 creator=driver,
