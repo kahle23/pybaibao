@@ -48,4 +48,12 @@ mvnw.cmd
 /*/target/
 
 
+### AI Agent ###
+/**/.workbuddy
+/**/.trae/
+/**/.claude/
+/**/AGENTS.md
+/**/.mimocode/
+/**/CLAUDE.md
+
 

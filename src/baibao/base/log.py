@@ -77,12 +77,16 @@ def _log(level, msg):
 
 
 def debug(msg):
-    """输出调试级别日志（仅在 _LOG_LEVEL 为 DEBUG 时显示）"""
+    """
+    输出调试级别日志（仅在 _LOG_LEVEL 为 DEBUG 时显示）
+    """
     _log("DEBUG", msg)
 
 
 def info(msg):
-    """输出信息级别日志（默认级别及以上显示）"""
+    """
+    输出信息级别日志（默认级别及以上显示）
+    """
     _log("INFO", msg)
 
 
@@ -92,11 +96,15 @@ def warn(msg):
 
 
 def error(msg):
-    """输出错误级别日志"""
+    """
+    输出错误级别日志
+    """
     _log("ERROR", msg)
 
 
 def usage(msg):
-    """输出用途/用法级别日志（始终显示，不受 _LOG_LEVEL 限制）"""
+    """
+    输出用途/用法级别日志（始终显示，不受 _LOG_LEVEL 限制）
+    """
     _log("USAGE", msg)
 

@@ -1,4 +1,9 @@
-from typing import Optional, Any, Dict, Callable, IO, TYPE_CHECKING
+"""
+Jinja2 模板引擎策略实现模块。
+
+基于 Jinja2 库实现 TemplateEngine 抽象接口，支持模板继承、自定义过滤器、
+自动转义等特性，适用于 HTML 渲染和代码生成等场景。
+"""
 import os
 
 if TYPE_CHECKING:

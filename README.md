@@ -82,11 +82,24 @@ python -m pytest tests/
 
 <br />
 
-### 工具命令
+### 打包上传
 
 ```bash
 # 清理 __pycache__ 缓存
 python -m baibao py_clean .
+
+# 构建源码包和 wheel 包
+python -m build
+
+# 构建结果
+ls dist/
+
+# 检查元数据
+python -m twine check dist/*
+
+# 上传到正式 PyPI
+python -m twine upload dist/*
+
 ```
 
 <br />

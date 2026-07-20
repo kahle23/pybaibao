@@ -1,3 +1,10 @@
+"""
+OpenAI 兼容 LLM 策略实现模块。
+
+支持 OpenAI、DeepSeek、Moonshot 等所有兼容 OpenAI API 格式的服务商，
+提供单轮/多轮对话和流式输出功能。
+"""
+
 from typing import Optional, List, Dict, Generator, Any
 import os
 

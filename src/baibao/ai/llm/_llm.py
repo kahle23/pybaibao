@@ -1,4 +1,9 @@
-"""LLM 核心模块，定义接口、数据对象和管理函数。"""
+"""
+LLM 核心模块，定义接口、数据对象和管理函数。
+
+包含配置类（LlmCfg）、消息类（ChatMessage/ChatResponse）、
+策略抽象基类（LlmService）及模块级服务管理函数。
+"""
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field

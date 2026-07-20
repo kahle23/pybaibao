@@ -1,7 +1,8 @@
 """
-验证模块
+数据验证模块，提供 dataclass 等数据结构的通用校验方法。
 
-提供通用的数据验证方法，适用于 dataclass 等数据结构。
+支持必填字段存在性检查和非空校验两种验证模式，
+有效防止因字段缺失或为空导致的运行时错误。
 """
 
 from dataclasses import fields, MISSING

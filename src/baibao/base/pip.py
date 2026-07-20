@@ -23,7 +23,9 @@ _PYTHON_COMMAND: str = env.get_python_executable()
 
 
 def get_python_command() -> str:
-    """获取当前 Python 命令。"""
+    """
+    获取当前 Python 命令。
+    """
     return _PYTHON_COMMAND
 
 
