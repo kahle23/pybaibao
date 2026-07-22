@@ -6,17 +6,21 @@
 """
 
 from baibao.base import attr
+from baibao.base import cli
 from baibao.base import env
 from baibao.base import file
+from baibao.base import hook
 from baibao.base import log
 from baibao.base import pip
 from baibao.base import time
 from baibao.base import util
 from baibao.base import validate
 from baibao.base.cli import Command, HelpCommand, CommandNotFoundError, CommandService
+from baibao.base.hook import HookInfo
 
 
 __all__ = [
-    'attr', 'env', 'file', 'log', 'pip', 'time', 'util', 'validate',
+    'attr', 'cli', 'env', 'file', 'hook', 'log', 'pip', 'time', 'util', 'validate',
     'Command', 'HelpCommand', 'CommandNotFoundError', 'CommandService',
+    'HookInfo',
 ]

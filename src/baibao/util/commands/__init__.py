@@ -24,8 +24,10 @@ class BaibaoHelpCommand(HelpCommand):
         """
         # 构建命令列表
         command_lines = []
+        # 计算所有命令名称的最大长度，用于对齐
+        max_name_len = max(len(cmd.name) for cmd in commands.values()) if commands else 0
         for cmd in commands.values():
-            command_lines.append(f"    {cmd.name:<12} {cmd.description}")
+            command_lines.append(f"    {cmd.name:<{max_name_len}} {cmd.description}")
         # 拼接命令列表
         commands_text = "\n".join(command_lines)
         # 构建帮助文本（头部增加 baibao 描述，尾部增加常用示例）

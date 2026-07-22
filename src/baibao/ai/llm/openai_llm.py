@@ -103,6 +103,9 @@ class OpenAiLlm(LlmService):
             or os.environ.get("OPENAI_API_BASE")
         )
 
+        if not cfg.model:
+            raise ValueError("未提供 model 配置，请在配置中指定模型名称")
+        
         self._model: str = cfg.model
         self._client = openai.OpenAI(
             api_key=resolved_api_key,

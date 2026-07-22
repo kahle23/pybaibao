@@ -30,7 +30,7 @@ class LlmCfg:
     service_type: str
     api_key: str
     base_url: Optional[str] = None
-    model: str = None
+    model: Optional[str] = None
     timeout: float = 60.0
     max_retries: int = 2
 

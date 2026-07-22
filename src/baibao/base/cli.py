@@ -4,11 +4,14 @@
 本模块提供命令系统的核心抽象类和注册机制，用于实现可扩展的命令行工具。
 """
 
+import sys
 import threading
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
 from baibao.base import log
+from baibao.base import env
+from baibao.base import hook
 
 
 class Command(ABC):
@@ -350,4 +353,33 @@ class CommandService:
                 raise CommandNotFoundError(f"未知命令: {command_name}")
             # 执行命令
             return command.execute(args)
+
+    def main_cli(self):
+        """
+        命令行入口方法，解析参数并执行对应命令
+        """
+        # 执行启动钩子
+        hook.execute(hook.ON_STARTUP)
+        
+        try:
+            # 解析命令行参数
+            args = sys.argv[1:]
+            
+            # 解析命令
+            command_name = args[0].lower() if args else ""
+            command_args = args[1:] if args else []
+            # 无命令时显示帮助
+            if not command_name:
+                command_name = self.get_help_command().name
+            
+            # 执行命令
+            try:
+                self.execute_command(command_name, command_args)
+            except CommandNotFoundError as e:
+                print(str(e))
+                print(f"使用 'python -m {env.get_caller_module_name()} {self.get_help_command().name}' 查看可用命令")
+                sys.exit(1)
+        finally:
+            # 执行关闭钩子
+            hook.execute(hook.ON_SHUTDOWN)
 

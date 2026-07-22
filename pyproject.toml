@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "baibao"
-version = "0.0.3"
+version = "0.0.4"
 description = "百宝，方便好用的 Python 常用功能库。把日常开发中反复用到的能力封装成简洁的 API，开箱即用。"
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
@@ -19,12 +19,18 @@ dependencies = [
 where = ["src"]
 
 [project.optional-dependencies]
-all = []
+all = ["easyocr>=1.7.0", "paddleocr>=2.7.0", "opencv-python>=4.8.0", "numpy>=1.24.0"]
 dev = ["pytest", "ruff", "mypy"]
+easyocr = ["easyocr>=1.7.0", "opencv-python>=4.8.0", "numpy>=1.24.0"]
+paddleocr = ["paddleocr>=2.7.0", "opencv-python>=4.8.0", "numpy>=1.24.0"]
 
 [tool.mypy]
 python_version = "3.8"
 warn_return_any = true
 warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = ["easyocr", "paddleocr"]
+ignore_missing_imports = true
 
 
