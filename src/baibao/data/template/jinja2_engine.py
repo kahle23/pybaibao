@@ -5,12 +5,13 @@ Jinja2 模板引擎策略实现模块。
 自动转义等特性，适用于 HTML 渲染和代码生成等场景。
 """
 import os
+from typing import Any, Callable, Dict, IO, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     import jinja2
 
 from ._template import TemplateEngine
-from baibao.base import mod
+from baibao.base import util
 
 
 class Jinja2Engine(TemplateEngine):
@@ -57,7 +58,7 @@ class Jinja2Engine(TemplateEngine):
             ImportError: 当 jinja2 库未安装且自动安装失败时抛出。
         """
         # 导入 Jinja2 库
-        mod.import_module('jinja2')
+        util.import_module('jinja2')
         # 初始化 Jinja2 环境配置
         self._template_dir = template_dir
         self._auto_escape = auto_escape

@@ -67,6 +67,26 @@ config = util.load_dataclass_from_json_file(Path("config.json"), AppConfig)
 }
 ```
 
+### 1.3 创建模块懒加载器
+
+生成一个 `__getattr__` 函数，用于实现模块属性的延迟导入。首次访问属性时才导入对应模块，导入后缓存到全局变量中，有效提升大型项目的启动性能。
+
+```python
+from baibao.base import util
+
+# 定义懒加载映射
+_LAZY_IMPORTS = {
+    "test": "baibao.test.t1",
+    "test1": "baibao.test.t2",
+}
+
+# 创建懒加载函数
+__getattr__ = util.create_lazy_loader(_LAZY_IMPORTS)
+
+# 访问属性时才实际导入模块
+# 例如：baibao.test 访问时才会导入 baibao.test.t1
+```
+
 ---
 
 ## 2. log - 日志模块
