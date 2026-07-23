@@ -5,9 +5,8 @@
 涵盖日志、包管理、数据库、消息发送、文字识别等常用场景。
 """
 
-from baibao.base import attr, cli, env, file, hook, log, pip, time, util, validate
+from baibao.base import action, attr, cli, env, file, log, pip, time, util, validate
 from baibao.base import Command, HelpCommand, CommandNotFoundError, CommandService
-from baibao.base.hook import HookInfo
 from baibao.data import template, currency
 from baibao.data import TemplateEngine, Jinja2Engine
 from baibao.data import Style, Field
@@ -27,9 +26,8 @@ __version__ = env.get_package_version(env.get_current_module_name())
 __all__ = [
     "llm",
     "LlmCfg", "ChatMessage", "ChatResponse", "LlmService",
-    'attr', 'cli', 'env', 'file', 'hook', "log", "pip", "time", "util", "validate",
+    'action', 'attr', 'cli', 'env', 'file', "log", "pip", "time", "util", "validate",
     "Command", "HelpCommand", "CommandNotFoundError", "CommandService",
-    'HookInfo',
     "template", "currency",
     "TemplateEngine", "Jinja2Engine",
     "Style", "Field",

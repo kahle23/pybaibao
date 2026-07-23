@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from baibao.base import log
 from baibao.base import env
-from baibao.base import hook
+from baibao.base import action
 
 
 class Command(ABC):
@@ -358,20 +358,20 @@ class CommandService:
         """
         命令行入口方法，解析参数并执行对应命令
         """
-        # 执行启动钩子
-        hook.execute(hook.ON_STARTUP)
-        
+        # 解析命令行参数
+        args = sys.argv[1:]
+
+        # 执行启动动作（传入入参，返回值非空时打印）
+        action.execute_all(action.APP_ON_STARTUP, args, print_result=True)
+
         try:
-            # 解析命令行参数
-            args = sys.argv[1:]
-            
             # 解析命令
             command_name = args[0].lower() if args else ""
             command_args = args[1:] if args else []
             # 无命令时显示帮助
             if not command_name:
                 command_name = self.get_help_command().name
-            
+
             # 执行命令
             try:
                 self.execute_command(command_name, command_args)
@@ -380,6 +380,6 @@ class CommandService:
                 print(f"使用 'python -m {env.get_caller_module_name()} {self.get_help_command().name}' 查看可用命令")
                 sys.exit(1)
         finally:
-            # 执行关闭钩子
-            hook.execute(hook.ON_SHUTDOWN)
+            # 执行关闭动作（传入入参，返回值非空时打印）
+            action.execute_all(action.APP_ON_SHUTDOWN, args, print_result=True)
 

@@ -6,22 +6,23 @@ baibao 命令行入口。
     python -m baibao install requests   安装包
 """
 
-from baibao.base import hook
+from baibao.base import action
 from baibao.util.commands import command_service
 
 
-def _on_startup():
-    print("执行启动钩子")
+def _on_startup(args):
+    print("执行启动动作")
+    print(f"入参: {args}")
     print("初始化完成")
 
 
-def _on_shutdown():
-    print("执行关闭钩子")
+def _on_shutdown(args):
+    print("执行关闭动作")
     print("清理完成")
 
 
-hook.register(hook.ON_STARTUP, _on_startup)
-hook.register(hook.ON_SHUTDOWN, _on_shutdown)
+action.register(action.APP_ON_STARTUP, _on_startup)
+action.register(action.APP_ON_SHUTDOWN, _on_shutdown)
 
 
 
