@@ -12,26 +12,27 @@ from baibao.base import log
 
 
 def remove_target_dirs(base_dir: str, target_name: str, recursive: bool = False) -> int:
-    """删除指定名称的目录
-    
+    """
+    删除指定名称的目录。
+
     在指定目录中查找并删除匹配名称的目录。支持递归搜索所有子目录。
-    
+
     Args:
-        base_dir: 搜索的根目录路径
-        target_name: 要删除的目录名（如 __pycache__、build、dist）
-        recursive: 是否递归搜索所有子目录中的匹配目录，默认为 False
-    
+        base_dir: 搜索的根目录路径。
+        target_name: 要删除的目录名（如 __pycache__、build、dist）。
+        recursive: 是否递归搜索所有子目录中的匹配目录，默认为 False。
+
     Returns:
-        成功删除的目录数量
-    
+        成功删除的目录数量。
+
     Raises:
-        FileNotFoundError: 当 base_dir 目录不存在时
-        PermissionError: 当没有权限删除目录时
-    
+        FileNotFoundError: 当 base_dir 目录不存在时。
+        PermissionError: 当没有权限删除目录时。
+
     Examples:
         >>> # 删除顶层的 build 目录
         >>> remove_target_dirs("/path/to/project", "build")
-        
+
         >>> # 递归删除所有 __pycache__ 目录
         >>> remove_target_dirs("/path/to/project", "__pycache__", recursive=True)
     """
@@ -66,26 +67,27 @@ def remove_target_dirs(base_dir: str, target_name: str, recursive: bool = False)
 
 
 def remove_suffix_dirs(base_dir: str, suffix: str, recursive: bool = False) -> int:
-    """删除匹配后缀的目录
-    
+    """
+    删除匹配后缀的目录。
+
     在指定目录中查找并删除以指定后缀结尾的目录。支持递归搜索所有子目录。
-    
+
     Args:
-        base_dir: 搜索的根目录路径
-        suffix: 目录名后缀（如 .egg-info、.dist-info）
-        recursive: 是否递归搜索所有子目录中的匹配目录，默认为 False
-    
+        base_dir: 搜索的根目录路径。
+        suffix: 目录名后缀（如 .egg-info、.dist-info）。
+        recursive: 是否递归搜索所有子目录中的匹配目录，默认为 False。
+
     Returns:
-        成功删除的目录数量
-    
+        成功删除的目录数量。
+
     Raises:
-        FileNotFoundError: 当 base_dir 目录不存在时
-        PermissionError: 当没有权限删除目录时
-    
+        FileNotFoundError: 当 base_dir 目录不存在时。
+        PermissionError: 当没有权限删除目录时。
+
     Examples:
         >>> # 删除顶层的 .egg-info 目录
         >>> remove_suffix_dirs("/path/to/project", ".egg-info")
-        
+
         >>> # 递归删除所有 .dist-info 目录
         >>> remove_suffix_dirs("/path/to/project", ".dist-info", recursive=True)
     """

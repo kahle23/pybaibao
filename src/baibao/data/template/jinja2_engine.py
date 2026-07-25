@@ -15,7 +15,8 @@ from baibao.base import util
 
 
 class Jinja2Engine(TemplateEngine):
-    """基于 Jinja2 库的模板引擎策略实现。
+    """
+    基于 Jinja2 库的模板引擎策略实现。
 
     Jinja2 是一个现代的、设计优雅的 Python 模板引擎，广泛应用于 Web 开发（如 Flask 框架）。
     本实现仅需实现 :meth:`render_stream_to_stream` 核心方法，其余方法继承自基类默认实现。
@@ -40,7 +41,8 @@ class Jinja2Engine(TemplateEngine):
         filters: Optional[Dict[str, Callable]] = None,
         globals: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """初始化 Jinja2 模板引擎。
+        """
+        初始化 Jinja2 模板引擎。
 
         Args:
             template_dir: 模板文件目录，用于加载文件模板。如果为 None，则只能渲染模板字符串。
@@ -70,7 +72,8 @@ class Jinja2Engine(TemplateEngine):
         self._env = self._create_environment()
 
     def _create_environment(self) -> 'jinja2.Environment':
-        """创建 Jinja2 环境。
+        """
+        创建 Jinja2 环境。
 
         Returns:
             配置好的 Jinja2 Environment 实例。
@@ -111,7 +114,8 @@ class Jinja2Engine(TemplateEngine):
 
     @property
     def template_dir(self) -> Optional[str]:
-        """获取模板目录路径。
+        """
+        获取模板目录路径。
 
         Returns:
             模板目录路径，如果未设置则返回 None。
@@ -120,7 +124,8 @@ class Jinja2Engine(TemplateEngine):
 
     @property
     def auto_escape(self) -> bool:
-        """获取是否启用自动转义。
+        """
+        获取是否启用自动转义。
 
         Returns:
             True 表示启用自动转义，False 表示禁用。
@@ -129,7 +134,8 @@ class Jinja2Engine(TemplateEngine):
 
     @property
     def cache_size(self) -> int:
-        """获取模板缓存大小。
+        """
+        获取模板缓存大小。
 
         Returns:
             缓存大小，0 表示禁用缓存。
@@ -138,7 +144,8 @@ class Jinja2Engine(TemplateEngine):
 
     @property
     def undefined(self) -> str:
-        """获取未定义变量的处理方式。
+        """
+        获取未定义变量的处理方式。
 
         Returns:
             处理方式字符串，可选值: strict, undefined, debug。
@@ -147,7 +154,8 @@ class Jinja2Engine(TemplateEngine):
 
     @property
     def filters(self) -> Dict[str, Callable]:
-        """获取所有自定义过滤器。
+        """
+        获取所有自定义过滤器。
 
         Returns:
             过滤器字典，键为过滤器名称，值为过滤器函数。
@@ -156,7 +164,8 @@ class Jinja2Engine(TemplateEngine):
 
     @property
     def globals(self) -> Dict[str, Any]:
-        """获取所有全局变量。
+        """
+        获取所有全局变量。
 
         Returns:
             全局变量字典，键为变量名称，值为变量值。
@@ -164,7 +173,8 @@ class Jinja2Engine(TemplateEngine):
         return self._globals.copy()
 
     def add_filter(self, name: str, filter_func: Callable) -> None:
-        """添加自定义过滤器。
+        """
+        添加自定义过滤器。
 
         Args:
             name: 过滤器名称。
@@ -176,7 +186,8 @@ class Jinja2Engine(TemplateEngine):
         self._filters[name] = filter_func
 
     def add_global(self, name: str, value: Any) -> None:
-        """添加全局变量。
+        """
+        添加全局变量。
 
         Args:
             name: 变量名称。
@@ -188,7 +199,8 @@ class Jinja2Engine(TemplateEngine):
         self._globals[name] = value
 
     def render_stream_to_stream(self, input_stream: IO[str], output_stream: IO[str], **kwargs: Any) -> None:
-        """从输入流读取模板内容，渲染后写入输出流。
+        """
+        从输入流读取模板内容，渲染后写入输出流。
 
         注意：Jinja2 模板解析必须读取完整内容才能解析语法（变量 ``{{ }}``、控制结构 ``{% %}`` 等），
         因此输入流会被完整读取。但渲染输出通过 ``Template.generate()`` 逐块生成写入，

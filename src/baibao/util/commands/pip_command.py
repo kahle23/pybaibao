@@ -1,5 +1,5 @@
 """
-pip 命令 - 安装和升级 Python 包
+pip 命令 - 安装和升级 Python 包。
 """
 
 from typing import Any, List
@@ -7,8 +7,9 @@ from baibao.base import log, pip, Command
 
 
 class PipInstallCommand(Command):
-    """安装 Python 包"""
-    
+    """
+    安装 Python 包。
+    """
     @property
     def name(self) -> str:
         return "pip_install"
@@ -41,8 +42,9 @@ class PipInstallCommand(Command):
 
 
 class PipUpgradeCommand(Command):
-    """升级 Python 包"""
-    
+    """
+    升级 Python 包。
+    """
     @property
     def name(self) -> str:
         return "pip_upgrade"

@@ -13,7 +13,8 @@ from baibao.base import pip
 
 
 class OpenAiLlm(LlmService):
-    """基于 OpenAI 兼容 API 的 LLM 策略实现。
+    """
+    基于 OpenAI 兼容 API 的 LLM 策略实现。
 
     支持 OpenAI 官方 API 以及所有兼容 OpenAI API 格式的服务商，包括：
     - OpenAI（GPT-3.5、GPT-4、GPT-4o 等）
@@ -64,7 +65,8 @@ class OpenAiLlm(LlmService):
         self,
         cfg: LlmCfg,
     ) -> None:
-        """初始化 OpenAI 兼容 LLM 策略。
+        """
+        初始化 OpenAI 兼容 LLM 策略。
 
         Args:
             cfg: LLM 配置对象，包含 api_key、base_url、model、timeout、max_retries 等配置。
@@ -103,6 +105,9 @@ class OpenAiLlm(LlmService):
             or os.environ.get("OPENAI_API_BASE")
         )
 
+        if not cfg.model:
+            raise ValueError("未提供 model 配置，请在配置中指定模型名称")
+        
         self._model: str = cfg.model
         self._client = openai.OpenAI(
             api_key=resolved_api_key,
@@ -113,7 +118,8 @@ class OpenAiLlm(LlmService):
 
     @property
     def model(self) -> str:
-        """获取当前配置的模型名称。
+        """
+        获取当前配置的模型名称。
 
         Returns:
             str: 模型名称，如 'gpt-4o-mini'。
@@ -122,7 +128,8 @@ class OpenAiLlm(LlmService):
 
     @property
     def client(self):
-        """获取底层的 OpenAI 客户端实例，供高级用户使用。
+        """
+        获取底层的 OpenAI 客户端实例，供高级用户使用。
 
         Returns:
             openai.OpenAI: OpenAI 客户端实例。
@@ -134,7 +141,8 @@ class OpenAiLlm(LlmService):
         prompt: str,
         system: Optional[str] = None,
     ) -> List[Dict[str, str]]:
-        """构建消息列表。
+        """
+        构建消息列表。
 
         Args:
             prompt: 用户提示文本。
@@ -153,7 +161,8 @@ class OpenAiLlm(LlmService):
         self,
         messages: List[ChatMessage],
     ) -> List[Dict[str, str]]:
-        """将 ChatMessage 列表转换为 OpenAI API 格式。
+        """
+        将 ChatMessage 列表转换为 OpenAI API 格式。
 
         Args:
             messages: ChatMessage 对象列表。
@@ -164,7 +173,8 @@ class OpenAiLlm(LlmService):
         return [{"role": m.role, "content": m.content} for m in messages]
 
     def _build_response(self, raw_response: Any) -> ChatResponse:
-        """将 OpenAI 原始响应转换为 ChatResponse。
+        """
+        将 OpenAI 原始响应转换为 ChatResponse。
 
         Args:
             raw_response: OpenAI API 返回的 ChatCompletion 对象。
@@ -195,7 +205,8 @@ class OpenAiLlm(LlmService):
         max_tokens: Optional[int] = None,
         **kwargs,
     ) -> ChatResponse:
-        """对话，传入完整消息历史。
+        """
+        对话，传入完整消息历史。
 
         Args:
             messages: 消息列表，包含完整的对话历史。
@@ -232,7 +243,8 @@ class OpenAiLlm(LlmService):
         max_tokens: Optional[int] = None,
         **kwargs,
     ) -> Generator[str, None, None]:
-        """流式对话，逐步返回生成的文本片段。
+        """
+        流式对话，逐步返回生成的文本片段。
 
         Args:
             messages: 消息列表，包含完整的对话历史。

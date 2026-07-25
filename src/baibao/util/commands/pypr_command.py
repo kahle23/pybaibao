@@ -1,5 +1,5 @@
 """
-清理命令 - 删除构建缓存和临时文件
+清理命令 - 删除构建缓存和临时文件。
 """
 
 import os
@@ -10,7 +10,9 @@ from baibao.base.file import remove_target_dirs, remove_suffix_dirs
 
 
 class PyCleanCommand(Command):
-    """清理项目构建缓存"""
+    """
+    清理项目构建缓存。
+    """
 
     @property
     def name(self) -> str:

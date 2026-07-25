@@ -30,19 +30,19 @@ _DRIVER_MAP = {
 
 def get_driver(db_type: str):
     """
-    获取数据库驱动模块
+    获取数据库驱动模块。
 
     根据数据库类型动态导入对应的数据库驱动模块，如未安装则自动安装。
 
     Args:
-        db_type: 数据库类型（mysql、postgresql）
+        db_type: 数据库类型（mysql、postgresql）。
 
     Returns:
-        数据库驱动模块
+        数据库驱动模块。
 
     Raises:
-        ValueError: 不支持的数据库类型
-        ImportError: 驱动模块安装失败
+        ValueError: 不支持的数据库类型。
+        ImportError: 驱动模块安装失败。
     """
     # 从映射表中获取驱动模块信息
     driver_tuple = _DRIVER_MAP.get(db_type.lower())
@@ -56,18 +56,18 @@ def get_driver(db_type: str):
 
 def get_client(cfg_name: Optional[str] = None):
     """
-    获取指定配置名对应的 DbClient 实例
+    获取指定配置名对应的 DbClient 实例。
 
     对于默认配置名，如果尚未设置，会自动从 ./db.config 文件加载配置并初始化客户端。
 
     Args:
-        cfg_name: 数据库配置名，如果不传则使用默认配置名
+        cfg_name: 数据库配置名，如果不传则使用默认配置名。
 
     Returns:
-        DbClient 实例
+        DbClient 实例。
 
     Raises:
-        KeyError: 指定的配置名对应的 DbClient 不存在时抛出
+        KeyError: 指定的配置名对应的 DbClient 不存在时抛出。
     """
     # 如果未指定配置名，使用默认配置名
     if not cfg_name:
@@ -94,13 +94,13 @@ def get_client(cfg_name: Optional[str] = None):
 
 def set_client(cfg_name: str, db_client: Union[DbClient, DbCfg]) -> None:
     """
-    设置指定配置名对应的 DbClient 或 DbCfg
+    设置指定配置名对应的 DbClient 或 DbCfg。
 
     如果传入 DbCfg，会自动创建 DbClient 实例。
 
     Args:
-        cfg_name: 数据库配置名
-        db_client: DbClient 实例或 DbCfg 配置对象
+        cfg_name: 数据库配置名。
+        db_client: DbClient 实例或 DbCfg 配置对象。
     """
     # 如果未指定配置名，使用默认配置名
     if not cfg_name:
@@ -118,10 +118,10 @@ def set_client(cfg_name: str, db_client: Union[DbClient, DbCfg]) -> None:
 
 def remove_client(cfg_name: Optional[str] = None):
     """
-    移除指定配置名对应的 DbClient
+    移除指定配置名对应的 DbClient。
 
     Args:
-        cfg_name: 数据库配置名，如果不传则移除默认配置名
+        cfg_name: 数据库配置名，如果不传则移除默认配置名。
     """
     # 如果未指定配置名，使用默认配置名
     if not cfg_name:
@@ -139,16 +139,16 @@ def remove_client(cfg_name: Optional[str] = None):
 
 def get_connection(cfg_name: Optional[str] = None):
     """
-    获取数据库连接
+    获取数据库连接。
 
     通过指定的数据库配置名获取对应的 DbClient，并返回连接。
     注意：此连接在使用后必须手动关闭并归还到连接池。
 
     Args:
-        cfg_name: 数据库配置名，如果不传则使用默认配置名
+        cfg_name: 数据库配置名，如果不传则使用默认配置名。
 
     Returns:
-        数据库连接实例
+        数据库连接实例。
     """
     client = get_client(cfg_name)
     return client.get_connection()
@@ -156,13 +156,13 @@ def get_connection(cfg_name: Optional[str] = None):
 
 def close(cfg_name: Optional[str] = None):
     """
-    关闭数据库客户端
+    关闭数据库客户端。
 
     通过指定的数据库配置名获取对应的 DbClient，并关闭整个客户端。
     注意：这会关闭整个连接池，后续获取连接会重新初始化。
 
     Args:
-        cfg_name: 数据库配置名，如果不传则使用默认配置名
+        cfg_name: 数据库配置名，如果不传则使用默认配置名。
     """
     client = get_client(cfg_name)
     client.close()
@@ -171,6 +171,7 @@ def close(cfg_name: Optional[str] = None):
 def clear():
     """
     清空所有数据库客户端。
+
     调用后需重新通过 set_client() 初始化客户端。
     """
     with _clients_lock:
@@ -184,18 +185,18 @@ def clear():
 
 def execute(sql: str, params: Optional[Tuple[Any, ...]] = None, cfg_name: Optional[str] = None) -> int:
     """
-    执行 SQL 语句（自动管理连接生命周期）
+    执行 SQL 语句（自动管理连接生命周期）。
 
     自动提交事务，适用于 INSERT、UPDATE、DELETE 等写操作。
     使用后会自动关闭连接并归还到连接池。
 
     Args:
-        sql: SQL 语句字符串
-        params: SQL 参数，用于参数化查询，防止 SQL 注入
-        cfg_name: 数据库配置名，如果不传则使用默认配置名
+        sql: SQL 语句字符串。
+        params: SQL 参数，用于参数化查询，防止 SQL 注入。
+        cfg_name: 数据库配置名，如果不传则使用默认配置名。
 
     Returns:
-        int: 受影响的行数
+        int: 受影响的行数。
     """
     connection = get_connection(cfg_name)
     cursor = None
@@ -220,19 +221,19 @@ def query(
     to_float: bool = False,
 ) -> List[Dict]:
     """
-    执行查询并返回结果（自动管理连接生命周期）
+    执行查询并返回结果（自动管理连接生命周期）。
 
     适用于 SELECT 等读操作，返回查询结果列表。
     使用后会自动关闭连接并归还到连接池。
 
     Args:
-        sql: SQL 查询语句字符串
-        params: SQL 参数，用于参数化查询，防止 SQL 注入
-        cfg_name: 数据库配置名，如果不传则使用默认配置名
-        to_float: 是否将 Decimal 类型转换为 float，默认为 False
+        sql: SQL 查询语句字符串。
+        params: SQL 参数，用于参数化查询，防止 SQL 注入。
+        cfg_name: 数据库配置名，如果不传则使用默认配置名。
+        to_float: 是否将 Decimal 类型转换为 float，默认为 False。
 
     Returns:
-        list[dict]: 查询结果列表，每个元素是一个字典，键为列名
+        list[dict]: 查询结果列表，每个元素是一个字典，键为列名。
     """
     connection = None
     cursor = None

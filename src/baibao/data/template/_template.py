@@ -29,7 +29,8 @@ class TemplateEngine(ABC):
 
     @abstractmethod
     def render_stream_to_stream(self, input_stream: IO[str], output_stream: IO[str], **kwargs: Any) -> None:
-        """从输入流读取模板内容，渲染后写入输出流。**子类必须实现此方法。**
+        """
+        从输入流读取模板内容，渲染后写入输出流。**子类必须实现此方法。**
 
         这是模板引擎的核心方法，其余四个方法均基于此方法提供默认实现。
         适用于大文件渲染场景，模板内容不会完整加载到内存。
@@ -47,7 +48,8 @@ class TemplateEngine(ABC):
 
     def render_file_to_file(self, template_path: str, output_path: str,
                             encoding: Optional[str] = None, **kwargs: Any) -> None:
-        """渲染模板文件，将结果直接写入另一个文件。
+        """
+        渲染模板文件，将结果直接写入另一个文件。
 
         默认实现基于 :meth:`render_stream_to_stream`，子类可覆盖以优化性能。
 
@@ -69,7 +71,8 @@ class TemplateEngine(ABC):
 
     def render_string_to_file(self, template_string: str, output_path: str,
                               encoding: Optional[str] = None, **kwargs: Any) -> None:
-        """渲染模板字符串，将结果直接写入文件。
+        """
+        渲染模板字符串，将结果直接写入文件。
 
         默认实现基于 :meth:`render_stream_to_stream`，子类可覆盖以优化性能。
 
@@ -90,7 +93,8 @@ class TemplateEngine(ABC):
 
     def render_file_to_string(self, template_path: str,
                               encoding: Optional[str] = None, **kwargs: Any) -> str:
-        """渲染模板文件，返回渲染后的文本结果。
+        """
+        渲染模板文件，返回渲染后的文本结果。
 
         默认实现基于 :meth:`render_stream_to_stream`，子类可覆盖以优化性能。
 
@@ -113,7 +117,8 @@ class TemplateEngine(ABC):
             return sout.getvalue()
 
     def render_string_to_string(self, template_string: str, **kwargs: Any) -> str:
-        """渲染模板字符串，返回渲染后的文本结果。
+        """
+        渲染模板字符串，返回渲染后的文本结果。
 
         默认实现基于 :meth:`render_stream_to_stream`，子类可覆盖以优化性能。
 
@@ -146,7 +151,8 @@ DEFAULT_ENGINE_NAME = "default"
 
 
 def get_template_engine(engine_name: Optional[str] = None) -> TemplateEngine:
-    """获取指定配置名对应的 TemplateEngine 实例。
+    """
+    获取指定配置名对应的 TemplateEngine 实例。
 
     对于默认配置名，如果尚未设置，会自动创建 Jinja2Engine 实例。
 
@@ -174,7 +180,8 @@ def get_template_engine(engine_name: Optional[str] = None) -> TemplateEngine:
 
 
 def set_template_engine(engine_name: str, engine: TemplateEngine) -> None:
-    """设置指定配置名对应的 TemplateEngine 实例。
+    """
+    设置指定配置名对应的 TemplateEngine 实例。
 
     Args:
         engine_name: 模板引擎配置名
@@ -192,7 +199,8 @@ def set_template_engine(engine_name: str, engine: TemplateEngine) -> None:
 
 
 def remove_template_engine(engine_name: Optional[str] = None) -> None:
-    """移除指定配置名对应的 TemplateEngine 实例。
+    """
+    移除指定配置名对应的 TemplateEngine 实例。
 
     Args:
         engine_name: 模板引擎配置名，如果不传则移除默认配置名
@@ -208,7 +216,8 @@ def remove_template_engine(engine_name: Optional[str] = None) -> None:
 
 def render_stream_to_stream(input_stream: IO[str], output_stream: IO[str],
                             engine_name: Optional[str] = None, **kwargs: Any) -> None:
-    """从输入流读取模板内容，渲染后写入输出流。
+    """
+    从输入流读取模板内容，渲染后写入输出流。
 
     Args:
         input_stream: 可读的文本输入流，包含模板内容。
@@ -222,7 +231,8 @@ def render_stream_to_stream(input_stream: IO[str], output_stream: IO[str],
 def render_file_to_file(template_path: str, output_path: str,
                         encoding: Optional[str] = None,
                         engine_name: Optional[str] = None, **kwargs: Any) -> None:
-    """渲染模板文件，将结果直接写入另一个文件。
+    """
+    渲染模板文件，将结果直接写入另一个文件。
 
     Args:
         template_path: 模板文件路径。
@@ -241,7 +251,8 @@ def render_file_to_file(template_path: str, output_path: str,
 def render_string_to_file(template_string: str, output_path: str,
                           encoding: Optional[str] = None,
                           engine_name: Optional[str] = None, **kwargs: Any) -> None:
-    """渲染模板字符串，将结果直接写入文件。
+    """
+    渲染模板字符串，将结果直接写入文件。
 
     Args:
         template_string: 模板字符串内容。
@@ -257,7 +268,8 @@ def render_string_to_file(template_string: str, output_path: str,
 def render_file_to_string(template_path: str,
                           encoding: Optional[str] = None,
                           engine_name: Optional[str] = None, **kwargs: Any) -> str:
-    """渲染模板文件，返回渲染后的文本结果。
+    """
+    渲染模板文件，返回渲染后的文本结果。
 
     Args:
         template_path: 模板文件路径。
@@ -277,7 +289,8 @@ def render_file_to_string(template_path: str,
 
 def render_string_to_string(template_string: str,
                             engine_name: Optional[str] = None, **kwargs: Any) -> str:
-    """渲染模板字符串，返回渲染后的文本结果。
+    """
+    渲染模板字符串，返回渲染后的文本结果。
 
     Args:
         template_string: 模板字符串内容。

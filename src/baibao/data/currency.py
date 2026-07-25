@@ -1,5 +1,5 @@
 """
-货币模块
+货币模块。
 
 提供币种数据对象及相关工具方法。
 """
@@ -10,9 +10,9 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class Currency:
     """
-    货币数据对象
+    货币数据对象。
 
-    存储货币的基本信息：符号、编码、名称
+    存储货币的基本信息：符号、编码、名称。
     """
     symbol: str  # 符号，如 ￥、$
     code: str    # 编码，如 CNY、USD
@@ -38,15 +38,15 @@ _name_map = {c.name: c for c in _currencies}
 
 def add(symbol: str, code: str, name: str) -> bool:
     """
-    新增币种
+    新增币种。
 
     Args:
-        symbol: 货币符号，如 '￥'
-        code: 货币编码，如 'CNY'（不能重复）
-        name: 货币名字，如 '人民币'
+        symbol: 货币符号，如 '￥'。
+        code: 货币编码，如 'CNY'（不能重复）。
+        name: 货币名字，如 '人民币'。
 
     Returns:
-        添加成功返回 True，如果 code 已存在或参数无效则返回 False
+        添加成功返回 True，如果 code 已存在或参数无效则返回 False。
     """
     # 验证输入参数
     if not symbol or not symbol.strip():
@@ -71,13 +71,13 @@ def add(symbol: str, code: str, name: str) -> bool:
 
 def remove(code: str) -> bool:
     """
-    删除币种
+    删除币种。
 
     Args:
-        code: 货币编码，如 'CNY'
+        code: 货币编码，如 'CNY'。
 
     Returns:
-        删除成功返回 True，如果 code 不存在则返回 False
+        删除成功返回 True，如果 code 不存在则返回 False。
     """
     # 查询货币是否存在
     code_upper = code.upper()
@@ -97,52 +97,52 @@ def remove(code: str) -> bool:
 
 def get_by_symbol(symbol: str) -> Currency | None:
     """
-    根据符号获取货币信息
+    根据符号获取货币信息。
 
     Args:
-        symbol: 货币符号，如 '￥'、'$'
+        symbol: 货币符号，如 '￥'、'$'。
 
     Returns:
-        对应的 Currency 对象，如果未找到则返回 None
+        对应的 Currency 对象，如果未找到则返回 None。
     """
     return _symbol_map.get(symbol)
 
 
 def get_by_code(code: str) -> Currency | None:
     """
-    根据编码获取货币信息
+    根据编码获取货币信息。
 
     Args:
-        code: 货币编码，如 'CNY'、'USD'
+        code: 货币编码，如 'CNY'、'USD'。
 
     Returns:
-        对应的 Currency 对象，如果未找到则返回 None
+        对应的 Currency 对象，如果未找到则返回 None。
     """
     return _code_map.get(code.upper())
 
 
 def get_by_name(name: str) -> Currency | None:
     """
-    根据名字获取货币信息
+    根据名字获取货币信息。
 
     Args:
-        name: 货币名字，如 '人民币'、'美元'
+        name: 货币名字，如 '人民币'、'美元'。
 
     Returns:
-        对应的 Currency 对象，如果未找到则返回 None
+        对应的 Currency 对象，如果未找到则返回 None。
     """
     return _name_map.get(name)
 
 
 def search_first(text: str) -> Currency | None:
     """
-    根据传入的字符串搜索货币信息，支持精确匹配符号、编码或名字，返回第一个匹配项
+    根据传入的字符串搜索货币信息，支持精确匹配符号、编码或名字，返回第一个匹配项。
 
     Args:
-        text: 币种符号、编码或名字，如 '￥'、'CNY'、'人民币'
+        text: 币种符号、编码或名字，如 '￥'、'CNY'、'人民币'。
 
     Returns:
-        对应的 Currency 对象，如果未找到则返回 None
+        对应的 Currency 对象，如果未找到则返回 None。
     """
     # 先按符号匹配
     currency = _symbol_map.get(text)
@@ -162,14 +162,14 @@ def search_first(text: str) -> Currency | None:
 
 def get_symbol_by_code(code: str, default: str = '') -> str:
     """
-    根据编码获取货币符号
+    根据编码获取货币符号。
 
     Args:
-        code: 货币编码，如 'CNY'、'USD'，为空时直接返回 default
-        default: 如果未找到对应的货币符号，则返回此默认值，默认为空字符串
+        code: 货币编码，如 'CNY'、'USD'，为空时直接返回 default。
+        default: 如果未找到对应的货币符号，则返回此默认值，默认为空字符串。
 
     Returns:
-        对应的货币符号，如果未找到或 code 为空则返回传入的 default 参数值
+        对应的货币符号，如果未找到或 code 为空则返回传入的 default 参数值。
     """
     # 验证输入参数
     if not code or not code.strip():

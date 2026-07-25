@@ -99,11 +99,11 @@ _TIME_FORMATS: dict[str, int] = {
 
 def add_format(fmt: str, count: int = 0) -> None:
     """
-    添加时间格式到格式列表
+    添加时间格式到格式列表。
 
     Args:
-        fmt: 时间格式字符串，如 "%Y-%m-%d %H:%M:%S"
-        count: 解析成功次数，默认 0
+        fmt: 时间格式字符串，如 "%Y-%m-%d %H:%M:%S"。
+        count: 解析成功次数，默认 0。
     """
     if fmt not in _TIME_FORMATS:
         _TIME_FORMATS[fmt] = count
@@ -111,13 +111,13 @@ def add_format(fmt: str, count: int = 0) -> None:
 
 def remove_format(fmt: str) -> bool:
     """
-    从格式列表中删除指定格式
+    从格式列表中删除指定格式。
 
     Args:
-        fmt: 要删除的时间格式字符串
+        fmt: 要删除的时间格式字符串。
 
     Returns:
-        是否删除成功
+        是否删除成功。
     """
     if fmt in _TIME_FORMATS:
         del _TIME_FORMATS[fmt]
@@ -127,27 +127,27 @@ def remove_format(fmt: str) -> bool:
 
 def get_formats() -> list[str]:
     """
-    获取时间格式列表
+    获取时间格式列表。
 
     Returns:
-        时间格式列表
+        时间格式列表。
     """
     return list(_TIME_FORMATS.keys())
 
 
 def get_format_stats() -> dict[str, int]:
     """
-    获取格式解析成功次数统计
+    获取格式解析成功次数统计。
 
     Returns:
-        格式解析成功次数字典
+        格式解析成功次数字典。
     """
     return _TIME_FORMATS.copy()
 
 
 def reset_format_stats() -> None:
     """
-    重置格式解析成功次数统计
+    重置格式解析成功次数统计。
     """
     for fmt in _TIME_FORMATS:
         _TIME_FORMATS[fmt] = 0
@@ -155,9 +155,9 @@ def reset_format_stats() -> None:
 
 def reorder_formats() -> None:
     """
-    根据解析成功次数重新排序格式列表
-    
-    将解析成功次数多的格式移到前面，提高解析效率
+    根据解析成功次数重新排序格式列表。
+
+    将解析成功次数多的格式移到前面，提高解析效率。
     """
     global _TIME_FORMATS
     # 按解析成功次数降序排序，次数相同的保持原有顺序
@@ -168,16 +168,16 @@ def reorder_formats() -> None:
 
 def parse(time_str: str) -> Optional[datetime]:
     """
-    解析日期/时间字符串，自动识别格式并返回 datetime
+    解析日期/时间字符串，自动识别格式并返回 datetime。
 
     Args:
-        time_str: 日期或时间字符串
+        time_str: 日期或时间字符串。
             日期示例: "2024-01-15", "01/15/2024", "January 15, 2024"
             时间示例: "14:30:00", "2:30 PM"
             日期时间示例: "2024-01-15 14:30:00", "2024-01-15T14:30:00Z"
 
     Returns:
-        datetime 对象，解析失败返回 None
+        datetime 对象，解析失败返回 None。
     """
     # 空字符串返回 None
     if not time_str:
@@ -202,15 +202,15 @@ def parse(time_str: str) -> Optional[datetime]:
 
 def parse_date(time_str: str) -> Optional[date]:
     """
-    解析日期/时间字符串并提取 date 部分
+    解析日期/时间字符串并提取 date 部分。
 
     Args:
-        time_str: 日期或时间字符串
+        time_str: 日期或时间字符串。
             日期示例: "2024-01-15", "01/15/2024", "January 15, 2024"
             日期时间示例: "2024-01-15 14:30:00"
 
     Returns:
-        date 对象，解析失败返回 None
+        date 对象，解析失败返回 None。
     """
     dt = parse(time_str)
     return dt.date() if dt else None
@@ -218,15 +218,15 @@ def parse_date(time_str: str) -> Optional[date]:
 
 def parse_time(time_str: str) -> Optional[time]:
     """
-    解析日期/时间字符串并提取 time 部分
+    解析日期/时间字符串并提取 time 部分。
 
     Args:
-        time_str: 日期或时间字符串
+        time_str: 日期或时间字符串。
             时间示例: "14:30:00", "2:30 PM"
             日期时间示例: "2024-01-15 14:30:00"
 
     Returns:
-        time 对象，解析失败返回 None
+        time 对象，解析失败返回 None。
     """
     dt = parse(time_str)
     return dt.time() if dt else None
@@ -234,14 +234,14 @@ def parse_time(time_str: str) -> Optional[time]:
 
 def format(time_obj: date | time | datetime | None, fmt: str = "%Y-%m-%d %H:%M:%S") -> str | None:
     """
-    格式化日期/时间对象为字符串
+    格式化日期/时间对象为字符串。
 
     Args:
-        time_obj: 日期时间对象，支持 date、time、datetime 三种类型
-        fmt: 格式字符串，如 "%Y-%m-%d %H:%M:%S"
+        time_obj: 日期时间对象，支持 date、time、datetime 三种类型。
+        fmt: 格式字符串，如 "%Y-%m-%d %H:%M:%S"。
 
     Returns:
-        格式化后的字符串，time_obj 为 None 时返回 None
+        格式化后的字符串，time_obj 为 None 时返回 None。
     """
     # 空对象返回 None
     if time_obj is None:
@@ -252,17 +252,17 @@ def format(time_obj: date | time | datetime | None, fmt: str = "%Y-%m-%d %H:%M:%
 
 def format_str(time_str: str, fmt: str = "%Y-%m-%d %H:%M:%S") -> str | None:
     """
-    解析日期/时间字符串后按指定格式输出
+    解析日期/时间字符串后按指定格式输出。
 
     Args:
-        time_str: 日期或时间字符串
+        time_str: 日期或时间字符串。
             日期示例: "2024-01-15", "01/15/2024", "January 15, 2024"
             时间示例: "14:30:00", "2:30 PM"
             日期时间示例: "2024-01-15 14:30:00", "2024-01-15T14:30:00Z"
-        fmt: 输出格式字符串，如 "%Y-%m-%d %H:%M:%S"
+        fmt: 输出格式字符串，如 "%Y-%m-%d %H:%M:%S"。
 
     Returns:
-        格式化后的字符串，解析失败返回 None
+        格式化后的字符串，解析失败返回 None。
     """
     # 解析字符串
     if not time_str:

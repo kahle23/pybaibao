@@ -22,7 +22,7 @@ from baibao.base.validate import check_required_fields_not_empty
 @dataclass
 class EmailCfg:
     """
-    邮件服务器配置类
+    邮件服务器配置类。
 
     封装邮件发送和接收所需的所有参数，支持多种协议。
 
@@ -51,12 +51,12 @@ class EmailCfg:
 
     def validate_send_config(self) -> None:
         """
-        验证邮件发送配置是否有效
+        验证邮件发送配置是否有效。
 
         检查邮件发送连接参数的完整性。
 
         Raises:
-            ValueError: 配置无效时抛出
+            ValueError: 配置无效时抛出。
         """
         # 检查必填字段
         check_required_fields_not_empty(self,
@@ -70,12 +70,12 @@ class EmailCfg:
 
     def validate_receive_config(self) -> None:
         """
-        验证邮件接收配置是否有效
+        验证邮件接收配置是否有效。
 
         检查邮件接收连接参数的完整性。
 
         Raises:
-            ValueError: 配置无效时抛出
+            ValueError: 配置无效时抛出。
         """
         # 检查必填字段
         check_required_fields_not_empty(self,
@@ -90,26 +90,27 @@ class EmailCfg:
     @staticmethod
     def load_from_json_cfg(config_path: Union[str, Path]) -> 'EmailCfg':
         """
-        从 JSON 文件加载邮件服务器配置
+        从 JSON 文件加载邮件服务器配置。
 
         读取指定路径的 JSON 文件返回 EmailCfg 实例。
 
         Args:
-            config_path: JSON 配置文件路径，支持字符串或 Path 对象
+            config_path: JSON 配置文件路径，支持字符串或 Path 对象。
 
         Returns:
-            EmailCfg 实例对象
+            EmailCfg 实例对象。
 
         Raises:
-            FileNotFoundError: 文件不存在时抛出
-            json.JSONDecodeError: JSON 格式解析失败时抛出
+            FileNotFoundError: 文件不存在时抛出。
+            json.JSONDecodeError: JSON 格式解析失败时抛出。
         """
         return util.load_dataclass_from_json_file(config_path, EmailCfg)
 
 
 @dataclass
 class EmailSendResult:
-    """邮件发送结果。
+    """
+    邮件发送结果。
 
     Attributes:
         message_id: 邮件的 Message-ID
@@ -125,7 +126,7 @@ class EmailSendResult:
 
 class EmailClient:
     """
-    邮件客户端
+    邮件客户端。
 
     支持发送纯文本邮件、HTML 邮件和带附件的邮件，基于 SMTP 协议。
     自动管理 SMTP 连接生命周期，支持连接复用。
@@ -152,10 +153,10 @@ class EmailClient:
 
     def __init__(self, config: EmailCfg) -> None:
         """
-        初始化邮件客户端
+        初始化邮件客户端。
 
         Args:
-            config: 邮件服务器配置对象
+            config: 邮件服务器配置对象。
         """
         log.info(f"邮件客户端初始化，服务器：{config.send_server}:{config.send_port}")
         self._config = config
@@ -163,7 +164,7 @@ class EmailClient:
 
     def _connect_send_server(self) -> None:
         """
-        建立与 SMTP 服务器的连接并登录
+        建立与 SMTP 服务器的连接并登录。
 
         自动判断加密方式：先尝试 SSL 直连，若失败则回退到明文 + STARTTLS。
         """
@@ -214,17 +215,17 @@ class EmailClient:
         attachments: Optional[List[str]] = None
     ) -> MIMEMultipart:
         """
-        创建邮件消息对象
+        创建邮件消息对象。
 
         Args:
-            to: 收件人邮箱地址，单个字符串或列表
-            subject: 邮件主题
-            content: 邮件内容
-            content_type: 内容类型，``plain`` 或 ``html``
-            attachments: 附件文件路径列表
+            to: 收件人邮箱地址，单个字符串或列表。
+            subject: 邮件主题。
+            content: 邮件内容。
+            content_type: 内容类型，``plain`` 或 ``html``。
+            attachments: 附件文件路径列表。
 
         Returns:
-            组装好的 MIMEMultipart 消息对象
+            组装好的 MIMEMultipart 消息对象。
         """
         # 创建 MIMEMultipart 消息对象
         msg = MIMEMultipart()
@@ -271,19 +272,19 @@ class EmailClient:
         is_html: bool = False
     ) -> EmailSendResult:
         """
-        通用邮件发送方法
+        通用邮件发送方法。
 
         Args:
-            to: 收件人邮箱地址，单个字符串或列表
-            subject: 邮件主题
-            content: 邮件正文内容
-            cc: 抄送地址，单个字符串或列表，可选
-            bcc: 密送地址，单个字符串或列表，可选
-            attachments: 附件文件路径列表，可选
-            is_html: 内容是否为 HTML 格式，默认 False
+            to: 收件人邮箱地址，单个字符串或列表。
+            subject: 邮件主题。
+            content: 邮件正文内容。
+            cc: 抄送地址，单个字符串或列表，可选。
+            bcc: 密送地址，单个字符串或列表，可选。
+            attachments: 附件文件路径列表，可选。
+            is_html: 内容是否为 HTML 格式，默认 False。
 
         Returns:
-            EmailSendResult，包含 message_id、收件人列表、失败收件人等信息
+            EmailSendResult，包含 message_id、收件人列表、失败收件人等信息。
         """
         try:
             # 连接到 SMTP 服务器

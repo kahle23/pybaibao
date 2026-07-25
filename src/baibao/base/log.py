@@ -1,5 +1,5 @@
 """
-日志模块
+日志模块。
 
 提供简单的、带级别和时间的日志输出功能。
 
@@ -62,7 +62,8 @@ def set_log_level(level):
 
 
 def _log(level, msg):
-    """内部日志输出函数。
+    """
+    内部日志输出函数。
 
     根据当前 _LOG_LEVEL 决定是否输出日志。
     USAGE 级别特殊，不受 _LOG_LEVEL 限制，始终输出。
@@ -78,33 +79,35 @@ def _log(level, msg):
 
 def debug(msg):
     """
-    输出调试级别日志（仅在 _LOG_LEVEL 为 DEBUG 时显示）
+    输出调试级别日志（仅在 _LOG_LEVEL 为 DEBUG 时显示）。
     """
     _log("DEBUG", msg)
 
 
 def info(msg):
     """
-    输出信息级别日志（默认级别及以上显示）
+    输出信息级别日志（默认级别及以上显示）。
     """
     _log("INFO", msg)
 
 
 def warn(msg):
-    """输出警告级别日志"""
+    """
+    输出警告级别日志。
+    """
     _log("WARN", msg)
 
 
 def error(msg):
     """
-    输出错误级别日志
+    输出错误级别日志。
     """
     _log("ERROR", msg)
 
 
 def usage(msg):
     """
-    输出用途/用法级别日志（始终显示，不受 _LOG_LEVEL 限制）
+    输出用途/用法级别日志（始终显示，不受 _LOG_LEVEL 限制）。
     """
     _log("USAGE", msg)
 

@@ -1,5 +1,5 @@
 """
-命令基类和注册机制模块
+命令基类和注册机制模块。
 
 本模块提供命令系统的核心抽象类和注册机制，用于实现可扩展的命令行工具。
 """
@@ -15,9 +15,9 @@ from baibao.base import env
 
 class Command(ABC):
     """
-    命令基类
-    
-    所有命令都需要继承此基类并实现必要的抽象方法。
+    命令基类。
+
+    所有命令都需要继承此基类并实现必要的抽象方法，
     提供统一的命令接口和默认行为。
     """
 
@@ -25,17 +25,17 @@ class Command(ABC):
     @abstractmethod
     def name(self) -> str:
         """
-        获取命令名称（如 --xxx，如果需要--，也需要写在此处）
+        获取命令名称（如 --xxx，如果需要--，也需要写在此处）。
         """
         pass
 
     @property
     def abbr(self) -> Optional[str]:
         """
-        获取命令缩写（如 -x，如果需要-，也需要写在此处）
-        
+        获取命令缩写（如 -x，如果需要-，也需要写在此处）。
+
         Returns:
-            命令缩写，如果未设置则返回 None
+            命令缩写，如果未设置则返回 None。
         """
         return None
 
@@ -43,50 +43,51 @@ class Command(ABC):
     @abstractmethod
     def description(self) -> str:
         """
-        获取命令描述
+        获取命令描述。
         """
         pass
 
     @property
     def usage(self) -> str:
         """
-        获取命令用法示例
+        获取命令用法示例。
         """
         return f"{self.name} [参数1] [参数2] ..."
 
     @abstractmethod
     def execute(self, args: List[str]) -> Any:
         """
-        执行命令
-        
+        执行命令。
+
         Args:
-            args: 命令参数列表（不包括命令名本身）
-        
+            args: 命令参数列表（不包括命令名本身）。
+
         Returns:
-            Any: 命令执行结果，可以是任意类型
+            Any: 命令执行结果，可以是任意类型。
         """
         pass
 
     def show_usage(self) -> None:
         """
-        显示命令用法
+        显示命令用法。
         """
         log.usage(f"用法: {self.usage}")
 
 
 class HelpCommand(Command):
-    """帮助命令
-    
+    """
+    帮助命令。
+
     提供帮助命令的默认实现。开发者可以继承此类并重写 generate_help_text 方法来自定义帮助信息。
     如果未继承此类，系统将使用默认的帮助信息格式。
     """
 
     def __init__(self, service: 'CommandService') -> None:
         """
-        初始化帮助命令
-        
+        初始化帮助命令。
+
         Args:
-            service: 命令服务实例，用于获取已注册的命令
+            service: 命令服务实例，用于获取已注册的命令。
         """
         self._service = service
 
@@ -107,13 +108,14 @@ class HelpCommand(Command):
         return f"{self.name} [命令]"
 
     def single_help_text(self, command: Command) -> str:
-        """生成单个命令的帮助文本
-        
+        """
+        生成单个命令的帮助文本。
+
         Args:
-            command: 命令实例
-        
+            command: 命令实例。
+
         Returns:
-            str: 生成的帮助文本
+            str: 生成的帮助文本。
         """
         return (
             f"命令: {command.name}\n"
@@ -122,13 +124,14 @@ class HelpCommand(Command):
         )
 
     def full_help_text(self, commands: dict) -> str:
-        """生成所有命令的帮助文本
-        
+        """
+        生成所有命令的帮助文本。
+
         Args:
-            commands: 已注册的命令字典，键为命令名称，值为命令实例
-        
+            commands: 已注册的命令字典，键为命令名称，值为命令实例。
+
         Returns:
-            str: 生成的帮助文本
+            str: 生成的帮助文本。
         """
         # 构建命令列表
         command_lines = []
@@ -164,8 +167,8 @@ class HelpCommand(Command):
 
 class CommandNotFoundError(Exception):
     """
-    命令未找到异常
-    
+    命令未找到异常。
+
     当尝试执行未注册的命令时抛出此异常。
     """
     pass
@@ -173,14 +176,14 @@ class CommandNotFoundError(Exception):
 
 class CommandService:
     """
-    命令服务
-    
+    命令服务。
+
     提供命令的注册、查找和执行等服务。
     """
 
     def __init__(self) -> None:
         """
-        初始化命令服务，创建空的命令注册表和线程锁，并注册默认帮助命令
+        初始化命令服务，创建空的命令注册表和线程锁，并注册默认帮助命令。
         """
         self._commands: Dict[str, Command] = {}
         # 缩写 -> 命令名称的映射
@@ -192,14 +195,14 @@ class CommandService:
 
     def register(self, command: Command) -> None:
         """
-        注册命令
-        
+        注册命令。
+
         Args:
-            command: 要注册的命令实例
-        
+            command: 要注册的命令实例。
+
         Raises:
-            ValueError: 当缩写已被其他命令使用时抛出
-            ValueError: 当尝试注册帮助命令或名称与帮助命令冲突时抛出
+            ValueError: 当缩写已被其他命令使用时抛出。
+            ValueError: 当尝试注册帮助命令或名称与帮助命令冲突时抛出。
         """
         with self._lock:
             # 不允许注册帮助命令及其子类
@@ -225,13 +228,13 @@ class CommandService:
 
     def unregister(self, name: str) -> None:
         """
-        取消注册命令
-        
+        取消注册命令。
+
         Args:
-            name: 要取消注册的命令名称
-        
+            name: 要取消注册的命令名称。
+
         Raises:
-            ValueError: 当尝试取消注册帮助命令时抛出
+            ValueError: 当尝试取消注册帮助命令时抛出。
         """
         with self._lock:
             # 转换为小写
@@ -253,10 +256,10 @@ class CommandService:
 
     def get_help_command(self) -> Optional['HelpCommand']:
         """
-        获取帮助命令实例
-        
+        获取帮助命令实例。
+
         Returns:
-            帮助命令实例，如果未设置则返回 None
+            帮助命令实例，如果未设置则返回 None。
         """
         with self._lock:
             # 返回帮助命令实例
@@ -264,13 +267,13 @@ class CommandService:
 
     def set_help_command(self, command: HelpCommand) -> None:
         """
-        设置帮助命令实例，直接覆盖旧的帮助命令
-        
+        设置帮助命令实例，直接覆盖旧的帮助命令。
+
         Args:
-            command: 帮助命令实例，不能为空，且 name 必须有值
-        
+            command: 帮助命令实例，不能为空，且 name 必须有值。
+
         Raises:
-            ValueError: 当命令实例为空或 name 无值时抛出
+            ValueError: 当命令实例为空或 name 无值时抛出。
         """
         if not command:
             raise ValueError("帮助命令实例不能为空")
@@ -282,7 +285,7 @@ class CommandService:
 
     def clear(self) -> None:
         """
-        清空所有已注册的命令
+        清空所有已注册的命令。
         """
         with self._lock:
             self._commands.clear()
@@ -290,13 +293,13 @@ class CommandService:
 
     def get_command(self, name_or_abbr: str) -> Optional[Command]:
         """
-        获取命令（支持命令名称或缩写，包括帮助命令）
-        
+        获取命令（支持命令名称或缩写，包括帮助命令）。
+
         Args:
-            name_or_abbr: 命令名称或缩写（不区分大小写）
-        
+            name_or_abbr: 命令名称或缩写（不区分大小写）。
+
         Returns:
-            命令实例，未找到时返回 None
+            命令实例，未找到时返回 None。
         """
         with self._lock:
             # 转换为小写
@@ -319,7 +322,7 @@ class CommandService:
 
     def get_all_commands(self) -> Dict[str, Command]:
         """
-        获取所有已注册的命令（包括帮助命令）
+        获取所有已注册的命令（包括帮助命令）。
         """
         with self._lock:
             # 复制命令字典，避免并发修改
@@ -332,17 +335,17 @@ class CommandService:
 
     def execute_command(self, command_name: str, args: List[str]) -> Any:
         """
-        执行命令（支持命令名称或缩写）
-        
+        执行命令（支持命令名称或缩写）。
+
         Args:
-            command_name: 命令名称或缩写
-            args: 命令参数列表
-        
+            command_name: 命令名称或缩写。
+            args: 命令参数列表。
+
         Returns:
-            Any: 命令执行结果，可以是任意类型
-        
+            Any: 命令执行结果，可以是任意类型。
+
         Raises:
-            CommandNotFoundError: 当命令未找到时抛出
+            CommandNotFoundError: 当命令未找到时抛出。
         """
         with self._lock:
             # 查找命令（支持名称或缩写，包括帮助命令）
@@ -359,7 +362,7 @@ class CommandService:
         on_shutdown: Optional[Callable[[List[str]], Any]] = None,
     ):
         """
-        命令行入口方法，解析参数并执行对应命令
+        命令行入口方法，解析参数并执行对应命令。
 
         Args:
             on_startup: 启动回调，接收命令行参数列表；为 None 时跳过。

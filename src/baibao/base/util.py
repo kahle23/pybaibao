@@ -21,22 +21,22 @@ T = TypeVar('T')
 
 def load_dataclass_from_json_file(file_path: str | Path, data_class: Type[T]) -> T:
     """
-    从 JSON 文件加载 dataclass 实例对象
+    从 JSON 文件加载 dataclass 实例对象。
 
     读取指定路径的 JSON 文件，自动校验 dataclass 的必填字段后返回实例对象。
     适用于所有使用 dataclass 定义的类。
 
     Args:
-        file_path: 配置文件路径，可以是字符串或 Path 对象
-        data_class: dataclass 类类型
+        file_path: 配置文件路径，可以是字符串或 Path 对象。
+        data_class: dataclass 类类型。
 
     Returns:
-        dataclass 实例对象
+        dataclass 实例对象。
 
     Raises:
-        FileNotFoundError: 文件不存在时抛出
-        ValueError: 文件缺少必填字段时抛出
-        json.JSONDecodeError: JSON 格式解析失败时抛出
+        FileNotFoundError: 文件不存在时抛出。
+        ValueError: 文件缺少必填字段时抛出。
+        json.JSONDecodeError: JSON 格式解析失败时抛出。
     """
     # 导入 JSON 模块
     import json

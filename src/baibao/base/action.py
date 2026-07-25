@@ -1,5 +1,5 @@
 """
-动作管理模块
+动作管理模块。
 
 提供动作（Action）的注册、取消注册、获取和执行能力。
 每个动作由 name 唯一标识，支持按通配符模式查询动作名称。
@@ -9,15 +9,6 @@
 
 线程安全：内部使用 threading.Lock 保护全局动作表，所有公开方法均可
 在多线程环境下安全调用。
-
-典型用法：
-    from baibao.base import action
-
-    # 注册
-    action.register("my_action", my_func)
-
-    # 执行单个
-    result = action.execute("my_action", data)
 """
 
 import fnmatch
@@ -32,16 +23,16 @@ _lock = threading.Lock()
 
 def _resolve_name(name: Optional[str]) -> str:
     """
-    解析动作名称：去除前后空格，且不能为空
+    解析动作名称：去除前后空格，且不能为空。
 
     Args:
-        name: 原始名称
+        name: 原始名称。
 
     Returns:
-        strip 后的名称
+        strip 后的名称。
 
     Raises:
-        ValueError: name 为 None 或空白字符串时抛出
+        ValueError: name 为 None 或空白字符串时抛出。
     """
     if name is None:
         raise ValueError("动作名称 name 不能为空")
@@ -53,13 +44,13 @@ def _resolve_name(name: Optional[str]) -> str:
 
 def _match_names_unlocked(name_pattern: Optional[str]) -> List[str]:
     """
-    无锁版名称匹配（调用方必须已持有 _lock）
+    无锁版名称匹配（调用方必须已持有 _lock）。
 
     Args:
-        name_pattern: 名称匹配模式，支持通配符（* ?）；为 None 时匹配全部
+        name_pattern: 名称匹配模式，支持通配符（* ?）；为 None 时匹配全部。
 
     Returns:
-        匹配到的动作名称列表（按名称升序排序）
+        匹配到的动作名称列表（按名称升序排序）。
     """
     if name_pattern is None:
         return sorted(_actions.keys())
@@ -71,23 +62,18 @@ def register(
     action_obj: Callable[..., Any],
 ) -> Optional[Callable[..., Any]]:
     """
-    注册动作（允许覆盖同名动作）
+    注册动作（允许覆盖同名动作）。
 
     Args:
-        name: 动作名称；不能为空，前后空格会被去除
-        action_obj: 可调用对象
+        name: 动作名称；不能为空，前后空格会被去除。
+        action_obj: 可调用对象。
 
     Returns:
-        被覆盖的旧动作；无旧值时为 None
+        被覆盖的旧动作；无旧值时为 None。
 
     Raises:
-        TypeError: action_obj 不可调用时抛出
-        ValueError: name 为空时抛出
-
-    Example:
-        >>> old = register("greet", lambda name: f"Hi, {name}")
-        >>> # 再次注册同名动作，old 为上一次注册的可调用对象
-        >>> previous = register("greet", new_greet)
+        TypeError: action_obj 不可调用时抛出。
+        ValueError: name 为空时抛出。
     """
     if not callable(action_obj):
         raise TypeError(f"action 必须是可调用对象，实际类型: {type(action_obj)}")
@@ -100,16 +86,16 @@ def register(
 
 def unregister(name: str) -> Optional[Callable[..., Any]]:
     """
-    取消注册动作
+    取消注册动作。
 
     Args:
-        name: 动作名称；不能为空，前后空格会被去除
+        name: 动作名称；不能为空，前后空格会被去除。
 
     Returns:
-        被移除的动作；不存在时为 None
+        被移除的动作；不存在时为 None。
 
     Raises:
-        ValueError: name 为空时抛出
+        ValueError: name 为空时抛出。
     """
     name = _resolve_name(name)
     with _lock:
@@ -118,16 +104,16 @@ def unregister(name: str) -> Optional[Callable[..., Any]]:
 
 def get_action(name: str) -> Optional[Callable[..., Any]]:
     """
-    获取指定动作
+    获取指定动作。
 
     Args:
-        name: 动作名称；不能为空，前后空格会被去除
+        name: 动作名称；不能为空，前后空格会被去除。
 
     Returns:
-        动作对象；不存在时为 None
+        动作对象；不存在时为 None。
 
     Raises:
-        ValueError: name 为空时抛出
+        ValueError: name 为空时抛出。
     """
     name = _resolve_name(name)
     with _lock:
@@ -136,16 +122,16 @@ def get_action(name: str) -> Optional[Callable[..., Any]]:
 
 def has_action(name: str) -> bool:
     """
-    判断动作是否存在
+    判断动作是否存在。
 
     Args:
-        name: 动作名称；不能为空，前后空格会被去除
+        name: 动作名称；不能为空，前后空格会被去除。
 
     Returns:
-        存在返回 True，否则 False
+        存在返回 True，否则 False。
 
     Raises:
-        ValueError: name 为空时抛出
+        ValueError: name 为空时抛出。
     """
     name = _resolve_name(name)
     with _lock:
@@ -154,13 +140,13 @@ def has_action(name: str) -> bool:
 
 def get_names(name_pattern: Optional[str] = None) -> List[str]:
     """
-    获取匹配的动作名称列表
+    获取匹配的动作名称列表。
 
     Args:
         name_pattern: 名称匹配模式（支持通配符 * ?）。若为 None，返回全部。
 
     Returns:
-        匹配的动作名称列表（按名称排序）
+        匹配的动作名称列表（按名称排序）。
     """
     with _lock:
         return _match_names_unlocked(name_pattern)
@@ -168,13 +154,13 @@ def get_names(name_pattern: Optional[str] = None) -> List[str]:
 
 def clear(name_pattern: Optional[str] = None) -> int:
     """
-    清空动作
+    清空动作。
 
     Args:
         name_pattern: 名称匹配模式。若为 None，清空全部。
 
     Returns:
-        实际清除的动作数量
+        实际清除的动作数量。
     """
     with _lock:
         if name_pattern is None:
@@ -193,26 +179,22 @@ def execute(
     **kwargs: Any,
 ) -> Any:
     """
-    执行单个动作
+    执行单个动作。
 
     执行时不在锁内调用动作本体（避免业务回调中再次访问动作表造成死锁），
     仅在锁内完成动作对象的查找。
 
     Args:
-        name: 动作名称；不能为空，前后空格会被去除
-        *args: 透传给动作的位置参数
-        **kwargs: 透传给动作的关键字参数
+        name: 动作名称；不能为空，前后空格会被去除。
+        *args: 透传给动作的位置参数。
+        **kwargs: 透传给动作的关键字参数。
 
     Returns:
-        执行结果
+        执行结果。
 
     Raises:
-        ValueError: name 为空时抛出
-        KeyError: 动作不存在时抛出
-
-    Example:
-        >>> register("add", lambda a, b: a + b)
-        >>> execute("add", 1, 2)  # 3
+        ValueError: name 为空时抛出。
+        KeyError: 动作不存在时抛出。
     """
     name = _resolve_name(name)
     with _lock:

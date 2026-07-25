@@ -1,4 +1,5 @@
-"""pip 工具，支持多镜像站点自动切换。
+"""
+pip 工具，支持多镜像站点自动切换。
 
 按优先级依次尝试多个 PyPI 镜像站点安装 Python 包，
 当首选镜像不可用时自动切换到下一个镜像，
@@ -30,7 +31,8 @@ def get_python_command() -> str:
 
 
 def set_python_command(command: str) -> None:
-    """设置 Python 命令。
+    """
+    设置 Python 命令。
 
     Args:
         command: Python 命令，如 'python3' 或 'D:\\Python39\\python.exe'。
@@ -45,7 +47,8 @@ def execute(
     timeout: int = 300,
     mirrors: Optional[List[str]] = None,
 ) -> Tuple[bool, str]:
-    """执行 pip 命令，支持多镜像站点自动切换。
+    """
+    执行 pip 命令，支持多镜像站点自动切换。
 
     通过 subprocess 执行任意 pip 命令。遇到异常时记录错误并尝试下一个镜像。
 
@@ -108,7 +111,8 @@ def install(
     timeout: int = 300,
     mirrors: Optional[List[str]] = None,
 ) -> Union[Tuple[bool, str], Tuple[List[str], List[str]]]:
-    """安装包，支持单个安装和批量安装，自动尝试多个镜像站点。
+    """
+    安装包，支持单个安装和批量安装，自动尝试多个镜像站点。
 
     Args:
         packages: 包名（可含版本号）或包名列表。
@@ -145,7 +149,8 @@ def upgrade(
     timeout: int = 300,
     mirrors: Optional[List[str]] = None,
 ) -> Union[Tuple[bool, str], Tuple[List[str], List[str]]]:
-    """升级包，支持单个升级和批量升级，自动尝试多个镜像站点。
+    """
+    升级包，支持单个升级和批量升级，自动尝试多个镜像站点。
 
     Args:
         packages: 包名（可含版本号）或包名列表。
@@ -181,7 +186,8 @@ def uninstall(
     packages: Union[str, List[str]],
     timeout: int = 300,
 ) -> Union[Tuple[bool, str], Tuple[List[str], List[str]]]:
-    """卸载包，支持单个卸载和批量卸载。
+    """
+    卸载包，支持单个卸载和批量卸载。
 
     Args:
         packages: 包名或包名列表。

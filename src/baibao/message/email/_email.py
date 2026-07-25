@@ -3,24 +3,6 @@
 
 提供统一的邮件发送接口。
 通过邮件配置名获取对应的 EmailClient 实例进行操作。
-
-示例::
-    from baibao.message import email
-
-    # 添加邮件配置
-    email.set_client("qq", {
-        "send_server": "smtp.qq.com",
-        "send_port": 465,
-        "username": "your_email@qq.com",
-        "password": "your_auth_code",
-        "sender_name": "我的邮箱",
-    })
-
-    # 发送纯文本邮件
-    email.send_text("qq", to="recipient@example.com", subject="测试", content="内容")
-
-    # 发送 HTML 邮件
-    email.send_html("qq", to="recipient@example.com", subject="HTML", html_content="<h1>Hello</h1>")
 """
 
 from typing import Dict, Optional, Union
@@ -39,18 +21,18 @@ DEFAULT_CFG_NAME = "default"
 
 def get_client(cfg_name: Optional[str] = None) -> EmailClient:
     """
-    获取指定配置名对应的 EmailClient 实例
+    获取指定配置名对应的 EmailClient 实例。
 
     对于默认配置名，如果尚未设置，会自动从 ./email.config 文件加载配置并初始化客户端。
 
     Args:
-        cfg_name: 邮件配置名，如果不传则使用默认配置名
+        cfg_name: 邮件配置名，如果不传则使用默认配置名。
 
     Returns:
-        EmailClient 实例
+        EmailClient 实例。
 
     Raises:
-        KeyError: 指定的配置名对应的 EmailClient 不存在时抛出
+        KeyError: 指定的配置名对应的 EmailClient 不存在时抛出。
     """
     # 如果未指定配置名，使用默认配置名
     if not cfg_name:
@@ -77,13 +59,13 @@ def get_client(cfg_name: Optional[str] = None) -> EmailClient:
 
 def set_client(cfg_name: str, client: Union[EmailClient, EmailCfg, dict]) -> None:
     """
-    设置指定配置名对应的 EmailClient 或 EmailCfg
+    设置指定配置名对应的 EmailClient 或 EmailCfg。
 
     如果传入 EmailCfg 或 dict，会自动创建 EmailClient 实例。
 
     Args:
-        cfg_name: 邮件配置名
-        client: EmailClient 实例、EmailCfg 配置对象或配置字典
+        cfg_name: 邮件配置名。
+        client: EmailClient 实例、EmailCfg 配置对象或配置字典。
     """
     # 如果未指定配置名，使用默认配置名
     if not cfg_name:
@@ -103,10 +85,10 @@ def set_client(cfg_name: str, client: Union[EmailClient, EmailCfg, dict]) -> Non
 
 def remove_client(cfg_name: Optional[str] = None) -> None:
     """
-    移除指定配置名对应的 EmailClient
+    移除指定配置名对应的 EmailClient。
 
     Args:
-        cfg_name: 邮件配置名，如果不传则移除默认配置名
+        cfg_name: 邮件配置名，如果不传则移除默认配置名。
     """
     # 如果未指定配置名，使用默认配置名
     if not cfg_name:
@@ -121,6 +103,7 @@ def remove_client(cfg_name: Optional[str] = None) -> None:
 def clear():
     """
     清空所有邮件客户端。
+
     调用后需重新通过 set_client() 初始化客户端。
     """
     with _clients_lock:
@@ -141,20 +124,20 @@ def send(
     通用邮件发送方法。
 
     Args:
-        cfg_name: 邮件配置名
-        to: 收件人邮箱地址
-        subject: 邮件主题
-        content: 邮件内容
-        cc: 抄送地址，可选
-        bcc: 密送地址，可选
-        attachments: 附件列表，可选
-        is_html: 是否为 HTML 格式，默认 False
+        cfg_name: 邮件配置名。
+        to: 收件人邮箱地址。
+        subject: 邮件主题。
+        content: 邮件内容。
+        cc: 抄送地址，可选。
+        bcc: 密送地址，可选。
+        attachments: 附件列表，可选。
+        is_html: 是否为 HTML 格式，默认 False。
 
     Returns:
-        EmailSendResult，包含发送结果信息
+        EmailSendResult，包含发送结果信息。
 
     Raises:
-        KeyError: 指定的配置名不存在时抛出
+        KeyError: 指定的配置名不存在时抛出。
     """
     return get_client(cfg_name).send(
         to, subject, content, cc=cc, bcc=bcc, attachments=attachments, is_html=is_html
@@ -174,19 +157,19 @@ def send_text(
     快速发送纯文本邮件。
 
     Args:
-        cfg_name: 邮件配置名
-        to: 收件人邮箱地址
-        subject: 邮件主题
-        content: 邮件内容
-        cc: 抄送地址，可选
-        bcc: 密送地址，可选
-        attachments: 附件列表，可选
+        cfg_name: 邮件配置名。
+        to: 收件人邮箱地址。
+        subject: 邮件主题。
+        content: 邮件内容。
+        cc: 抄送地址，可选。
+        bcc: 密送地址，可选。
+        attachments: 附件列表，可选。
 
     Returns:
-        EmailSendResult，包含发送结果信息
+        EmailSendResult，包含发送结果信息。
 
     Raises:
-        KeyError: 指定的配置名不存在时抛出
+        KeyError: 指定的配置名不存在时抛出。
     """
     return get_client(cfg_name).send(to, subject, content, cc=cc, bcc=bcc, attachments=attachments, is_html=False)
 
@@ -204,19 +187,19 @@ def send_html(
     快速发送 HTML 邮件。
 
     Args:
-        cfg_name: 邮件配置名
-        to: 收件人邮箱地址
-        subject: 邮件主题
-        html_content: HTML 内容
-        cc: 抄送地址，可选
-        bcc: 密送地址，可选
-        attachments: 附件列表，可选
+        cfg_name: 邮件配置名。
+        to: 收件人邮箱地址。
+        subject: 邮件主题。
+        html_content: HTML 内容。
+        cc: 抄送地址，可选。
+        bcc: 密送地址，可选。
+        attachments: 附件列表，可选。
 
     Returns:
-        EmailSendResult，包含发送结果信息
+        EmailSendResult，包含发送结果信息。
 
     Raises:
-        KeyError: 指定的配置名不存在时抛出
+        KeyError: 指定的配置名不存在时抛出。
     """
     return get_client(cfg_name).send(to, subject, html_content, cc=cc, bcc=bcc, attachments=attachments, is_html=True)
 

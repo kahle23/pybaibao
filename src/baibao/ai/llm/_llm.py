@@ -14,7 +14,8 @@ from typing import Dict, Optional, List, Generator, Any, Union
 
 @dataclass
 class LlmCfg:
-    """LLM 配置类。
+    """
+    LLM 配置类。
 
     用于从 JSON 配置文件加载 LLM 服务配置。
 
@@ -30,13 +31,14 @@ class LlmCfg:
     service_type: str
     api_key: str
     base_url: Optional[str] = None
-    model: str = None
+    model: Optional[str] = None
     timeout: float = 60.0
     max_retries: int = 2
 
     @staticmethod
     def load_from_json_cfg(config_path: Union[str, Path]) -> 'LlmCfg':
-        """从 JSON 文件加载 LLM 配置。
+        """
+        从 JSON 文件加载 LLM 配置。
 
         Args:
             config_path: JSON 配置文件路径，支持字符串或 Path 对象。
@@ -56,7 +58,8 @@ class LlmCfg:
 
 @dataclass
 class ChatMessage:
-    """对话消息。
+    """
+    对话消息。
 
     Attributes:
         role: 消息角色，可选值为 'system'、'user'、'assistant'、'tool'、'function'。
@@ -69,7 +72,8 @@ class ChatMessage:
 
 @dataclass
 class ChatResponse:
-    """LLM 响应结果。
+    """
+    LLM 响应结果。
 
     Attributes:
         content: 响应文本内容。
@@ -87,7 +91,8 @@ class ChatResponse:
 
 
 class LlmService(ABC):
-    """LLM 策略抽象基类，定义统一的对话接口。
+    """
+    LLM 策略抽象基类，定义统一的对话接口。
 
     所有具体实现（如 OpenAiLlm）需继承此类并实现核心方法，
     以保证接口的一致性和可替换性。
@@ -101,7 +106,8 @@ class LlmService(ABC):
         max_tokens: Optional[int] = None,
         **kwargs,
     ) -> ChatResponse:
-        """对话，传入完整消息历史。
+        """
+        对话，传入完整消息历史。
 
         Args:
             messages: 消息列表，包含完整的对话历史。
@@ -127,7 +133,8 @@ class LlmService(ABC):
         max_tokens: Optional[int] = None,
         **kwargs,
     ) -> Generator[str, None, None]:
-        """流式对话，逐步返回生成的文本片段。
+        """
+        流式对话，逐步返回生成的文本片段。
 
         Args:
             messages: 消息列表，包含完整的对话历史。
@@ -150,32 +157,6 @@ class LlmService(ABC):
 # 模块级 LLM 管理 —— 统一管理并支持运行时切换 LLM 实现
 # ---------------------------------------------------------------------------
 
-"""LLM 管理模块，统一管理并支持运行时切换 LLM 实现。
-
-示例::
-
-    from baibao.ai.llm import chat, stream_chat, set_llm_service, ChatMessage, LlmCfg
-    from baibao.ai.llm.openai_llm import OpenAiLlm
-
-    cfg = LlmCfg(service_type="openai", api_key="sk-xxx", base_url="https://api.openai.com/v1")
-    set_llm_service("default", OpenAiLlm(cfg))
-
-    # 单轮对话
-    response = chat([ChatMessage(role="user", content="你好")])
-
-    # 流式输出
-    for chunk in stream_chat([ChatMessage(role="user", content="讲个故事")]):
-        print(chunk, end="", flush=True)
-
-    # 多轮对话
-    messages = [
-        ChatMessage(role="user", content="你好"),
-        ChatMessage(role="assistant", content="你好！有什么可以帮你的？"),
-        ChatMessage(role="user", content="讲个笑话"),
-    ]
-    response = chat(messages)
-"""
-
 # 存储不同配置名对应的 LlmService 实例
 _llmServices: Dict[str, LlmService] = {}
 
@@ -187,7 +168,8 @@ DEFAULT_LLM_NAME = "default"
 
 
 def get_llm_service(llm_name: Optional[str] = None) -> LlmService:
-    """获取指定配置名对应的 LlmService 实例。
+    """
+    获取指定配置名对应的 LlmService 实例。
 
     对于默认配置名，如果尚未设置，会自动从 ./llm.config 文件加载配置并初始化服务。
 
@@ -229,7 +211,8 @@ def get_llm_service(llm_name: Optional[str] = None) -> LlmService:
 
 
 def set_llm_service(llm_name: str, service: LlmService) -> None:
-    """设置指定配置名对应的 LlmService 实例。
+    """
+    设置指定配置名对应的 LlmService 实例。
 
     Args:
         llm_name: LLM 配置名。
@@ -250,7 +233,8 @@ def set_llm_service(llm_name: str, service: LlmService) -> None:
 
 
 def remove_llm_service(llm_name: Optional[str] = None) -> None:
-    """移除指定配置名对应的 LlmService 实例。
+    """
+    移除指定配置名对应的 LlmService 实例。
 
     Args:
         llm_name: LLM 配置名，如果不传则移除默认配置名。
@@ -270,7 +254,8 @@ def chat(
     llm_name: Optional[str] = None,
     **kwargs,
 ) -> ChatResponse:
-    """对话，传入完整消息历史。
+    """
+    对话，传入完整消息历史。
 
     Args:
         messages: 消息列表，包含完整的对话历史。
@@ -297,7 +282,8 @@ def stream_chat(
     llm_name: Optional[str] = None,
     **kwargs,
 ) -> Generator[str, None, None]:
-    """流式对话，逐步返回生成的文本片段。
+    """
+    流式对话，逐步返回生成的文本片段。
 
     Args:
         messages: 消息列表，包含完整的对话历史。
