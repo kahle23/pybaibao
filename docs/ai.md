@@ -9,7 +9,7 @@
 | 子模块 | 功能 | 说明 |
 |--------|------|------|
 | `baibao.ai.llm` | 大语言模型 | 支持单轮/多轮对话、流式输出，兼容 OpenAI API 格式 |
-| `baibao.ai.ocr` | 文字识别 | 支持 EasyOCR、PaddleOCR，提供文本识别和可视化绘制 |
+| `baibao.ai.ocr` | 文字识别 | 策略 + 模板方法设计，内置 EasyOCR / PaddleOCR，支持自定义引擎扩展 |
 
 ---
 
@@ -302,6 +302,8 @@ img = cv2.imread("image.png")
 text = recognize(img)
 ```
 
+传入的图像数组会被内部复制，**不会修改原图**；识别接口同时也支持直接传入图片路径（字符串）。
+
 ### OCR 管理函数
 
 ```python
@@ -315,6 +317,29 @@ ocr = get_ocr_service("my_ocr")
 
 # 移除服务
 remove_ocr_service("my_ocr")
+```
+
+管理函数内部加锁保护，是**线程安全**的，可在多线程环境下并发调用。默认配置（不传 `ocr_name`）在首次访问时会自动创建 `EasyOcr` 实例。
+
+### 自定义 OCR 引擎
+
+`OcrService` 采用模板方法设计：扩展自定义引擎只需继承并实现核心方法 `_recognize_array`，图片加载、文本清洗与结果绘制均由基类统一负责，对外行为与内置引擎完全一致。
+
+```python
+from baibao.ai.ocr import OcrService, OcrResult, set_ocr_service, recognize
+
+class MyOcr(OcrService):
+    def _recognize_array(self, image):
+        # image 是已校验的 OpenCV 图像数组（BGR），无需自行读取文件或校验路径
+        raw = my_engine.detect(image)
+        return [
+            OcrResult(text=t, bbox=b, confidence=c)
+            for b, t, c in raw
+        ]
+
+# 注册后即可像内置引擎一样使用
+set_ocr_service("mine", MyOcr())
+text = recognize("image.png", ocr_name="mine")
 ```
 
 ---
@@ -332,8 +357,8 @@ remove_ocr_service("my_ocr")
 | 依赖包 | 说明 | 安装方式 |
 |--------|------|----------|
 | easyocr | EasyOCR 引擎 | 首次使用自动安装 |
-| opencv-python | 图像处理 | easyocr 依赖 |
-| paddleocr | PaddleOCR 引擎 | 需手动安装: `pip install paddleocr` |
+| opencv-python | 图像处理 | easyocr/paddleocr 依赖 |
+| paddleocr | PaddleOCR 引擎 | 首次使用自动安装 |
 
 ---
 
