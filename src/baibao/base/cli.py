@@ -4,11 +4,13 @@
 本模块提供命令系统的核心抽象类和注册机制，用于实现可扩展的命令行工具。
 """
 
+import sys
 import threading
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from baibao.base import log
+from baibao.base import env
 
 
 class Command(ABC):
@@ -350,4 +352,45 @@ class CommandService:
                 raise CommandNotFoundError(f"未知命令: {command_name}")
             # 执行命令
             return command.execute(args)
+
+    def main_cli(
+        self,
+        on_startup: Optional[Callable[[List[str]], Any]] = None,
+        on_shutdown: Optional[Callable[[List[str]], Any]] = None,
+    ):
+        """
+        命令行入口方法，解析参数并执行对应命令
+
+        Args:
+            on_startup: 启动回调，接收命令行参数列表；为 None 时跳过。
+                        回调内部可自行打印输出，若需中断流程可直接抛出异常。
+            on_shutdown: 关闭回调，接收命令行参数列表；为 None 时跳过。
+                         注意：回调内部不能抛出异常。
+        """
+        # 解析命令行参数
+        args = sys.argv[1:]
+
+        try:
+            # 执行启动回调（为空时跳过）
+            if on_startup:
+                on_startup(args)
+
+            # 解析命令
+            command_name = args[0].lower() if args else ""
+            command_args = args[1:] if args else []
+            # 无命令时显示帮助
+            if not command_name:
+                command_name = self.get_help_command().name
+
+            # 执行命令
+            try:
+                self.execute_command(command_name, command_args)
+            except CommandNotFoundError as e:
+                print(str(e))
+                print(f"使用 'python -m {env.get_caller_module_name()} {self.get_help_command().name}' 查看可用命令")
+                sys.exit(1)
+        finally:
+            # 执行关闭回调（为空时跳过）；注意：回调内部不能抛出异常
+            if on_shutdown:
+                on_shutdown(args)
 

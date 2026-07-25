@@ -6,6 +6,7 @@
 """
 
 from baibao.base import attr
+from baibao.base import cli
 from baibao.base import env
 from baibao.base import file
 from baibao.base import log
@@ -17,6 +18,6 @@ from baibao.base.cli import Command, HelpCommand, CommandNotFoundError, CommandS
 
 
 __all__ = [
-    'attr', 'env', 'file', 'log', 'pip', 'time', 'util', 'validate',
+    'attr', 'cli', 'env', 'file', 'log', 'pip', 'time', 'util', 'validate',
     'Command', 'HelpCommand', 'CommandNotFoundError', 'CommandService',
 ]

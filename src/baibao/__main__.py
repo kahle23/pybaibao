@@ -1,33 +1,41 @@
 """
-baibao 命令行入口。
+BaiBao 命令行入口。
 
 使用方式：
-    python -m baibao                    查看帮助
-    python -m baibao install requests   安装包
+    python -m baibao                       查看帮助
+    python -m baibao pip_install requests  安装 Python 包
 """
 
-import sys
-from baibao.base import env, CommandNotFoundError
 from baibao.util.commands import command_service
 
 
-def main():
-    # 解析命令行参数
-    args = sys.argv[1:]
-    # 解析命令
-    command_name = args[0].lower() if args else ""
-    command_args = args[1:] if args else []
-    # 无命令时显示帮助
-    if not command_name:
-        command_name = command_service.get_help_command().name
-    # 执行命令
-    try:
-        command_service.execute_command(command_name, command_args)
-    except CommandNotFoundError as e:
-        print(str(e))
-        print(f"使用 'python -m {env.get_caller_module_name()} {command_service.get_help_command().name}' 查看可用命令")
-        sys.exit(1)
+def _on_startup(args):
+    """
+    启动钩子：在命令解析与执行之前调用。
+
+    预留的扩展点，默认空实现。需要时可在此完成初始化、参数预处理等；
+    若需中断流程，可直接抛出异常。
+
+    Args:
+        args: 原始命令行参数列表（sys.argv[1:]）。
+    """
+
+
+def _on_shutdown(args):
+    """
+    关闭钩子：命令执行完毕后调用（无论成功或失败，在 finally 中执行）。
+
+    预留的扩展点，默认空实现。适合做资源回收、统计输出等收尾工作。
+    注意：回调内部不能抛出异常。
+
+    Args:
+        args: 原始命令行参数列表（sys.argv[1:]）。
+    """
 
 
 if __name__ == "__main__":
-    main()
+    """
+    启动命令服务，并注入生命周期钩子
+    （on_startup 在命令执行前调用，on_shutdown 在执行后调用）
+    """
+    command_service.main_cli(on_startup=_on_startup, on_shutdown=_on_shutdown)
