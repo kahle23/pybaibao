@@ -5,6 +5,7 @@
 为上层业务模块提供统一的基础能力支持。
 """
 
+from baibao.base import action
 from baibao.base import attr
 from baibao.base import cli
 from baibao.base import env
@@ -18,6 +19,6 @@ from baibao.base.cli import Command, HelpCommand, CommandNotFoundError, CommandS
 
 
 __all__ = [
-    'attr', 'cli', 'env', 'file', 'log', 'pip', 'time', 'util', 'validate',
+    'action', 'attr', 'cli', 'env', 'file', 'log', 'pip', 'time', 'util', 'validate',
     'Command', 'HelpCommand', 'CommandNotFoundError', 'CommandService',
 ]

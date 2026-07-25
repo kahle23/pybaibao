@@ -11,6 +11,7 @@
 - [validate - 验证模块](#5-validate---验证模块)
 - [env - 环境模块](#6-env---环境模块)
 - [cli - 命令模块](#7-cli---命令模块)
+- [action - 动作模块](#8-action---动作模块)
 
 ---
 
@@ -525,6 +526,93 @@ service.execute_command("help", [])
 
 # 查看单个命令的帮助
 service.execute_command("help", ["--greet"])
+```
+
+---
+
+## 8. action - 动作模块
+
+提供动作（Action）的注册、取消注册、获取和执行能力。动作为任意可调用对象，由 `name` 唯一标识，支持通配符查询名称；注册允许覆盖同名动作。模块级单例，内部通过 `threading.Lock` 保证线程安全。
+
+### 8.1 API 一览
+
+| 方法 | 说明 |
+|------|------|
+| `register(name, action_obj)` | 注册动作，返回被覆盖的旧动作（无则为 `None`） |
+| `unregister(name)` | 取消注册，返回被移除的动作（不存在则为 `None`） |
+| `get_action(name)` | 获取单个动作，不存在返回 `None` |
+| `has_action(name)` | 判断动作是否存在 |
+| `get_names(pattern=None)` | 获取匹配的动作名称列表（按名称升序排序） |
+| `clear(pattern=None)` | 清空动作，返回实际清除的数量 |
+| `execute(name, *args, **kwargs)` | 执行单个动作，参数透传给底层可调用对象 |
+
+### 8.2 注册与取消注册
+
+```python
+from baibao.base import action
+
+def greet(name: str) -> str:
+    return f"Hello, {name}!"
+
+# 注册动作（允许覆盖同名，返回被覆盖的旧动作）
+old = action.register("greet", greet)
+
+# 重复注册同名动作会覆盖前一次
+previous = action.register("greet", lambda n: f"Hi, {n}")
+print(previous is greet)  # True
+
+# 取消注册（返回被移除的动作，不存在时返回 None）
+removed = action.unregister("greet")
+```
+
+### 8.3 查询动作
+
+```python
+from baibao.base import action
+
+# 判断动作是否存在
+action.has_action("greet")  # True / False
+
+# 获取单个动作
+fn = action.get_action("greet")
+
+# 获取全部动作名称（按名称升序排序）
+all_names = action.get_names()
+
+# 按通配符查询动作名称（支持 * ?）
+names = action.get_names("gre*")   # ["greet"]
+names = action.get_names("*ea*")   # ["greet"]
+```
+
+### 8.4 执行动作
+
+```python
+from baibao.base import action
+
+# 注册并执行
+action.register("add", lambda a, b: a + b)
+result = action.execute("add", 1, 2)
+print(result)  # 3
+
+# 动作不存在时抛出 KeyError
+try:
+    action.execute("unknown")
+except KeyError as e:
+    print(e)
+```
+
+> 执行过程不在锁内调用动作本体，避免业务回调中再次访问动作表造成死锁；仅在锁内完成动作对象的查找。
+
+### 8.5 清空动作
+
+```python
+from baibao.base import action
+
+# 清空匹配的动作，返回实际清除的数量
+count = action.clear("gre*")
+
+# 清空全部动作
+total = action.clear()
 ```
 
 ---
