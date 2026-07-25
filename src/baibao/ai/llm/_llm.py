@@ -12,6 +12,8 @@ from threading import Lock
 from typing import Dict, Optional, List, Generator, Any, Union
 
 
+# region ======== 配置类 ========
+
 @dataclass
 class LlmCfg:
     """
@@ -56,6 +58,11 @@ class LlmCfg:
         return cfg
 
 
+# endregion
+
+
+# region ======== 数据对象 ========
+
 @dataclass
 class ChatMessage:
     """
@@ -89,6 +96,11 @@ class ChatResponse:
     finish_reason: str = ""
     raw: Any = None
 
+
+# endregion
+
+
+# region ======== 策略抽象基类 ========
 
 class LlmService(ABC):
     """
@@ -153,16 +165,15 @@ class LlmService(ABC):
         pass
 
 
-# ---------------------------------------------------------------------------
-# 模块级 LLM 管理 —— 统一管理并支持运行时切换 LLM 实现
-# ---------------------------------------------------------------------------
+# endregion
+
+
+# region ======== 模块级 LLM 管理 ========
 
 # 存储不同配置名对应的 LlmService 实例
 _llmServices: Dict[str, LlmService] = {}
-
 # 保护 _llmServices 字典并发访问的锁
 _llmServices_lock = Lock()
-
 # 默认配置名
 DEFAULT_LLM_NAME = "default"
 
@@ -301,3 +312,6 @@ def stream_chat(
         max_tokens=max_tokens,
         **kwargs,
     )
+
+
+# endregion
