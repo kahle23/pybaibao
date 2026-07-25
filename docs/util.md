@@ -9,6 +9,7 @@
 | `pip_install` | 安装 Python 包（自动切换镜像） | `python -m baibao pip_install <包名> [包名2 ...]` |
 | `pip_upgrade` | 升级 Python 包 | `python -m baibao pip_upgrade <包名> [包名2 ...]` |
 | `py_clean` | 清理构建缓存 | `python -m baibao py_clean [目录路径]` |
+| `kbase_init` | 生成知识库目录骨架 / 新增项目目录（必须 -t 指定模板） | `python -m baibao kbase_init -t <模板> [目录]` |
 | `help` | 显示帮助信息 | `python -m baibao help [命令名]` |
 
 ## 使用示例
@@ -48,6 +49,54 @@ python -m baibao py_clean /path/to/project
 - `dist/` 目录
 - `*.egg-info` 目录
 - `__pycache__/` 目录（递归删除）
+
+### 初始化知识库
+
+通过「模板」定义一种知识库长什么样，用 `-t/--template` 指定模板（必须）。
+内置「公司」模板：公司资料、项目资产、运营支持、团队流程、知识沉淀、资源工具、归档等顶层职能域，
+并预置「自研项目」「三方系统」两套可复制样板。
+
+```bash
+# 生成完整骨架（必须指定模板，默认当前目录）
+python -m baibao kbase_init -t 公司
+
+# 指定目录 + 指定模板
+python -m baibao kbase_init /path/to/knowledge-base -t 公司
+
+# 列出所有可用模板
+python -m baibao kbase_init list
+```
+
+新增一个具体项目（自动递增编号，平铺到 `02-项目资产/` 下；项目类型由模板定义）：
+
+```bash
+# 新增自研项目（必须指定模板，编号自动取下一个，如 01-xxx）
+python -m baibao kbase_init new -t 公司 自研 我的系统
+
+# 新增三方系统（指定目录 + 指定模板）
+python -m baibao kbase_init new 三方 采购系统 /path/to/knowledge-base -t 公司
+```
+
+设计原则：顶层按稳定的职能域划分，文件用命名规范承载维度（日期/项目/类型/标题/版本），不靠多层文件夹表达维度；样板项目（以"模板"开头）固定使用 99 编号。
+
+#### 新增知识库模板（扩展性）
+
+模板是 `KbaseTemplate` 的实例，注册后立即可用，命令侧无需改动：
+
+```python
+from baibao.util.commands.kbase_command import KbaseTemplate, register_template
+
+register_template(KbaseTemplate(
+    name="个人",                  # 用作 -t 参数
+    description="个人知识库",
+    top_levels={"00-首页": "...", "01-笔记": "..."},
+    second_levels={"00-首页": [], "01-笔记": ["技术", "生活"]},
+    project_templates={"个人项目": {"00-概览": [], "01-笔记": []}},
+    seed_projects=[("个人项目", "模板个人项目")],
+))
+```
+
+注册后即可 `python -m baibao kbase_init -t 个人`。同分类多版本只需注册多个不同 `name`（如「公司」「公司v2」）。
 
 ### 查看帮助
 

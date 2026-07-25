@@ -53,9 +53,11 @@ command_service.set_help_command(BaibaoHelpCommand(command_service))
 # 导入所有命令模块，触发注册
 from baibao.util.commands.pip_command import PipInstallCommand, PipUpgradeCommand  # noqa: E402
 from baibao.util.commands.pypr_command import PyCleanCommand  # noqa: E402
+from baibao.util.commands.kbase_command import KbaseInitCommand  # noqa: E402
 
 # 执行注册（HelpCommand 已在 CommandService 初始化时自动注册）
 command_service.register(PipInstallCommand())
 command_service.register(PipUpgradeCommand())
 command_service.register(PyCleanCommand())
+command_service.register(KbaseInitCommand())
 
