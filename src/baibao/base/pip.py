@@ -6,10 +6,10 @@ pip 工具，支持多镜像站点自动切换。
 提高在国内网络环境下安装包的可靠性和速度。
 """
 
-from typing import Optional, List, Tuple, Union
 import subprocess
-from baibao.base import env
+from typing import List, Optional, Tuple, Union
 
+from baibao.base import env
 
 # 默认镜像站点列表，按优先级从高到低
 DEFAULT_MIRRORS: List[str] = [

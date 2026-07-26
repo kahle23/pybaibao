@@ -5,11 +5,12 @@ OpenAI 兼容 LLM 策略实现模块。
 提供单轮/多轮对话和流式输出功能。
 """
 
-from typing import Optional, List, Dict, Generator, Any
 import os
+from typing import Any, Dict, Generator, List, Optional
 
-from ._llm import LlmCfg, LlmService, ChatMessage, ChatResponse
 from baibao.base import pip
+
+from ._llm import ChatMessage, ChatResponse, LlmCfg, LlmService
 
 
 class OpenAiLlm(LlmService):

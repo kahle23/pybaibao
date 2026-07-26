@@ -5,6 +5,7 @@
 """
 
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -95,7 +96,7 @@ def remove(code: str) -> bool:
     return True
 
 
-def get_by_symbol(symbol: str) -> Currency | None:
+def get_by_symbol(symbol: str) -> Optional[Currency]:
     """
     根据符号获取货币信息。
 
@@ -108,7 +109,7 @@ def get_by_symbol(symbol: str) -> Currency | None:
     return _symbol_map.get(symbol)
 
 
-def get_by_code(code: str) -> Currency | None:
+def get_by_code(code: str) -> Optional[Currency]:
     """
     根据编码获取货币信息。
 
@@ -121,7 +122,7 @@ def get_by_code(code: str) -> Currency | None:
     return _code_map.get(code.upper())
 
 
-def get_by_name(name: str) -> Currency | None:
+def get_by_name(name: str) -> Optional[Currency]:
     """
     根据名字获取货币信息。
 
@@ -134,7 +135,7 @@ def get_by_name(name: str) -> Currency | None:
     return _name_map.get(name)
 
 
-def search_first(text: str) -> Currency | None:
+def search_first(text: str) -> Optional[Currency]:
     """
     根据传入的字符串搜索货币信息，支持精确匹配符号、编码或名字，返回第一个匹配项。
 

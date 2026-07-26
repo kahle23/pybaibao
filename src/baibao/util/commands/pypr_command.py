@@ -5,8 +5,8 @@
 import os
 from typing import Any, List
 
-from baibao.base import log, Command
-from baibao.base.file import remove_target_dirs, remove_suffix_dirs
+from baibao.base import Command, log
+from baibao.base.file import remove_suffix_dirs, remove_target_dirs
 
 
 class PyCleanCommand(Command):

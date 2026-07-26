@@ -3,19 +3,18 @@
 
 支持纯文本邮件、HTML 邮件和带附件的邮件发送，支持 SMTP/SMTPS 协议。
 """
+import os
 import smtplib
 from dataclasses import dataclass
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.application import MIMEApplication
 from email.header import Header
+from email.mime.application import MIMEApplication
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from email.utils import make_msgid
 from pathlib import Path
-from typing import Optional, List, Union
-import os
+from typing import List, Optional, Union
 
-from baibao.base import util
-from baibao.base import log
+from baibao.base import log, util
 from baibao.base.validate import check_required_fields_not_empty
 
 

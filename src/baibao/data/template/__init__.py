@@ -6,28 +6,27 @@
 """
 
 from ._template import (
-    get_template_engine,
-    set_template_engine,
-    remove_template_engine,
-    render_stream_to_stream,
-    render_file_to_file,
-    render_string_to_file,
-    render_file_to_string,
-    render_string_to_string,
-    TemplateEngine,
     Jinja2Engine,
+    TemplateEngine,
+    get_template_engine,
+    remove_template_engine,
+    render_file_to_file,
+    render_file_to_string,
+    render_stream_to_stream,
+    render_string_to_file,
+    render_string_to_string,
+    set_template_engine,
 )
 
-
 __all__ = [
-    'get_template_engine',
-    'set_template_engine',
-    'remove_template_engine',
-    'render_stream_to_stream',
-    'render_file_to_file',
-    'render_string_to_file',
-    'render_file_to_string',
-    'render_string_to_string',
-    'TemplateEngine',
     'Jinja2Engine',
+    'TemplateEngine',
+    'get_template_engine',
+    'remove_template_engine',
+    'render_file_to_file',
+    'render_file_to_string',
+    'render_stream_to_stream',
+    'render_string_to_file',
+    'render_string_to_string',
+    'set_template_engine',
 ]

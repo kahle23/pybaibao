@@ -9,8 +9,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import Lock
-from typing import Dict, Optional, List, Generator, Any, Union
-
+from typing import Any, Dict, Generator, List, Optional, Union
 
 # region ======== 配置类 ========
 
@@ -254,8 +253,7 @@ def remove_llm_service(llm_name: Optional[str] = None) -> None:
         llm_name = DEFAULT_LLM_NAME
     # 使用锁保护全局字典的访问
     with _llmServices_lock:
-        if llm_name in _llmServices:
-            del _llmServices[llm_name]
+        _llmServices.pop(llm_name, None)
 
 
 def chat(

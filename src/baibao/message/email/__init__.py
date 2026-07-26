@@ -12,25 +12,25 @@
 """
 
 from ._email import (
-    get_client,
-    set_client,
-    remove_client,
     clear,
+    get_client,
+    remove_client,
     send,
-    send_text,
     send_html,
+    send_text,
+    set_client,
 )
-from .email_client import EmailCfg, EmailSendResult, EmailClient
+from .email_client import EmailCfg, EmailClient, EmailSendResult
 
 __all__ = [
-    "get_client",
-    "set_client",
-    "remove_client",
-    "clear",
-    "send",
-    "send_text",
-    "send_html",
     "EmailCfg",
-    "EmailSendResult",
     "EmailClient",
+    "EmailSendResult",
+    "clear",
+    "get_client",
+    "remove_client",
+    "send",
+    "send_html",
+    "send_text",
+    "set_client",
 ]

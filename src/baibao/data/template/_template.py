@@ -8,7 +8,7 @@
 import threading
 from abc import ABC, abstractmethod
 from io import StringIO
-from typing import Dict, Optional, Any, IO
+from typing import IO, Any, Dict, Optional
 
 
 class TemplateEngine(ABC):
@@ -139,8 +139,7 @@ class TemplateEngine(ABC):
 
 
 # 子类导入必须在 TemplateEngine 定义之后，避免循环导入
-from .jinja2_engine import Jinja2Engine  # noqa: E402
-
+from .jinja2_engine import Jinja2Engine
 
 # 存储不同配置名对应的 TemplateEngine 实例
 _template_engines: Dict[str, TemplateEngine] = {}
@@ -210,8 +209,7 @@ def remove_template_engine(engine_name: Optional[str] = None) -> None:
         if not engine_name:
             engine_name = DEFAULT_ENGINE_NAME
         # 如果配置名存在，移除对应的 TemplateEngine 实例
-        if engine_name in _template_engines:
-            del _template_engines[engine_name]
+        _template_engines.pop(engine_name, None)
 
 
 def render_stream_to_stream(input_stream: IO[str], output_stream: IO[str],

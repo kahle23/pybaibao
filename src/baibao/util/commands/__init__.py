@@ -7,9 +7,9 @@
 
 from baibao.base import CommandService
 from baibao.util.commands.help_command import BaibaoHelpCommand
+from baibao.util.commands.kbase_command import KbaseInitCommand
 from baibao.util.commands.pip_command import PipInstallCommand, PipUpgradeCommand
 from baibao.util.commands.pypr_command import PyCleanCommand
-from baibao.util.commands.kbase_command import KbaseInitCommand
 
 __all__ = ['command_service']
 

@@ -5,11 +5,10 @@
 通过邮件配置名获取对应的 EmailClient 实例进行操作。
 """
 
-from typing import Dict, Optional, Union
 import threading
+from typing import Dict, Optional, Union
 
 from .email_client import EmailCfg, EmailClient, EmailSendResult
-
 
 # 存储不同配置名对应的 EmailClient 实例
 _clients: Dict[str, EmailClient] = {}
@@ -96,8 +95,7 @@ def remove_client(cfg_name: Optional[str] = None) -> None:
     # 使用锁保护全局字典的访问
     with _clients_lock:
         # 如果配置名存在，移除对应的 EmailClient 实例
-        if cfg_name in _clients:
-            del _clients[cfg_name]
+        _clients.pop(cfg_name, None)
 
 
 def clear():

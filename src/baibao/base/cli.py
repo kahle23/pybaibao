@@ -9,8 +9,7 @@ import threading
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Optional
 
-from baibao.base import log
-from baibao.base import env
+from baibao.base import env, log
 
 
 class Command(ABC):
@@ -207,7 +206,7 @@ class CommandService:
         with self._lock:
             # 不允许注册帮助命令及其子类
             if isinstance(command, HelpCommand):
-                raise ValueError("不允许通过 register 注册帮助命令，请使用 set_help_command")
+                raise ValueError("不允许通过 register 注册帮助命令，请使用 set_help_command")  # noqa: TRY004
             # 命令名称和命令缩写
             name = command.name.lower()
             abbr = command.abbr.lower() if command.abbr else None
@@ -383,14 +382,17 @@ class CommandService:
             command_args = args[1:] if args else []
             # 无命令时显示帮助
             if not command_name:
-                command_name = self.get_help_command().name
+                help_command = self.get_help_command()
+                command_name = help_command.name if help_command else "help"
 
             # 执行命令
             try:
                 self.execute_command(command_name, command_args)
             except CommandNotFoundError as e:
+                help_command = self.get_help_command()
+                help_name = help_command.name if help_command else "help"
                 print(str(e))
-                print(f"使用 'python -m {env.get_caller_module_name()} {self.get_help_command().name}' 查看可用命令")
+                print(f"使用 'python -m {env.get_caller_module_name()} {help_name}' 查看可用命令")
                 sys.exit(1)
         finally:
             # 执行关闭回调（为空时跳过）；注意：回调内部不能抛出异常

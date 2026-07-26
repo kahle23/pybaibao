@@ -8,8 +8,8 @@ from baibao.message import email
 from baibao.message.email import EmailCfg, EmailClient, EmailSendResult
 
 __all__ = [
-    'email',
     'EmailCfg',
     'EmailClient',
     'EmailSendResult',
+    'email',
 ]

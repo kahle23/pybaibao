@@ -5,13 +5,14 @@ Jinja2 模板引擎策略实现模块。
 自动转义等特性，适用于 HTML 渲染和代码生成等场景。
 """
 import os
-from typing import Any, Callable, Dict, IO, Optional, TYPE_CHECKING
+from typing import IO, TYPE_CHECKING, Any, Callable, Dict, Optional, Type
 
 if TYPE_CHECKING:
-    import jinja2
+    import jinja2  # type: ignore[import-not-found]
+
+from baibao.base import util
 
 from ._template import TemplateEngine
-from baibao.base import util
 
 
 class Jinja2Engine(TemplateEngine):
@@ -81,7 +82,7 @@ class Jinja2Engine(TemplateEngine):
         # 导入 Jinja2 库
         import jinja2
         # 配置未定义变量处理
-        undefined: type[jinja2.Undefined]
+        undefined: Type[jinja2.Undefined]
         if self._undefined == "strict":
             undefined = jinja2.StrictUndefined
         elif self._undefined == "undefined":

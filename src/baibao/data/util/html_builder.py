@@ -8,11 +8,11 @@ HTML 报告片段工具集。
 import datetime
 import html
 from typing import Any, Callable, Dict, List, Optional, Tuple
+
 from baibao import Field
 from baibao.base.attr import get_attr
-from baibao.data.meta import Style
 from baibao.data import currency as currency_mod
-
+from baibao.data.meta import Style
 
 # 默认柱状图颜色
 DEFAULT_BAR_COLOR = '#4472c4'
@@ -243,7 +243,7 @@ def table_html(
         return _empty_html(title)
     # 未指定 headers 时，使用第一行数据的键作为列头
     if not headers:
-        headers = {k: None for k in data_list[0].keys()}
+        headers = {k: None for k in data_list[0]}
 
     parts = [f'<div class="table-section"><h3>{_esc(title)}</h3>',
              '<table class="data-table"><thead><tr>']

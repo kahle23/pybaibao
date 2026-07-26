@@ -6,9 +6,7 @@ EasyOCR 策略实现模块。
 本模块仅负责调用引擎并将结果映射为 :class:`OcrResult`。
 """
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
     import numpy as np
@@ -48,9 +46,9 @@ class EasyOcr(OcrService):
 
     def __init__(
         self,
-        langs: list[str] | None = None,
+        langs: Optional[List[str]] = None,
         gpu: bool = False,
-        model_storage_directory: str | None = None,
+        model_storage_directory: Optional[str] = None,
     ) -> None:
         """
         初始化 EasyOCR 策略。
@@ -76,7 +74,7 @@ class EasyOcr(OcrService):
                 )
             import easyocr
 
-        self._langs: list[str] = langs if langs else ['ch_sim', 'en']
+        self._langs: List[str] = langs if langs else ['ch_sim', 'en']
         self._gpu: bool = gpu
         self._reader = easyocr.Reader(
             lang_list=self._langs,
@@ -85,7 +83,7 @@ class EasyOcr(OcrService):
         )
 
     @property
-    def langs(self) -> list[str]:
+    def langs(self) -> List[str]:
         """获取当前配置的语言代码列表，如 ``['ch_sim', 'en']``。"""
         return self._langs
 
@@ -94,7 +92,7 @@ class EasyOcr(OcrService):
         """获取是否启用 GPU 加速。``True`` 表示启用，``False`` 表示使用 CPU。"""
         return self._gpu
 
-    def _recognize_array(self, image: np.ndarray) -> list[OcrResult]:
+    def _recognize_array(self, image: 'np.ndarray') -> List[OcrResult]:
         """
         调用 EasyOCR 识别图像数组。
 

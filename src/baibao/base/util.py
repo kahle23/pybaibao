@@ -8,18 +8,16 @@
 
 import importlib
 from pathlib import Path
-from typing import TypeVar, Type, Any, Dict, Callable, Optional
+from typing import Any, Callable, Dict, Optional, Type, TypeVar, Union
 
-from baibao.base import log
-from baibao.base import pip
+from baibao.base import log, pip
 from baibao.base.validate import check_dataclass_required_fields
-
 
 # 定义类型变量 T，用于表示 dataclass 配置类的实例类型
 T = TypeVar('T')
 
 
-def load_dataclass_from_json_file(file_path: str | Path, data_class: Type[T]) -> T:
+def load_dataclass_from_json_file(file_path: Union[str, Path], data_class: Type[T]) -> T:
     """
     从 JSON 文件加载 dataclass 实例对象。
 
@@ -47,7 +45,7 @@ def load_dataclass_from_json_file(file_path: str | Path, data_class: Type[T]) ->
         raise FileNotFoundError(f"文件不存在: {file_path}")
     # 读取 JSON 文件内容
     with open(file_path, 'r', encoding='utf-8') as f:
-        data: dict[str, Any] = json.load(f)
+        data: Dict[str, Any] = json.load(f)
     # 校验必填字段
     check_dataclass_required_fields(data, data_class)
     return data_class(**data)

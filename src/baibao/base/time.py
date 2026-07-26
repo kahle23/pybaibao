@@ -5,13 +5,13 @@
 具备自适应排序优化机制，可根据使用频率提升解析效率。
 """
 
-from datetime import date, time, datetime
-from typing import Optional
+from datetime import date, datetime, time
+from typing import Dict, List, Optional, Union
 
 # 时间格式列表，按优先级排序（datetime 格式在前）
 # 优先级：明确性 > 常用性 > 标准性
 # 格式：{格式字符串: 解析成功次数}
-_TIME_FORMATS: dict[str, int] = {
+_TIME_FORMATS: Dict[str, int] = {
     # ===== 日期时间格式 =====
     # ISO 8601 标准（优先级最高，国际通用）
     "%Y-%m-%dT%H:%M:%S.%fZ": 0,          # ISO 8601 带微秒 UTC
@@ -125,7 +125,7 @@ def remove_format(fmt: str) -> bool:
     return False
 
 
-def get_formats() -> list[str]:
+def get_formats() -> List[str]:
     """
     获取时间格式列表。
 
@@ -135,7 +135,7 @@ def get_formats() -> list[str]:
     return list(_TIME_FORMATS.keys())
 
 
-def get_format_stats() -> dict[str, int]:
+def get_format_stats() -> Dict[str, int]:
     """
     获取格式解析成功次数统计。
 
@@ -159,7 +159,6 @@ def reorder_formats() -> None:
 
     将解析成功次数多的格式移到前面，提高解析效率。
     """
-    global _TIME_FORMATS
     # 按解析成功次数降序排序，次数相同的保持原有顺序
     sorted_items = sorted(_TIME_FORMATS.items(), key=lambda x: x[1], reverse=True)
     _TIME_FORMATS.clear()
@@ -185,11 +184,11 @@ def parse(time_str: str) -> Optional[datetime]:
     # 去掉首尾空格
     time_str = time_str.strip()
     # 尝试解析
-    for fmt in _TIME_FORMATS:
+    for fmt, count in _TIME_FORMATS.items():
         try:
             result = datetime.strptime(time_str, fmt)
             # 解析成功，更新统计
-            _TIME_FORMATS[fmt] = _TIME_FORMATS.get(fmt, 0) + 1
+            _TIME_FORMATS[fmt] = count + 1
             # 定期重新排序格式列表（每 100 次成功解析后）
             if _TIME_FORMATS[fmt] % 100 == 0:
                 reorder_formats()
@@ -232,7 +231,7 @@ def parse_time(time_str: str) -> Optional[time]:
     return dt.time() if dt else None
 
 
-def format(time_obj: date | time | datetime | None, fmt: str = "%Y-%m-%d %H:%M:%S") -> str | None:
+def format(time_obj: Optional[Union[date, time, datetime]], fmt: str = "%Y-%m-%d %H:%M:%S") -> Optional[str]:
     """
     格式化日期/时间对象为字符串。
 
@@ -250,7 +249,7 @@ def format(time_obj: date | time | datetime | None, fmt: str = "%Y-%m-%d %H:%M:%
     return time_obj.strftime(fmt)
 
 
-def format_str(time_str: str, fmt: str = "%Y-%m-%d %H:%M:%S") -> str | None:
+def format_str(time_str: str, fmt: str = "%Y-%m-%d %H:%M:%S") -> Optional[str]:
     """
     解析日期/时间字符串后按指定格式输出。
 

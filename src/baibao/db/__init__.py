@@ -8,7 +8,7 @@ from baibao.db import sql
 from baibao.db.sql import DbCfg, DbClient
 
 __all__ = [
-    'sql',
     'DbCfg',
     'DbClient',
+    'sql',
 ]

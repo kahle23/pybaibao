@@ -17,8 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Union
 
-from baibao.base import util
-from baibao.base import log
+from baibao.base import log, util
 from baibao.base.validate import check_required_fields_not_empty
 
 
@@ -140,12 +139,12 @@ class DbClient:
             except ImportError:
                 PooledDB = util.import_module('DBUtils.PooledDB').PooledDB
             # 构建连接池参数
-            pool_kwargs = dict(
-                creator=driver,
-                mincached=self.mincached,
-                maxcached=self.maxcached,
-                maxconnections=self.maxconnections,
-            )
+            pool_kwargs = {
+                'creator': driver,
+                'mincached': self.mincached,
+                'maxcached': self.maxcached,
+                'maxconnections': self.maxconnections,
+            }
             pool_kwargs.update(self._build_connect_kwargs())
             # 仅在驱动支持 cursors（如 pymysql）时设置 cursorclass
             if hasattr(driver, 'cursors'):
@@ -178,13 +177,13 @@ class DbClient:
         psycopg2 不支持 charset 参数，需通过 client_encoding 设置；
         pymysql 支持 charset 参数直接传入。
         """
-        kwargs = dict(
-            host=self.cfg.host,
-            port=self.cfg.port,
-            user=self.cfg.username,
-            password=self.cfg.password,
-            database=self.cfg.database,
-        )
+        kwargs = {
+            'host': self.cfg.host,
+            'port': self.cfg.port,
+            'user': self.cfg.username,
+            'password': self.cfg.password,
+            'database': self.cfg.database,
+        }
         if self.cfg.db_type.lower() == 'mysql':
             kwargs['charset'] = self.cfg.charset
         elif self.cfg.db_type.lower() == 'postgresql':

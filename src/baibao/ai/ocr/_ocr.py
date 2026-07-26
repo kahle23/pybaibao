@@ -9,13 +9,11 @@ OCR 核心抽象与管理模块。
 最大程度复用代码并保证各引擎行为一致。
 """
 
-from __future__ import annotations
-
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from threading import Lock
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
 if TYPE_CHECKING:
     # numpy 是 OCR 场景下不可避免的依赖，而非额外负担：
@@ -40,7 +38,7 @@ class OcrResult:
     """
 
     text: str
-    bbox: list[tuple[int, int]]
+    bbox: List[Tuple[int, int]]
     confidence: float
 
 
@@ -63,7 +61,7 @@ class OcrService(ABC):
     """
 
     @abstractmethod
-    def _recognize_array(self, image: np.ndarray) -> list[OcrResult]:
+    def _recognize_array(self, image: 'np.ndarray') -> List[OcrResult]:
         """
         对已加载的图像数组执行 OCR 识别（子类唯一需实现的核心方法）。
 
@@ -82,7 +80,7 @@ class OcrService(ABC):
         """
 
     @staticmethod
-    def _load_image(image: str | np.ndarray) -> np.ndarray:
+    def _load_image(image: Union[str, 'np.ndarray']) -> 'np.ndarray':
         """
         将输入统一加载为 OpenCV 图像数组。
 
@@ -121,7 +119,7 @@ class OcrService(ABC):
         )
 
     @staticmethod
-    def _filter_results(results: list[OcrResult]) -> list[OcrResult]:
+    def _filter_results(results: List[OcrResult]) -> List[OcrResult]:
         """
         清洗识别结果：去除首尾空白，过滤空文本。
 
@@ -134,7 +132,7 @@ class OcrService(ABC):
         Returns:
             清洗后的 :class:`OcrResult` 列表，文本均为去除首尾空白的非空字符串。
         """
-        cleaned: list[OcrResult] = []
+        cleaned: List[OcrResult] = []
         for r in results:
             text = r.text.strip() if r.text else ""
             if text:
@@ -143,7 +141,7 @@ class OcrService(ABC):
                 )
         return cleaned
 
-    def recognize(self, image: str | np.ndarray) -> str:
+    def recognize(self, image: Union[str, 'np.ndarray']) -> str:
         """
         识别图片中的文字，返回纯文本结果。
 
@@ -163,8 +161,8 @@ class OcrService(ABC):
         return '\n'.join(r.text for r in results)
 
     def recognize_with_details(
-        self, image: str | np.ndarray
-    ) -> list[OcrResult]:
+        self, image: Union[str, 'np.ndarray']
+    ) -> List[OcrResult]:
         """
         识别图片中的文字，返回包含位置与置信度的详细结果。
 
@@ -184,11 +182,11 @@ class OcrService(ABC):
 
     def recognize_and_draw(
         self,
-        image: str | np.ndarray,
-        output_path: str | None = None,
-        color: tuple[int, int, int] = (0, 255, 0),
+        image: Union[str, 'np.ndarray'],
+        output_path: Optional[str] = None,
+        color: Tuple[int, int, int] = (0, 255, 0),
         thickness: int = 2,
-    ) -> np.ndarray:
+    ) -> 'np.ndarray':
         """
         识别图片中的文字，并在图片上绘制边界框与文本标签。
 
@@ -237,14 +235,14 @@ class OcrService(ABC):
 # region ======== 模块级 OCR 管理 ========
 
 # 存储不同配置名对应的 OcrService 实例
-_ocrServices: dict[str, OcrService] = {}
+_ocrServices: Dict[str, OcrService] = {}
 # 保护 _ocrServices 字典并发访问的锁
 _ocrServices_lock = Lock()
 # 默认配置名
 DEFAULT_OCR_NAME = "default"
 
 
-def get_ocr_service(ocr_name: str | None = None) -> OcrService:
+def get_ocr_service(ocr_name: Optional[str] = None) -> OcrService:
     """
     获取指定配置名对应的 OcrService 实例。
 
@@ -296,7 +294,7 @@ def set_ocr_service(ocr_name: str, service: OcrService) -> None:
         _ocrServices[ocr_name] = service
 
 
-def remove_ocr_service(ocr_name: str | None = None) -> None:
+def remove_ocr_service(ocr_name: Optional[str] = None) -> None:
     """
     移除指定配置名对应的 OcrService 实例。
 
@@ -309,7 +307,7 @@ def remove_ocr_service(ocr_name: str | None = None) -> None:
         _ocrServices.pop(ocr_name, None)
 
 
-def recognize(image: str | np.ndarray, ocr_name: str | None = None) -> str:
+def recognize(image: Union[str, 'np.ndarray'], ocr_name: Optional[str] = None) -> str:
     """
     识别图片中的文字，返回纯文本结果。
 
@@ -324,8 +322,8 @@ def recognize(image: str | np.ndarray, ocr_name: str | None = None) -> str:
 
 
 def recognize_with_details(
-    image: str | np.ndarray, ocr_name: str | None = None
-) -> list[OcrResult]:
+    image: Union[str, 'np.ndarray'], ocr_name: Optional[str] = None
+) -> List[OcrResult]:
     """
     识别图片中的文字，返回包含位置与置信度的详细结果。
 
@@ -340,12 +338,12 @@ def recognize_with_details(
 
 
 def recognize_and_draw(
-    image: str | np.ndarray,
-    output_path: str | None = None,
-    color: tuple[int, int, int] = (0, 255, 0),
+    image: Union[str, 'np.ndarray'],
+    output_path: Optional[str] = None,
+    color: Tuple[int, int, int] = (0, 255, 0),
     thickness: int = 2,
-    ocr_name: str | None = None,
-) -> np.ndarray:
+    ocr_name: Optional[str] = None,
+) -> 'np.ndarray':
     """
     识别图片中的文字，并在图片上绘制边界框与文本标签。
 

@@ -3,7 +3,8 @@ pip 命令 - 安装和升级 Python 包。
 """
 
 from typing import Any, List
-from baibao.base import log, pip, Command
+
+from baibao.base import Command, log, pip
 
 
 class PipInstallCommand(Command):

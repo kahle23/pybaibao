@@ -5,16 +5,15 @@
 有效防止因字段缺失或为空导致的运行时错误。
 """
 
-from dataclasses import fields, MISSING
-from typing import TypeVar, Type, Any, Sequence
-
+from dataclasses import MISSING, fields
+from typing import Any, Dict, List, Optional, Sequence, Type, TypeVar
 
 # 定义类型变量 T，用于表示 dataclass 配置类的实例类型
 T = TypeVar('T')
 
 
-def check_dataclass_required_fields(data: dict[str, Any], data_class: Type[T], 
-    required_fields: list[str] | None = None
+def check_dataclass_required_fields(data: Dict[str, Any], data_class: Type[T],
+    required_fields: Optional[List[str]] = None
 ) -> None:
     """
     检查数据字典是否包含构造 dataclass 所需的必填字段。
@@ -45,7 +44,7 @@ def check_dataclass_required_fields(data: dict[str, Any], data_class: Type[T],
 
 
 def check_required_fields_not_empty(obj: Any, required_fields: Sequence[str], 
-    context: str | None = None
+    context: Optional[str] = None
 ) -> None:
     """
     检查对象的必填字段是否有值（非 None、非空字符串）。

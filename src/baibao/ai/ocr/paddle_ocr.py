@@ -6,9 +6,7 @@ PaddleOCR 策略实现模块。
 本模块仅负责调用引擎并将结果映射为 :class:`OcrResult`。
 """
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
     import numpy as np
@@ -91,7 +89,7 @@ class PaddleOcr(OcrService):
         """获取是否启用角度分类器。"""
         return self._use_angle_cls
 
-    def _recognize_array(self, image: np.ndarray) -> list[OcrResult]:
+    def _recognize_array(self, image: 'np.ndarray') -> List[OcrResult]:
         """
         调用 PaddleOCR 识别图像数组。
 
