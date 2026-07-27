@@ -8,6 +8,7 @@
 from baibao.base import CommandService
 from baibao.util.commands.help_command import BaibaoHelpCommand
 from baibao.util.commands.kbase_command import KbaseInitCommand
+from baibao.util.commands.path_command import PythonPathSetupCommand
 from baibao.util.commands.pip_command import PipInstallCommand, PipUpgradeCommand
 from baibao.util.commands.pypr_command import PyCleanCommand
 
@@ -24,3 +25,4 @@ command_service.register(PipInstallCommand())
 command_service.register(PipUpgradeCommand())
 command_service.register(PyCleanCommand())
 command_service.register(KbaseInitCommand())
+command_service.register(PythonPathSetupCommand())
