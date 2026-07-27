@@ -134,7 +134,7 @@ class KbaseTemplate:
         proj = base / f"{num}-{name}"
         if proj.exists() and any(proj.iterdir()):
             if not silent:
-                log.warn(f"{proj} 已存在且非空，已跳过（不覆盖）")
+                log.warning("%s 已存在且非空，已跳过（不覆盖）", proj)
             return False
 
         for folder, subs in template.items():

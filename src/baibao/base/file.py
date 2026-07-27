@@ -51,7 +51,7 @@ def remove_target_dirs(base_dir: str, target_name: str, recursive: bool = False)
                     log.info(f"已删除: {target_path}")
                     removed += 1
                 except PermissionError as e:
-                    log.warn(f"删除失败 (权限不足): {target_path} - {e}")
+                    log.warning("删除失败 (权限不足): %s - %s", target_path, e)
     else:
         # 只检查顶层目录
         target_path = os.path.join(base_dir, target_name)
@@ -61,7 +61,7 @@ def remove_target_dirs(base_dir: str, target_name: str, recursive: bool = False)
                 log.info(f"已删除: {target_path}")
                 removed = 1
             except PermissionError as e:
-                log.warn(f"删除失败 (权限不足): {target_path} - {e}")
+                log.warning("删除失败 (权限不足): %s - %s", target_path, e)
     
     return removed
 
@@ -107,7 +107,7 @@ def remove_suffix_dirs(base_dir: str, suffix: str, recursive: bool = False) -> i
                         log.info(f"已删除: {target_path}")
                         removed += 1
                     except PermissionError as e:
-                        log.warn(f"删除失败 (权限不足): {target_path} - {e}")
+                        log.warning("删除失败 (权限不足): %s - %s", target_path, e)
     else:
         # 只检查顶层目录
         for entry in os.listdir(base_dir):
@@ -118,6 +118,6 @@ def remove_suffix_dirs(base_dir: str, suffix: str, recursive: bool = False) -> i
                     log.info(f"已删除: {full_path}")
                     removed += 1
                 except PermissionError as e:
-                    log.warn(f"删除失败 (权限不足): {full_path} - {e}")
+                    log.warning("删除失败 (权限不足): %s - %s", full_path, e)
     
     return removed

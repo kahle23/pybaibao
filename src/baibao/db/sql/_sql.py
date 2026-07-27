@@ -258,7 +258,7 @@ def query(
         cols = [desc[0] for desc in cursor.description] if cursor.description else None
         # 无法获取列名描述
         if cols is None:
-            log.warn("无法获取列名描述，将使用位置索引 field_0, field_1...")
+            log.warning("无法获取列名描述，将使用位置索引 field_0, field_1...")
         # 处理结果集
         result = []
         for row in rows:

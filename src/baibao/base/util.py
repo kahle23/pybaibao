@@ -75,7 +75,7 @@ def import_module(module_name: str, install_name: Optional[str] = None):
         log.debug(f"正在导入模块 {module_name}")
         return importlib.import_module(module_name)
     except ImportError:
-        log.warn(f"模块 {module_name} 未安装，开始安装 {install_name}")
+        log.warning("模块 %s 未安装，开始安装 %s", module_name, install_name)
         # 尝试安装模块
         success, msg = pip.install(install_name)
         if not success:

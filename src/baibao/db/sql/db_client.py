@@ -247,7 +247,7 @@ class DbClient:
             finally:
                 conn.close()
         except Exception as e:
-            log.warn(f"数据库连接测试失败: {e}")
+            log.warning("数据库连接测试失败: %s", e)
             return False
 
     def __enter__(self):

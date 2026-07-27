@@ -35,7 +35,7 @@ _LEVEL_PRIORITY = {
 _LOG_LEVEL = "INFO"
 
 
-def get_log_level():
+def get_log_level() -> str:
     """
     获取当前全局日志级别。
 
@@ -45,7 +45,7 @@ def get_log_level():
     return _LOG_LEVEL
 
 
-def set_log_level(level):
+def set_log_level(level: str) -> None:
     """
     设置全局日志级别。
 
@@ -60,53 +60,94 @@ def set_log_level(level):
         print(f"无效的日志级别: {level}，有效值为 DEBUG/INFO/WARN/ERROR")
 
 
-def _log(level, msg):
+def _log(level: str, msg: str, *args) -> None:
     """
     内部日志输出函数。
 
     根据当前 _LOG_LEVEL 决定是否输出日志。
     USAGE 级别特殊，不受 _LOG_LEVEL 限制，始终输出。
     打印时将级别名补齐到5字符宽度，保证输出对齐。
+
+    支持 % 格式化：如果有 args，则使用 msg % args 格式化消息。
+
+    Args:
+        level: 日志级别。
+        msg: 日志消息或格式化模板。
+        *args: 格式化参数。
     """
     if level == "USAGE" or _LEVEL_PRIORITY.get(level, 0) >= _LEVEL_PRIORITY.get(_LOG_LEVEL, 1):
+        # 如果有参数，使用 % 格式化
+        if args:
+            try:
+                formatted_msg = msg % args
+            except (TypeError, ValueError) as e:
+                formatted_msg = f"{msg} (格式化失败: {e})"
+        else:
+            formatted_msg = msg
+
         color = _LOG_COLORS.get(level, _LOG_COLORS["RESET"])
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(
-            f"{color}[{level.ljust(5)}]{_LOG_COLORS['RESET']} {timestamp} - {msg}"
+            f"{color}[{level.ljust(5)}]{_LOG_COLORS['RESET']} {timestamp} - {formatted_msg}"
         )
 
 
-def debug(msg):
+def debug(msg: str, *args) -> None:
     """
-    输出调试级别日志（仅在 _LOG_LEVEL 为 DEBUG 时显示）。
+    输出调试级别日志。
+
+    仅在全局日志级别为 DEBUG 时显示。
+
+    Args:
+        msg: 日志消息或格式化模板（支持 %s、%d 等）。
+        *args: 格式化参数。
     """
-    _log("DEBUG", msg)
+    _log("DEBUG", msg, *args)
 
 
-def info(msg):
+def info(msg: str, *args) -> None:
     """
-    输出信息级别日志（默认级别及以上显示）。
+    输出信息级别日志。
+
+    默认级别及以上显示。
+
+    Args:
+        msg: 日志消息或格式化模板（支持 %s、%d 等）。
+        *args: 格式化参数。
     """
-    _log("INFO", msg)
+    _log("INFO", msg, *args)
 
 
-def warn(msg):
+def warning(msg: str, *args) -> None:
     """
     输出警告级别日志。
+
+    Args:
+        msg: 日志消息或格式化模板（支持 %s、%d 等）。
+        *args: 格式化参数。
     """
-    _log("WARN", msg)
+    _log("WARN", msg, *args)
 
 
-def error(msg):
+def error(msg: str, *args) -> None:
     """
     输出错误级别日志。
+
+    Args:
+        msg: 日志消息或格式化模板（支持 %s、%d 等）。
+        *args: 格式化参数。
     """
-    _log("ERROR", msg)
+    _log("ERROR", msg, *args)
 
 
-def usage(msg):
+def usage(msg: str, *args) -> None:
     """
     输出用途/用法级别日志（始终显示，不受 _LOG_LEVEL 限制）。
-    """
-    _log("USAGE", msg)
 
+    始终显示，不受全局日志级别限制。
+
+    Args:
+        msg: 日志消息或格式化模板（支持 %s、%d 等）。
+        *args: 格式化参数。
+    """
+    _log("USAGE", msg, *args)
