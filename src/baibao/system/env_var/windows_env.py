@@ -10,8 +10,7 @@ import os
 import subprocess
 from typing import Optional
 
-from kunlun.base import log
-from kunlun.system import SCOPE_USER, EnvVarService
+from kunlun import EnvVarService, env_var, log
 
 # 系统环境变量注册表路径
 _HKLM_ENV_PATH = r"HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment"
@@ -87,7 +86,7 @@ class WindowsEnvService(EnvVarService):
 
     def set_var(self, name: str, value: str, scope: Optional[int] = None) -> bool:
         # scope：None / SCOPE_SYSTEM(1) -> 'Machine'；SCOPE_USER(2) -> 'User'
-        target = 'User' if scope == SCOPE_USER else 'Machine'
+        target = 'User' if scope == env_var.SCOPE_USER else 'Machine'
         try:
             # 优先使用 PowerShell
             ps_cmd = f'[Environment]::SetEnvironmentVariable("{name}", "{value}", "{target}")'

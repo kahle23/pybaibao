@@ -4,10 +4,7 @@ pip 命令 - 安装和升级 Python 包。
 
 from typing import Any, List
 
-from kunlun.base import log
-from kunlun.system import pip
-
-from baibao.base import Command
+from kunlun import Command, log, pip
 
 
 class PipInstallCommand(Command):

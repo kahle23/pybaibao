@@ -52,7 +52,7 @@ class LlmCfg:
             ValueError: 文件缺少必填字段时抛出。
             json.JSONDecodeError: JSON 格式解析失败时抛出。
         """
-        from kunlun.base import util
+        from kunlun import util
         cfg = util.load_dataclass_from_json_file(config_path, LlmCfg)
         return cfg
 

@@ -122,7 +122,7 @@ python -m baibao help pip_install
 该模块采用命令模式设计：
 
 - `Command` 基类：定义命令接口（`name`、`description`、`usage`、`execute`）
-- `CommandService`：管理命令注册和执行
+- `CommandManager`：管理命令注册和执行
 - 具体命令类：实现具体的命令逻辑
 
 ### 扩展命令
@@ -134,7 +134,7 @@ python -m baibao help pip_install
 3. 在 `commands/__init__.py` 中注册命令
 
 ```python
-from baibao.base import Command
+from kunlun.base.cli import Command
 
 class MyCommand(Command):
     @property

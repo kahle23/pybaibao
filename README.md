@@ -33,7 +33,6 @@ pip install baibao -i https://pypi.tuna.tsinghua.edu.cn/simple/
 | 分类 | 模块 | 功能 | 文档 |
 |------|------|------|------|
 | **AI** | `baibao.ai` | LLM 对话（OpenAI 兼容）、OCR 文字识别（EasyOCR/PaddleOCR） | [文档](https://github.com/kahle23/pybaibao/blob/master/docs/ai.md) |
-| **基础** | `baibao.base` | 日志、包管理、动态导入、配置加载 | [文档](https://github.com/kahle23/pybaibao/blob/master/docs/base.md) |
 | **数据处理** | `baibao.data` | 货币查询、模板引擎（Jinja2） | [文档](https://github.com/kahle23/pybaibao/blob/master/docs/data.md) |
 | **数据** | `baibao.db` | MySQL/PostgreSQL 连接池与查询 | [文档](https://github.com/kahle23/pybaibao/blob/master/docs/db.md) |
 | **消息** | `baibao.message` | 邮件发送（文本/HTML/附件） | [文档](https://github.com/kahle23/pybaibao/blob/master/docs/message.md) |

@@ -9,7 +9,7 @@ import datetime
 import html
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from kunlun.base.attr import get_attr
+from kunlun import attr
 
 from baibao import Field
 from baibao.data import currency as currency_mod
@@ -96,7 +96,7 @@ def _field_color(field: Field) -> str:
     Args:
         field: 字段元信息（允许为 ``None``，此时返回默认色）
     """
-    style = get_attr(field, 'style', None)
+    style = attr.get_attr(field, 'style', None)
     color = (style.color if style else None)
     return color or DEFAULT_BAR_COLOR
 
@@ -120,8 +120,8 @@ def _get_currency_symbol(field: Field, data: Dict[str, Any]) -> str:
     Returns:
         货币符号字符串；未配置币种时返回空串
     """
-    cur_field = get_attr(field, 'currency_field', None)
-    cur_value = get_attr(field, 'currency_value', None)
+    cur_field = attr.get_attr(field, 'currency_field', None)
+    cur_value = attr.get_attr(field, 'currency_value', None)
     if cur_field:
         code = str(data.get(cur_field, '') or '')
         return currency_mod.get_symbol_by_code(code, code)
@@ -194,7 +194,7 @@ def format_value(data: Dict[str, Any], field: Field, default: Any = 0) -> str:
     Returns:
         格式化后的字符串，例如 ``"¥ 1,234.56"``、``"1,234.56"`` 或 ``""``
     """
-    key = get_attr(field, 'name', None)
+    key = attr.get_attr(field, 'name', None)
     value = data.get(key, default) if key else default
     if value is None:
         value = default
@@ -204,7 +204,7 @@ def format_value(data: Dict[str, Any], field: Field, default: Any = 0) -> str:
         formatted = f'{value:,}'
     else:
         return str(value)
-    if get_attr(field, 'is_currency', False):
+    if attr.get_attr(field, 'is_currency', False):
         sym = _get_currency_symbol(field, data)
         return f'{sym} {formatted}'
     return formatted
@@ -249,7 +249,7 @@ def table_html(
     parts = [f'<div class="table-section"><h3>{_esc(title)}</h3>',
              '<table class="data-table"><thead><tr>']
     for key, field in headers.items():
-        display = get_attr(field, 'display_name', None) or key
+        display = attr.get_attr(field, 'display_name', None) or key
         parts.append(f'<th>{_esc(display)}</th>')
     parts.append('</tr></thead><tbody>')
 
@@ -292,9 +292,9 @@ def topn_single_bar_chart(
     if not data_list:
         return _empty_html(title)
 
-    name_key = get_attr(name_field, 'name', '') or ''
-    value_key = get_attr(value_field, 'name', '') or ''
-    value_label = get_attr(value_field, 'display_name', '') or value_key
+    name_key = attr.get_attr(name_field, 'name', '') or ''
+    value_key = attr.get_attr(value_field, 'name', '') or ''
+    value_label = attr.get_attr(value_field, 'display_name', '') or value_key
 
     # 取绝对值计算宽度，避免负值导致宽度异常
     max_value = max(abs(r.get(value_key, 0) or 0) for r in data_list) or 1
@@ -358,18 +358,18 @@ def topn_multi_bar_chart(
     if not data_list:
         return _empty_html(title)
 
-    name_key = get_attr(name_field, 'name', '') or ''
+    name_key = attr.get_attr(name_field, 'name', '') or ''
 
     # 各系列独立计算最大绝对值，用于柱宽归一化
     max_values: Dict[str, float] = {}
     for vf in value_fields:
-        key = get_attr(vf, 'name', '') or ''
+        key = attr.get_attr(vf, 'name', '') or ''
         max_values[key] = max(abs(r.get(key, 0) or 0) for r in data_list) or 1
 
     legend_items: List[Tuple[str, Optional[str]]] = []
     for vf in value_fields:
-        key = get_attr(vf, 'name', '') or ''
-        label = get_attr(vf, 'display_name', '') or key
+        key = attr.get_attr(vf, 'name', '') or ''
+        label = attr.get_attr(vf, 'display_name', '') or key
         legend_items.append((label, _field_color(vf)))
 
     parts = [_chart_header(title, legend_items), '<div class="horizontal-chart-wrapper">']
@@ -387,8 +387,8 @@ def topn_multi_bar_chart(
 
         formatted_values = []
         for vf in value_fields:
-            key = get_attr(vf, 'name', '') or ''
-            label = get_attr(vf, 'display_name', '') or key
+            key = attr.get_attr(vf, 'name', '') or ''
+            label = attr.get_attr(vf, 'display_name', '') or key
             color = _field_color(vf)
             value = data.get(key, 0) or 0
             width_pct = min(abs(value) / max_values[key] * 100, 100)
@@ -454,7 +454,7 @@ def multi_line_chart(
     # 收集所有数值，计算 Y 轴范围
     all_vals = []
     for vf in value_fields:
-        key = get_attr(vf, 'name', '') or ''
+        key = attr.get_attr(vf, 'name', '') or ''
         for r in rows:
             all_vals.append(r.get(key, 0) or 0)
     v_min = min(0, min(all_vals))
@@ -497,7 +497,7 @@ def multi_line_chart(
     # 第一步：预计算每个系列在各 x 位置的点 (point_x, point_y, value, formatted, color)
     series_points: Dict[int, List[Tuple[float, float, Any, str, str]]] = {}
     for field_idx, vf in enumerate(value_fields):
-        key = get_attr(vf, 'name', '') or ''
+        key = attr.get_attr(vf, 'name', '') or ''
         color = _field_color(vf)
         pts: List[Tuple[float, float, Any, str, str]] = []
         for i, r in enumerate(rows):
@@ -563,8 +563,8 @@ def multi_line_chart(
     # 组装最终 HTML（图例 + SVG）
     legend_items: List[Tuple[str, Optional[str]]] = []
     for vf in value_fields:
-        key = get_attr(vf, 'name', '') or ''
-        label = get_attr(vf, 'display_name', '') or key
+        key = attr.get_attr(vf, 'name', '') or ''
+        label = attr.get_attr(vf, 'display_name', '') or key
         legend_items.append((label, _field_color(vf)))
     parts = [_chart_header(title, legend_items),
              f'<div class="line-chart-wrapper">{"".join(svg)}</div></div>']

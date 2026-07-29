@@ -14,8 +14,7 @@ from email.utils import make_msgid
 from pathlib import Path
 from typing import List, Optional, Union
 
-from kunlun.base import log, util
-from kunlun.base.validate import check_required_fields_not_empty
+from kunlun import log, util, validate
 
 
 @dataclass
@@ -58,7 +57,7 @@ class EmailCfg:
             ValueError: 配置无效时抛出。
         """
         # 检查必填字段
-        check_required_fields_not_empty(self,
+        validate.check_required_fields_not_empty(self,
             ['send_server', 'username', 'password'], '邮件发送配置')
         # 验证端口号范围
         if not (1 <= self.send_port <= 65535):
@@ -77,7 +76,7 @@ class EmailCfg:
             ValueError: 配置无效时抛出。
         """
         # 检查必填字段
-        check_required_fields_not_empty(self,
+        validate.check_required_fields_not_empty(self,
             ['receive_server', 'username', 'password'], '邮件接收配置')
         # 验证端口号范围
         if not (1 <= self.receive_port <= 65535):

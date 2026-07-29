@@ -5,10 +5,7 @@
 import os
 from typing import Any, List
 
-from kunlun.base import log
-
-from baibao.base import Command
-from baibao.base.file import remove_suffix_dirs, remove_target_dirs
+from kunlun import Command, file, log
 
 
 class PyCleanCommand(Command):
@@ -39,12 +36,12 @@ class PyCleanCommand(Command):
 
         removed = 0
         # 删除 build 和 dist（仅顶层）
-        removed += remove_target_dirs(base_dir, "build")
-        removed += remove_target_dirs(base_dir, "dist")
+        removed += file.remove_target_dirs(base_dir, "build")
+        removed += file.remove_target_dirs(base_dir, "dist")
         # 删除 *.egg-info
-        removed += remove_suffix_dirs(base_dir, ".egg-info")
+        removed += file.remove_suffix_dirs(base_dir, ".egg-info")
         # 递归删除 __pycache__
-        removed += remove_target_dirs(base_dir, "__pycache__", recursive=True)
+        removed += file.remove_target_dirs(base_dir, "__pycache__", recursive=True)
 
         if removed > 0:
             log.info(f"✓ 清理完成，共删除 {removed} 个目录")

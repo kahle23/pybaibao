@@ -17,8 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Union
 
-from kunlun.base import log, util
-from kunlun.base.validate import check_required_fields_not_empty
+from kunlun import log, util, validate
 
 
 @dataclass

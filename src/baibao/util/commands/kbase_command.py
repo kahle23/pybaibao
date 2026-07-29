@@ -20,9 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from kunlun.base import log
-
-from baibao.base import Command
+from kunlun import Command, log
 
 
 # region ======== 通用工具 ========

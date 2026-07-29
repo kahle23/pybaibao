@@ -6,7 +6,7 @@ BaiBao 命令行入口。
     python -m baibao pip_install requests  安装 Python 包
 """
 
-from baibao.util.commands import command_service
+from baibao.util.commands import command_manager
 
 
 def _on_startup(args):
@@ -35,7 +35,7 @@ def _on_shutdown(args):
 
 if __name__ == "__main__":
     """
-    启动命令服务，并注入生命周期钩子
+    启动命令管理器，并注入生命周期钩子
     （on_startup 在命令执行前调用，on_shutdown 在执行后调用）
     """
-    command_service.main_cli(on_startup=_on_startup, on_shutdown=_on_shutdown)
+    command_manager.main_cli(on_startup=_on_startup, on_shutdown=_on_shutdown)

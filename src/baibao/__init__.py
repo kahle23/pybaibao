@@ -5,20 +5,11 @@
 涵盖日志、包管理、数据库、消息发送、文字识别等常用场景。
 """
 
-from kunlun.base import action, attr, log, time, util, validate
-from kunlun.system import env
+from kunlun import env
 
 from baibao.ai import llm, ocr
 from baibao.ai.llm import ChatMessage, ChatResponse, LlmCfg, LlmService, OpenAiLlm
 from baibao.ai.ocr import EasyOcr, OcrResult, OcrService, PaddleOcr
-from baibao.base import (
-    Command,
-    CommandNotFoundError,
-    CommandService,
-    HelpCommand,
-    cli,
-    file,
-)
 from baibao.data import Field, Jinja2Engine, Style, TemplateEngine, currency, template
 from baibao.db import DbCfg, DbClient, sql
 from baibao.message import email
@@ -31,9 +22,6 @@ __version__ = env.get_package_version("baibao")
 __all__ = [
     "ChatMessage",
     "ChatResponse",
-    "Command",
-    "CommandNotFoundError",
-    "CommandService",
     "DbCfg",
     "DbClient",
     "EasyOcr",
@@ -41,7 +29,6 @@ __all__ = [
     "EmailClient",
     "EmailSendResult",
     "Field",
-    "HelpCommand",
     "Jinja2Engine",
     "LlmCfg",
     "LlmService",
@@ -51,18 +38,10 @@ __all__ = [
     "PaddleOcr",
     "Style",
     "TemplateEngine",
-    'action',
-    'attr',
-    'cli',
     "currency",
     "email",
-    'file',
     "llm",
-    "log",
     "ocr",
     "sql",
     "template",
-    "time",
-    "util",
-    "validate",
 ]

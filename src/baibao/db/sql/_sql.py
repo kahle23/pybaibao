@@ -9,7 +9,7 @@ import threading
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from kunlun.base import log, util
+from kunlun import log, util
 
 from .db_client import DbCfg, DbClient
 

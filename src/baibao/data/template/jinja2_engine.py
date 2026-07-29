@@ -10,7 +10,7 @@ from typing import IO, TYPE_CHECKING, Any, Callable, Dict, Optional, Type
 if TYPE_CHECKING:
     import jinja2  # type: ignore[import-not-found]
 
-from kunlun.base import util
+from kunlun import util
 
 from ._template import TemplateEngine
 
