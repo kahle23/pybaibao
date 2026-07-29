@@ -5,7 +5,7 @@
 涵盖日志、包管理、数据库、消息发送、文字识别等常用场景。
 """
 
-from kunlun.base import log, time
+from kunlun.base import action, attr, log, time, util, validate
 from kunlun.system import env
 
 from baibao.ai import llm, ocr
@@ -16,12 +16,8 @@ from baibao.base import (
     CommandNotFoundError,
     CommandService,
     HelpCommand,
-    action,
-    attr,
     cli,
     file,
-    util,
-    validate,
 )
 from baibao.data import Field, Jinja2Engine, Style, TemplateEngine, currency, template
 from baibao.db import DbCfg, DbClient, sql

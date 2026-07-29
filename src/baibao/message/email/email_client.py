@@ -14,10 +14,8 @@ from email.utils import make_msgid
 from pathlib import Path
 from typing import List, Optional, Union
 
-from kunlun.base import log
-
-from baibao.base import util
-from baibao.base.validate import check_required_fields_not_empty
+from kunlun.base import log, util
+from kunlun.base.validate import check_required_fields_not_empty
 
 
 @dataclass

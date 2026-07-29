@@ -4,18 +4,20 @@
 
 ## 目录
 
-- [util - 工具模块](#1-util---工具模块)
+- [util - 工具模块（已迁移）](#1-util---工具模块已迁移)
 - [log - 日志模块](#2-log---日志模块)
 - [pip - 包管理工具](#3-pip---包管理工具)
 - [time - 时间模块](#4-time---时间模块)
-- [validate - 验证模块](#5-validate---验证模块)
+- [validate - 验证模块（已迁移）](#5-validate---验证模块已迁移)
 - [env - 环境模块](#6-env---环境模块)
 - [cli - 命令模块](#7-cli---命令模块)
-- [action - 动作模块](#8-action---动作模块)
+- [action - 动作模块（已迁移）](#8-action---动作模块已迁移)
 
 ---
 
-## 1. util - 工具模块
+## 1. util - 工具模块（已迁移）
+
+工具模块（动态导入、配置加载、模块懒加载）已迁移至底层库 `kunlun.base.util`，不再属于 `baibao.base`。
 
 提供通用的工具方法，包括动态导入和配置加载。
 
@@ -24,7 +26,7 @@
 自动检测并安装缺失的 Python 包，安装失败时抛出 `ImportError`。
 
 ```python
-from baibao.base import util
+from kunlun.base import util
 
 # 导入标准库（已存在，直接返回）
 json = util.import_module("json")
@@ -42,7 +44,7 @@ cv2 = util.import_module("cv2", install_name="opencv-python")
 
 ```python
 from dataclasses import dataclass
-from baibao.base import util
+from kunlun.base import util
 
 @dataclass
 class AppConfig:
@@ -73,7 +75,7 @@ config = util.load_dataclass_from_json_file(Path("config.json"), AppConfig)
 生成一个 `__getattr__` 函数，用于实现模块属性的延迟导入。首次访问属性时才导入对应模块，导入后缓存到全局变量中，有效提升大型项目的启动性能。
 
 ```python
-from baibao.base import util
+from kunlun.base import util
 
 # 定义懒加载映射
 _LAZY_IMPORTS = {
@@ -263,7 +265,9 @@ time.reorder_formats()
 
 ---
 
-## 5. validate - 验证模块
+## 5. validate - 验证模块（已迁移）
+
+验证模块（dataclass 必填字段检查、字段非空校验）已迁移至底层库 `kunlun.base.validate`，不再属于 `baibao.base`。
 
 提供通用的数据验证方法，适用于 dataclass 等数据结构。
 
@@ -273,7 +277,7 @@ time.reorder_formats()
 
 ```python
 from dataclasses import dataclass
-from baibao.base import validate
+from kunlun.base import validate
 
 @dataclass
 class UserConfig:
@@ -298,7 +302,7 @@ validate.check_dataclass_required_fields(data, UserConfig, required_fields=["nam
 检查对象的必填字段是否有值（非 None、非空字符串）。
 
 ```python
-from baibao.base import validate
+from kunlun.base import validate
 
 class User:
     def __init__(self, name, email):
@@ -446,7 +450,9 @@ service.execute_command("help", ["--greet"])
 
 ---
 
-## 8. action - 动作模块
+## 8. action - 动作模块（已迁移）
+
+动作模块（动作注册、查询、执行、清空）已迁移至底层库 `kunlun.base.action`，不再属于 `baibao.base`。
 
 提供动作（Action）的注册、取消注册、获取和执行能力。动作为任意可调用对象，由 `name` 唯一标识，支持通配符查询名称；注册允许覆盖同名动作。模块级单例，内部通过 `threading.Lock` 保证线程安全。
 
@@ -465,7 +471,7 @@ service.execute_command("help", ["--greet"])
 ### 8.2 注册与取消注册
 
 ```python
-from baibao.base import action
+from kunlun.base import action
 
 def greet(name: str) -> str:
     return f"Hello, {name}!"
@@ -484,7 +490,7 @@ removed = action.unregister("greet")
 ### 8.3 查询动作
 
 ```python
-from baibao.base import action
+from kunlun.base import action
 
 # 判断动作是否存在
 action.has_action("greet")  # True / False
@@ -503,7 +509,7 @@ names = action.get_names("*ea*")   # ["greet"]
 ### 8.4 执行动作
 
 ```python
-from baibao.base import action
+from kunlun.base import action
 
 # 注册并执行
 action.register("add", lambda a, b: a + b)
@@ -522,7 +528,7 @@ except KeyError as e:
 ### 8.5 清空动作
 
 ```python
-from baibao.base import action
+from kunlun.base import action
 
 # 清空匹配的动作，返回实际清除的数量
 count = action.clear("gre*")
@@ -539,7 +545,7 @@ total = action.clear()
 
 ```python
 from dataclasses import dataclass
-from baibao.base import util, validate
+from kunlun.base import util, validate
 
 @dataclass
 class DatabaseConfig:
@@ -563,7 +569,7 @@ validate.check_required_fields_not_empty(
 ### 示例 2：动态导入并处理时间
 
 ```python
-from baibao.base import util, time
+from kunlun.base import util, time
 
 # 动态导入 pandas
 pd = util.import_module("pandas")
@@ -580,7 +586,7 @@ print(timestamp)
 ### 示例 3：日志记录工具使用
 
 ```python
-from baibao.base import log
+from kunlun.base import log
 from kunlun.system import pip
 
 log.info("开始安装依赖包")
@@ -601,7 +607,8 @@ else:
 ### 示例 4：构建可扩展的命令行工具
 
 ```python
-from baibao.base import Command, CommandService, log
+from baibao.base import Command, CommandService
+from kunlun.base import log
 
 class VersionCommand(Command):
     @property

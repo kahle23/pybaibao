@@ -9,8 +9,9 @@ import datetime
 import html
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from kunlun.base.attr import get_attr
+
 from baibao import Field
-from baibao.base.attr import get_attr
 from baibao.data import currency as currency_mod
 from baibao.data.meta import Style
 
