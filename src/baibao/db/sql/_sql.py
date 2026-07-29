@@ -9,7 +9,9 @@ import threading
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from baibao.base import log, util
+from kunlun.base import log
+
+from baibao.base import util
 
 from .db_client import DbCfg, DbClient
 

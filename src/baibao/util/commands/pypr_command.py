@@ -5,7 +5,9 @@
 import os
 from typing import Any, List
 
-from baibao.base import Command, log
+from kunlun.base import log
+
+from baibao.base import Command
 from baibao.base.file import remove_suffix_dirs, remove_target_dirs
 
 

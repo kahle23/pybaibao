@@ -129,92 +129,28 @@ log.usage("用法说明")      # 蓝色，始终输出，不受 LOG_LEVEL 限制
 
 ---
 
-## 3. pip - 包管理工具
+## 3. pip - 包管理工具（已迁移）
 
-按优先级依次尝试多个 PyPI 镜像站点安装 Python 包，国内网络环境下自动切换镜像源，提高安装成功率。
+包管理工具（多镜像站点自动切换的 pip 封装）已迁移至底层库
+`kunlun.system.pip`，不再属于 `baibao.base`。
 
 默认镜像优先级：清华 > 阿里云 > 中科大 > PyPI 官方。
 
-### 3.1 Python 命令管理
-
 ```python
-from baibao.base import pip
+from kunlun.system import pip
 
-# 获取当前 Python 命令（默认为当前解释器）
-python_cmd = pip.get_python_command()
-
-# 修改 Python 命令路径
-pip.set_python_command("python3")
-pip.set_python_command("D:\\Python39\\python.exe")
-```
-
-### 3.2 安装包
-
-```python
-from baibao.base import pip
-
-# 安装单个包
+# 安装单个包（自动切换镜像）
 success, msg = pip.install("requests")
-print(success, msg)  # True, 安装信息
 
-# 安装指定版本
-success, msg = pip.install("requests==2.31.0")
+# 批量安装：返回 (成功列表, 失败列表)
+success_list, fail_list = pip.install(["numpy", "pandas"])
 
-# 批量安装
-results = pip.install(["numpy", "pandas", "matplotlib"])
-# results: (成功列表, 失败列表)
-```
-
-### 3.3 升级包
-
-```python
-from baibao.base import pip
-
-# 升级单个包
-success, msg = pip.upgrade("requests")
-
-# 批量升级
-success_list, fail_list = pip.upgrade(["numpy", "pandas"])
-```
-
-### 3.4 卸载包
-
-```python
-from baibao.base import pip
-
-# 卸载单个包
-success, msg = pip.uninstall("requests")
-
-# 批量卸载
-success_list, fail_list = pip.uninstall(["numpy", "pandas"])
-```
-
-### 3.5 自定义镜像源
-
-```python
-from baibao.base import pip
+# 升级 / 卸载
+pip.upgrade("requests")
+pip.uninstall(["numpy", "pandas"])
 
 # 使用自定义镜像源
-success, msg = pip.install(
-    "requests",
-    mirrors=["https://pypi.tuna.tsinghua.edu.cn/simple/"],
-    timeout=60
-)
-```
-
-### 3.6 执行任意 pip 命令
-
-```python
-from baibao.base import pip
-
-# 执行 pip list
-success, msg = pip.execute("list")
-
-# 执行 pip show
-success, msg = pip.execute("show", ["requests"])
-
-# 执行 pip freeze
-success, msg = pip.execute("freeze")
+pip.install("requests", mirrors=["https://pypi.tuna.tsinghua.edu.cn/simple/"], timeout=60)
 ```
 
 ---
@@ -385,42 +321,22 @@ except ValueError as e:
 
 ---
 
-## 6. env - 环境模块
+## 6. env - 环境模块（已迁移）
 
-提供环境和包管理相关的工具函数。
-
-### 6.1 获取 Python 解释器路径
+环境检测模块（平台信息、Python 解释器、模块/包信息查询）已迁移至底层库
+`kunlun.system.env`，不再属于 `baibao.base`。
 
 ```python
-from baibao.base import env
+from kunlun.system import env
 
-# 获取当前 Python 解释器的可执行文件路径
+# 获取当前 Python 解释器路径
 python_exe = env.get_python_executable()
-print(python_exe)  # "D:\\Python39\\python.exe"
-```
 
-### 6.2 获取模块名
+# 获取指定包版本号
+version = env.get_package_version("baibao")
 
-```python
-from baibao.base import env
-
-# 获取当前模块的顶级包名
-module_name = env.get_own_top_package_name()
-
-# 获取调用者的顶级包名（跳过 baibao 内部调用）
-caller_name = env.get_caller_top_package_name()
-```
-
-### 6.3 获取包版本号
-
-```python
-from baibao.base import env
-
-# 获取指定包的版本号
-version = env.get_package_version("requests")
-print(version)  # "2.31.0"
-
-# 包未安装时抛出 PackageNotFoundError
+# 获取调用方顶级包名：baibao 内部调用时需传入 ["baibao"] 以穿透 baibao
+caller_name = env.get_caller_top_package_name(["baibao"])
 ```
 
 ---
@@ -664,7 +580,8 @@ print(timestamp)
 ### 示例 3：日志记录工具使用
 
 ```python
-from baibao.base import log, pip
+from baibao.base import log
+from kunlun.system import pip
 
 log.info("开始安装依赖包")
 
@@ -696,7 +613,7 @@ class VersionCommand(Command):
         return "显示版本信息"
 
     def execute(self, args: list[str]) -> str:
-        from baibao.base import env
+        from kunlun.system import env
         return f"my-tool 1.0.0 (Python {env.get_package_version('baibao')})"
 
 service = CommandService()

@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, List
 if TYPE_CHECKING:
     import numpy as np
 
-from baibao.base import pip
+from kunlun.system import pip
 
 from ._ocr import OcrResult, OcrService
 

@@ -8,9 +8,9 @@ Unix-like 平台（Linux、macOS、BSD 等）的环境变量管理实现。
 import os
 from typing import Optional
 
-from baibao.base import env as _env_info
-from baibao.base import log
+from kunlun.base import log
 from kunlun.system import SCOPE_SYSTEM, EnvVarService
+from kunlun.system import env as _env_info
 
 
 class UnixEnvService(EnvVarService):

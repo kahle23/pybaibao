@@ -10,7 +10,9 @@ import importlib
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Type, TypeVar, Union
 
-from baibao.base import log, pip
+from kunlun.base import log
+from kunlun.system import pip
+
 from baibao.base.validate import check_dataclass_required_fields
 
 # 定义类型变量 T，用于表示 dataclass 配置类的实例类型

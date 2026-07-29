@@ -8,7 +8,7 @@ OpenAI 兼容 LLM 策略实现模块。
 import os
 from typing import Any, Dict, Generator, List, Optional
 
-from baibao.base import pip
+from kunlun.system import pip
 
 from ._llm import ChatMessage, ChatResponse, LlmCfg, LlmService
 

@@ -10,7 +10,7 @@ import os
 import subprocess
 from typing import Optional
 
-from baibao.base import log
+from kunlun.base import log
 from kunlun.system import SCOPE_USER, EnvVarService
 
 # 系统环境变量注册表路径

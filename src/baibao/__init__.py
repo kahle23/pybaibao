@@ -5,6 +5,9 @@
 涵盖日志、包管理、数据库、消息发送、文字识别等常用场景。
 """
 
+from kunlun.base import log, time
+from kunlun.system import env
+
 from baibao.ai import llm, ocr
 from baibao.ai.llm import ChatMessage, ChatResponse, LlmCfg, LlmService, OpenAiLlm
 from baibao.ai.ocr import EasyOcr, OcrResult, OcrService, PaddleOcr
@@ -16,11 +19,7 @@ from baibao.base import (
     action,
     attr,
     cli,
-    env,
     file,
-    log,
-    pip,
-    time,
     util,
     validate,
 )
@@ -30,7 +29,7 @@ from baibao.message import email
 from baibao.message.email import EmailCfg, EmailClient, EmailSendResult
 
 # 不捕获 PackageNotFoundError：能执行到此处说明包已加载，版本缺失应报错而非静默回退
-__version__ = env.get_package_version(env.get_own_top_package_name())
+__version__ = env.get_package_version("baibao")
 
 
 __all__ = [
@@ -61,12 +60,10 @@ __all__ = [
     'cli',
     "currency",
     "email",
-    'env',
     'file',
     "llm",
     "log",
     "ocr",
-    "pip",
     "sql",
     "template",
     "time",

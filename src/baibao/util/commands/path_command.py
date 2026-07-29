@@ -6,7 +6,10 @@ import os
 import platform
 from typing import Any
 
-from baibao.base import Command, env, log
+from kunlun.base import log
+from kunlun.system import env
+
+from baibao.base import Command
 from baibao.system import env_var as sys_env
 
 
