@@ -30,7 +30,7 @@ from baibao.message import email
 from baibao.message.email import EmailCfg, EmailClient, EmailSendResult
 
 # 不捕获 PackageNotFoundError：能执行到此处说明包已加载，版本缺失应报错而非静默回退
-__version__ = env.get_package_version(env.get_current_module_name())
+__version__ = env.get_package_version(env.get_own_top_package_name())
 
 
 __all__ = [

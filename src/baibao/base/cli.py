@@ -392,7 +392,7 @@ class CommandService:
                 help_command = self.get_help_command()
                 help_name = help_command.name if help_command else "help"
                 print(str(e))
-                print(f"使用 'python -m {env.get_caller_module_name()} {help_name}' 查看可用命令")
+                print(f"使用 'python -m {env.get_caller_top_package_name()} {help_name}' 查看可用命令")
                 sys.exit(1)
         finally:
             # 执行关闭回调（为空时跳过）；注意：回调内部不能抛出异常

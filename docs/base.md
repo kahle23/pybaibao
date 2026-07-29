@@ -405,10 +405,10 @@ print(python_exe)  # "D:\\Python39\\python.exe"
 from baibao.base import env
 
 # 获取当前模块的顶级包名
-module_name = env.get_current_module_name()
+module_name = env.get_own_top_package_name()
 
 # 获取调用者的顶级包名（跳过 baibao 内部调用）
-caller_name = env.get_caller_module_name()
+caller_name = env.get_caller_top_package_name()
 ```
 
 ### 6.3 获取包版本号
