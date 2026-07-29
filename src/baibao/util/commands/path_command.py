@@ -7,6 +7,7 @@ import platform
 from typing import Any
 
 from baibao.base import Command, env, log
+from baibao.system import env_var as sys_env
 
 
 class PythonPathSetupCommand(Command):
@@ -70,8 +71,9 @@ class PythonPathSetupCommand(Command):
         Returns:
             设置成功返回 True，失败返回 False。
         """
+        svc = sys_env.env_var_manager.get_service()
         # 检查环境变量是否已存在
-        current_value = env.get_environment_variable(var_name)
+        current_value = svc.get_var(var_name)
         if current_value:
             if current_value == expected_value:
                 log.info("环境变量 %s 已存在且路径相同", var_name)
@@ -82,27 +84,23 @@ class PythonPathSetupCommand(Command):
                         log.info("跳过 %s 设置", var_name)
                         return True  # 跳过不算失败
                 # 设置环境变量
-                if not env.set_environment_variable(var_name, expected_value):
+                if not svc.set_var(var_name, expected_value):
                     log.error("设置环境变量 %s 失败", var_name)
                     return False
                 log.info("[OK] 已设置环境变量 %s=%s", var_name, expected_value)
         else:
             # 环境变量不存在，直接设置
-            if not env.set_environment_variable(var_name, expected_value):
+            if not svc.set_var(var_name, expected_value):
                 log.error("设置环境变量 %s 失败", var_name)
                 return False
             log.info("[OK] 已设置环境变量 %s=%s", var_name, expected_value)
 
-        # 将变量引用添加到 PATH
-        if not env.add_to_path(var_name):
-            log.error("添加 %s 到 PATH 失败", var_name)
+        # 将路径值添加到 PATH
+        if not svc.append_to_path(expected_value):
+            log.error("添加 %s 到 PATH 失败", expected_value)
             return False
 
-        system = platform.system().lower()
-        if system == "windows":
-            log.info("[OK] 已将 %%%s%% 添加到 PATH", var_name)
-        else:
-            log.info("[OK] 已将 $%s 添加到 PATH", var_name)
+        log.info("[OK] 已将 %s 添加到 PATH", expected_value)
 
         return True
 
@@ -174,11 +172,11 @@ class PythonPathSetupCommand(Command):
         if system == "windows":
             log.info("  set %s=%s", self.PYTHON_HOME_VAR, python_home)
             log.info("  set %s=%s", self.SCRIPT_HOME_VAR, scripts_dir)
-            log.info("  set PATH=%%PATH%%;%%%s%%;%%%s%%", self.PYTHON_HOME_VAR, self.SCRIPT_HOME_VAR)
+            log.info("  set PATH=%%PATH%%;%s;%s", python_home, scripts_dir)
         else:
             log.info("  export %s=%s", self.PYTHON_HOME_VAR, python_home)
             log.info("  export %s=%s", self.SCRIPT_HOME_VAR, scripts_dir)
-            log.info("  export PATH=$PATH:$%s:$%s", self.PYTHON_HOME_VAR, self.SCRIPT_HOME_VAR)
+            log.info("  export PATH=$PATH:%s:%s", python_home, scripts_dir)
 
         return True
 
