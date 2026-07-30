@@ -6,7 +6,7 @@ BaiBao 命令行入口。
     python -m baibao pip_install requests  安装 Python 包
 """
 
-from baibao.util.commands import command_manager
+from baibao.cli import command_manager
 
 
 def _on_startup(args):

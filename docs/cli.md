@@ -1,4 +1,4 @@
-# util - 命令行工具模块
+# cli - 命令行工具模块
 
 提供基于命令模式的 CLI 工具，支持包管理和项目清理等功能。
 
@@ -84,7 +84,7 @@ python -m baibao kbase_init new 三方 采购系统 /path/to/knowledge-base -t �
 模板是 `KbaseTemplate` 的实例，注册后立即可用，命令侧无需改动：
 
 ```python
-from baibao.util.commands.kbase_command import KbaseTemplate, register_template
+from baibao.cli.kbase_command import KbaseTemplate, register_template
 
 register_template(KbaseTemplate(
     name="个人",                  # 用作 -t 参数
@@ -131,7 +131,7 @@ python -m baibao help pip_install
 
 1. 创建继承 `Command` 的类
 2. 实现必要的属性和方法
-3. 在 `commands/__init__.py` 中注册命令
+3. 在 `cli/__init__.py` 中注册命令
 
 ```python
 from kunlun.base.cli import Command

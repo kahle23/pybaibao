@@ -36,7 +36,7 @@ pip install baibao -i https://pypi.tuna.tsinghua.edu.cn/simple/
 | **数据处理** | `baibao.data` | 货币查询、模板引擎（Jinja2） | [文档](https://github.com/kahle23/pybaibao/blob/master/docs/data.md) |
 | **数据** | `baibao.db` | MySQL/PostgreSQL 连接池与查询 | [文档](https://github.com/kahle23/pybaibao/blob/master/docs/db.md) |
 | **消息** | `baibao.message` | 邮件发送（文本/HTML/附件） | [文档](https://github.com/kahle23/pybaibao/blob/master/docs/message.md) |
-| **工具** | `baibao.util` | CLI 命令行工具（包管理、项目清理） | [文档](https://github.com/kahle23/pybaibao/blob/master/docs/util.md) |
+| **命令行** | `baibao.cli` | CLI 命令行工具（包管理、项目清理） | [文档](https://github.com/kahle23/pybaibao/blob/master/docs/cli.md) |
 
 <br />
 

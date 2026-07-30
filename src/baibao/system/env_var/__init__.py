@@ -28,7 +28,7 @@ from .unix_env import UnixEnvService
 from .windows_env import WindowsEnvService
 
 # 平台服务管理器实例（注册表为实例属性）：注册 Windows / Unix 具体实现后对外提供。
-# 通过模块别名引用 EnvVarManager，避免该类名泄漏到本包命名空间（彻底迁移）。
+# 通过模块别名引用 EnvVarManager，避免该类名泄漏到本包命名空间。
 env_var_manager = _kunlun.EnvVarManager()
 env_var_manager.register_service("windows", WindowsEnvService())
 env_var_manager.register_service("unix", UnixEnvService())
