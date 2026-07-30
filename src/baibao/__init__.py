@@ -10,8 +10,8 @@ from kunlun.envinfo import pkginfo
 from baibao.ai import llm, ocr
 from baibao.ai.llm import ChatMessage, ChatResponse, LlmCfg, LlmService, OpenAiLlm
 from baibao.ai.ocr import EasyOcr, OcrResult, OcrService, PaddleOcr
-from baibao.db import DbCfg, DbClient, sql
 from baibao.data import Field, Style, currency
+from baibao.db import DbCfg, DbClient, rdb
 from baibao.message import email
 from baibao.message.email import EmailCfg, EmailClient, EmailSendResult
 from baibao.render import Jinja2Engine, TemplateEngine, html, template
@@ -44,6 +44,6 @@ __all__ = [
     "html",
     "llm",
     "ocr",
-    "sql",
+    "rdb",
     "template",
 ]

@@ -16,12 +16,12 @@
 
 ### 导入模块
 
-推荐直接从 `baibao` 导入 `sql`、`DbCfg`、`DbClient`：
+推荐直接从 `baibao` 导入 `rdb`、`DbCfg`、`DbClient`：
 
 ```python
-from baibao import sql, DbCfg, DbClient
+from baibao import rdb, DbCfg, DbClient
 # 或者通过子模块导入
-# from baibao.db import sql, DbCfg, DbClient
+# from baibao.db import rdb, DbCfg, DbClient
 ```
 
 ### 数据库配置
@@ -64,19 +64,19 @@ cfg = DbCfg.load_from_json_cfg("db.config")
 ### 设置客户端
 
 ```python
-from baibao import sql, DbCfg, DbClient
+from baibao import rdb, DbCfg, DbClient
 
 # 使用 DbCfg 设置（自动创建 DbClient，默认使用连接池模式）
 cfg = DbCfg(host="localhost", port=3306, username="root",
             password="123456", database="test_db")
-sql.set_client("my_db", cfg)
+rdb.set_client("my_db", cfg)
 
 # 或直接使用 DbClient 设置（可自定义连接池参数）
 client = DbClient(cfg, use_pool=True,
                   mincached=1,       # 最小空闲连接数
                   maxcached=10,      # 最大空闲连接数
                   maxconnections=20) # 最大总连接数
-sql.set_client("my_db", client)
+rdb.set_client("my_db", client)
 ```
 
 #### 连接模式说明
@@ -94,34 +94,34 @@ sql.set_client("my_db", client)
 ```python
 # 使用单连接模式
 client = DbClient(cfg, use_pool=False)
-sql.set_client("my_db", client)
+rdb.set_client("my_db", client)
 ```
 
 ### 获取客户端
 
 ```python
 # 获取指定配置名的客户端
-client = sql.get_client("my_db")
+client = rdb.get_client("my_db")
 
 # 获取默认配置名的客户端（自动从 ./db.config 加载）
-client = sql.get_client()
+client = rdb.get_client()
 ```
 
 ### 移除客户端
 
 ```python
 # 移除指定配置名的客户端
-sql.remove_client("my_db")
+rdb.remove_client("my_db")
 
 # 移除默认配置名的客户端
-sql.remove_client()
+rdb.remove_client()
 ```
 
 ### 清空所有客户端
 
 ```python
 # 清空所有数据库客户端
-sql.clear()
+rdb.clear()
 ```
 
 ## 执行 SQL 操作
@@ -131,23 +131,23 @@ sql.clear()
 使用 `exec()` 方法执行写操作，自动提交事务：
 
 ```python
-from baibao import sql
+from baibao import rdb
 
 # 插入数据
-affected_rows = sql.exec(
+affected_rows = rdb.exec(
     "INSERT INTO users (name, email) VALUES (%s, %s)",
     params=("张三", "zhangsan@example.com")
 )
 print(f"插入了 {affected_rows} 行")
 
 # 更新数据
-affected_rows = sql.exec(
+affected_rows = rdb.exec(
     "UPDATE users SET email = %s WHERE name = %s",
     params=("new_email@example.com", "张三")
 )
 
 # 删除数据
-affected_rows = sql.exec(
+affected_rows = rdb.exec(
     "DELETE FROM users WHERE name = %s",
     params=("张三",)
 )
@@ -158,26 +158,26 @@ affected_rows = sql.exec(
 使用 `query()` 方法执行查询，返回结果列表：
 
 ```python
-from baibao import sql
+from baibao import rdb
 
 # 查询所有用户
-users = sql.query("SELECT * FROM users")
+users = rdb.query("SELECT * FROM users")
 for user in users:
     print(user)  # {'id': 1, 'name': '张三', 'email': 'zhangsan@example.com'}
 
 # 带参数的查询
-users = sql.query(
+users = rdb.query(
     "SELECT * FROM users WHERE name = %s",
     params=("张三",)
 )
 
 # 查询单个字段
-emails = sql.query("SELECT email FROM users")
+emails = rdb.query("SELECT email FROM users")
 for row in emails:
     print(row['email'])
 
 # 将 Decimal 类型转换为 float（适用于金额等字段）
-orders = sql.query(
+orders = rdb.query(
     "SELECT * FROM orders WHERE amount > %s",
     params=(100,),
     to_float=True  # Decimal 字段会自动转换为 float
@@ -189,9 +189,9 @@ orders = sql.query(
 支持同时管理多个数据库连接：
 
 ```python
-from baibao import sql, DbCfg, DbClient
+from baibao import rdb, DbCfg, DbClient
 # 或者通过子模块导入
-# from baibao.db import sql, DbCfg, DbClient
+# from baibao.db import rdb, DbCfg, DbClient
 
 # 配置主数据库
 main_cfg = DbCfg(
@@ -212,15 +212,15 @@ log_cfg = DbCfg(
 )
 
 # 注册多个数据源
-sql.set_client("main", main_cfg)
-sql.set_client("log", log_cfg)
+rdb.set_client("main", main_cfg)
+rdb.set_client("log", log_cfg)
 
 # 使用指定数据源执行操作
-users = sql.query("SELECT * FROM users", cfg_name="main")
-logs = sql.query("SELECT * FROM access_logs", cfg_name="log")
+users = rdb.query("SELECT * FROM users", cfg_name="main")
+logs = rdb.query("SELECT * FROM access_logs", cfg_name="log")
 
 # 在指定数据源执行写操作
-sql.exec(
+rdb.exec(
     "INSERT INTO access_logs (user_id, action) VALUES (%s, %s)",
     params=(1, "login"),
     cfg_name="log"
@@ -230,9 +230,9 @@ sql.exec(
 ## 完整示例
 
 ```python
-from baibao import sql, DbCfg, DbClient
+from baibao import rdb, DbCfg, DbClient
 # 或者通过子模块导入
-# from baibao.db import sql, DbCfg, DbClient
+# from baibao.db import rdb, DbCfg, DbClient
 
 def main():
     # 1. 配置数据库连接
@@ -246,11 +246,11 @@ def main():
     )
     
     # 2. 设置数据库客户端
-    sql.set_client("test", cfg)
+    rdb.set_client("test", cfg)
     
     try:
         # 3. 创建表
-        sql.exec("""
+        rdb.exec("""
             CREATE TABLE IF NOT EXISTS users (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(100) NOT NULL,
@@ -260,7 +260,7 @@ def main():
         """, cfg_name="test")
         
         # 4. 插入数据
-        affected = sql.exec(
+        affected = rdb.exec(
             "INSERT INTO users (name, email) VALUES (%s, %s)",
             params=("李四", "lisi@example.com"),
             cfg_name="test"
@@ -268,7 +268,7 @@ def main():
         print(f"插入了 {affected} 条记录")
         
         # 5. 查询数据
-        users = sql.query(
+        users = rdb.query(
             "SELECT * FROM users WHERE name = %s",
             params=("李四",),
             cfg_name="test"
@@ -276,14 +276,14 @@ def main():
         print(f"查询到 {len(users)} 条记录")
         
         # 6. 更新数据
-        sql.exec(
+        rdb.exec(
             "UPDATE users SET email = %s WHERE name = %s",
             params=("new_email@example.com", "李四"),
             cfg_name="test"
         )
         
         # 7. 删除数据
-        sql.exec(
+        rdb.exec(
             "DELETE FROM users WHERE name = %s",
             params=("李四",),
             cfg_name="test"
@@ -294,7 +294,7 @@ def main():
     
     finally:
         # 8. 清理资源
-        sql.remove_client("test")
+        rdb.remove_client("test")
 
 if __name__ == "__main__":
     main()
@@ -311,11 +311,11 @@ if __name__ == "__main__":
 ## 错误处理
 
 ```python
-from baibao import sql
+from baibao import rdb
 
 try:
     # 尝试执行数据库操作
-    result = sql.query("SELECT * FROM non_existent_table")
+    result = rdb.query("SELECT * FROM non_existent_table")
 except KeyError as e:
     print(f"配置错误: {e}")
 except Exception as e:
