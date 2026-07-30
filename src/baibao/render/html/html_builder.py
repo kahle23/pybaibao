@@ -11,9 +11,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from kunlun import objutil
 
-from baibao import Field
 from baibao.data import currency as currency_mod
-from baibao.data.meta import Style
+from baibao.data.meta import Field, Style
 
 # 默认柱状图颜色
 DEFAULT_BAR_COLOR = '#4472c4'

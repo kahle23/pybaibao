@@ -1,11 +1,11 @@
 # data 模块使用指南
 
-> 本文档详细记录 `baibao.data` 包中各子模块的使用方法。
+> 本文档详细记录 `baibao.data` 包中各子模块的使用方法。data 包聚焦于**数据定义**：货币查询与字段元数据。
 
 ## 目录
 
 - [currency - 货币模块](#1-currency---货币模块)
-- [template - 模板引擎模块](#2-template---模板引擎模块)
+- [meta - 元数据模块](#2-meta---元数据模块)
 
 ---
 
@@ -94,214 +94,33 @@ print(ok)  # False
 
 ---
 
-## 2. template - 模板引擎模块
+## 2. meta - 元数据模块
 
-提供基于策略模式的模板引擎抽象，内置 Jinja2 实现。支持模板字符串和文件渲染、自定义过滤器、全局变量、运行时切换引擎等特性。
-
-jinja2 库会在首次使用时自动安装。
-
-### 2.1 快速上手
+提供字段（`Field`）与样式（`Style`）两类元数据描述，用于动态表格、报告渲染等场景的列定义。
 
 ```python
-from baibao.data.template import render_string
+from baibao.data import Field, Style
 
-# 渲染模板字符串
-result = render_string("Hello, {{ name }}!", name="World")
-print(result)  # Hello, World!
-```
+# Style：样式描述（颜色 + 自定义属性）
+style = Style(color="#ff0000")
 
-### 2.2 渲染模板字符串
-
-```python
-from baibao.data.template import render_string
-
-# 变量替换
-result = render_string("{{ name | upper }}", name="hello")
-print(result)  # HELLO
-
-# 条件语句
-template = """
-{% if user %}
-欢迎, {{ user }}!
-{% else %}
-请登录。
-{% endif %}
-"""
-result = render_string(template, user="张三")
-print(result.strip())  # 欢迎, 张三!
-
-# 循环
-template = """
-物品列表:
-{% for item in items %}
-- {{ item }}
-{% endfor %}
-"""
-result = render_string(template, items=["苹果", "香蕉", "橙子"])
-print(result.strip())
-```
-
-### 2.3 渲染模板文件
-
-```python
-from baibao.data.template import render_file
-
-# 渲染 HTML 模板文件
-result = render_file(
-    "templates/report.html",
-    title="月度报告",
-    author="张三",
-    items=["项目A", "项目B"]
-)
-print(result)
-```
-
-模板文件示例 `templates/report.html`：
-
-```html
-<!DOCTYPE html>
-<html>
-<head><title>{{ title }}</title></head>
-<body>
-    <h1>{{ title }}</h1>
-    <p>作者: {{ author }}</p>
-    <ul>
-    {% for item in items %}
-        <li>{{ item }}</li>
-    {% endfor %}
-    </ul>
-</body>
-</html>
-```
-
-### 2.4 渲染模板文件到文件（流式）
-
-适合处理大文件，不会完整占用内存。
-
-```python
-from baibao.data.template import render_file_to_file
-
-# 渲染模板文件，输出到另一个文件
-render_file_to_file(
-    "templates/report.html",
-    "output/report.html",
-    title="月度报告",
-    author="张三",
-    items=["项目A", "项目B"]
+# Field：表头字段描述
+field = Field(
+    name="amount",            # 数据键名
+    display_name="金额",       # 展示名（列头 / 图例）
+    is_currency=True,         # 是否为货币字段
+    currency_field="cur",     # 币种走某字段动态读取（与 currency_value 二选一）
+    style=style,              # 字段样式
 )
 ```
 
-### 2.5 渲染模板字符串到文件
-
-```python
-from baibao.data.template import render_string_to_file
-
-# 渲染模板字符串，输出到文件
-render_string_to_file(
-    "<h1>{{ title }}</h1><ul>{% for item in items %}<li>{{ item }}</li>{% endfor %}</ul>",
-    "output/items.html",
-    title="物品清单",
-    items=["苹果", "香蕉", "橙子"]
-)
-```
-
-### 2.6 获取详细渲染结果
-
-```python
-from baibao.data.template import render_string_with_details
-
-details = render_string_with_details(
-    "Hello, {{ name }}! Today is {{ day }}.",
-    name="World",
-    day="Monday"
-)
-
-print(f"内容: {details.content}")          # Hello, World! Today is Monday.
-print(f"模板名称: {details.template_name}") # None（字符串渲染无文件名）
-print(f"使用的变量: {details.variables}")    # {'name': 'World', 'day': 'Monday'}
-```
-
-### 2.7 自定义 Jinja2Engine
-
-```python
-from baibao.data.template import Jinja2Engine
-
-# 创建引擎实例，可配置模板目录、自动转义、未定义变量处理等
-engine = Jinja2Engine(
-    template_dir="templates",   # 模板文件目录
-    auto_escape=False,          # 禁用 HTML 自动转义
-    undefined="undefined",      # 未定义变量返回空字符串（而非报错）
-)
-
-# 添加自定义过滤器
-engine.add_filter("reverse", lambda s: s[::-1])
-result = engine.render_string("{{ name | reverse }}", name="Hello")
-print(result)  # olleH
-
-# 添加全局变量（所有模板可访问）
-engine.add_global("site_name", "我的网站")
-engine.add_global("version", "1.0.0")
-result = engine.render_string("欢迎访问 {{ site_name }} v{{ version }}")
-print(result)  # 欢迎访问 我的网站 v1.0.0
-```
-
-### 2.8 运行时切换引擎
-
-```python
-from baibao.data.template import render_string, set_template_engine, get_template_engine
-
-# 注册自定义引擎
-custom_engine = Jinja2Engine(auto_escape=False, undefined="undefined")
-set_template_engine("custom", custom_engine)
-
-# 使用指定引擎渲染
-result = render_string("Hello, {{ name }}!", engine_name="custom", name="World")
-
-# 获取引擎实例进行操作
-engine = get_template_engine("custom")
-result = engine.render_string("{{ name | upper }}", name="hello")
-```
-
-### 2.9 错误处理
-
-```python
-from baibao.data.template import render_string, render_file
-
-# 模板语法错误 → ValueError
-try:
-    render_string("{{ unclosed")
-except ValueError as e:
-    print(f"语法错误: {e}")
-
-# 未定义变量（strict 模式）→ UndefinedError
-try:
-    render_string("{{ undefined_var }}")
-except Exception as e:
-    print(f"未定义变量: {e}")
-
-# 文件不存在 → FileNotFoundError
-try:
-    render_file("nonexistent.html")
-except FileNotFoundError as e:
-    print(f"文件不存在: {e}")
-```
-
-### 2.10 Jinja2Engine 配置参数
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `template_dir` | `str \| None` | `None` | 模板文件目录，为 None 时只能渲染字符串 |
-| `auto_escape` | `bool` | `True` | 是否启用 HTML 自动转义 |
-| `cache_size` | `int` | `400` | 模板缓存大小，0 禁用缓存 |
-| `undefined` | `str` | `"strict"` | 未定义变量处理：`strict` 报错 / `undefined` 返回空 / `debug` 返回调试信息 |
-| `filters` | `dict` | `{}` | 自定义过滤器字典 |
-| `globals` | `dict` | `{}` | 全局变量字典 |
+`Field` 与 `Style` 主要配合 `baibao.render.html` 的表格、图表、指标卡片函数使用，详见 [render 模块文档](render.md)。
 
 ---
 
 ## 综合示例
 
-### 示例 1：货币格式化
+### 货币格式化
 
 ```python
 from baibao.data import currency
@@ -315,38 +134,4 @@ print(format_price(1234.5, "CNY"))   # ￥1,234.50
 print(format_price(99.99, "USD"))    # $99.99
 print(format_price(500, "EUR"))      # €500.00
 print(format_price(100, "UNKNOWN"))  # UNKNOWN100.00
-```
-
-### 示例 2：模板渲染生成报告
-
-```python
-from baibao.data.template import render_string
-
-template = """
-{{ title }}
-{{ "=" * title | length }}
-
-日期: {{ date }}
-作者: {{ author }}
-
-项目清单:
-{% for item in items %}
-  {{ loop.index }}. {{ item.name }} - {{ item.status }}
-{% endfor %}
-
-合计: {{ items | length }} 个项目
-"""
-
-result = render_string(
-    template,
-    title="周工作报告",
-    date="2024-01-15",
-    author="张三",
-    items=[
-        {"name": "需求分析", "status": "已完成"},
-        {"name": "接口开发", "status": "进行中"},
-        {"name": "单元测试", "status": "待开始"},
-    ]
-)
-print(result)
 ```

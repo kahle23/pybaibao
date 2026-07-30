@@ -1,19 +1,15 @@
 """
-数据处理包，提供模板渲染、货币格式化等数据操作功能。
+数据定义包，提供货币、字段元数据等数据模型与查询能力。
 
-包含模板引擎（支持 Jinja2 等多种实现）、货币处理和元数据定义等子模块，
-为数据展示和报告生成提供统一的处理能力。
+包含货币查询（currency）和元数据定义（meta）子模块，
+为数据展示和报告生成提供基础的数据结构。
 """
 
-from baibao.data import currency, template
+from baibao.data import currency
 from baibao.data.meta import Field, Style
-from baibao.data.template import Jinja2Engine, TemplateEngine
 
 __all__ = [
     'Field',
-    'Jinja2Engine',
     'Style',
-    'TemplateEngine',
     'currency',
-    'template',
 ]

@@ -10,10 +10,11 @@ from kunlun.envinfo import pkginfo
 from baibao.ai import llm, ocr
 from baibao.ai.llm import ChatMessage, ChatResponse, LlmCfg, LlmService, OpenAiLlm
 from baibao.ai.ocr import EasyOcr, OcrResult, OcrService, PaddleOcr
-from baibao.data import Field, Jinja2Engine, Style, TemplateEngine, currency, template
 from baibao.db import DbCfg, DbClient, sql
+from baibao.data import Field, Style, currency
 from baibao.message import email
 from baibao.message.email import EmailCfg, EmailClient, EmailSendResult
+from baibao.render import Jinja2Engine, TemplateEngine, html, template
 
 # 不捕获 PackageNotFoundError：能执行到此处说明包已加载，版本缺失应报错而非静默回退
 __version__ = pkginfo.get_package_version("baibao")
@@ -40,6 +41,7 @@ __all__ = [
     "TemplateEngine",
     "currency",
     "email",
+    "html",
     "llm",
     "ocr",
     "sql",
