@@ -6,7 +6,7 @@ Unix-like 平台（Linux、macOS、BSD 等）的环境变量管理实现。
 """
 
 import os
-from typing import Optional
+from typing import List, Optional
 
 from kunlun import EnvVarService, env_var, logutil
 from kunlun.envinfo import osenv
@@ -29,6 +29,138 @@ class UnixEnvService(EnvVarService):
     def __init__(self, platform: str = "unix") -> None:
         super().__init__(platform)
 
+    # region ======== 私有辅助 ========
+
+    @staticmethod
+    def _build_export_line(name: str, value: str) -> str:
+        """
+        构建环境变量的 ``export`` 行。
+
+        Args:
+            name: 环境变量名。
+            value: 环境变量值。
+
+        Returns:
+            形如 ``export NAME="VALUE"`` 的字符串。
+        """
+        return f'export {name}="{value}"'
+
+    @staticmethod
+    def _build_path_append_line(value: str) -> str:
+        """
+        构建 PATH 追加的 ``export`` 行。
+
+        Args:
+            value: 要追加到 PATH 的路径。
+
+        Returns:
+            形如 ``export PATH="$PATH:VALUE"`` 的字符串。
+        """
+        return f'export PATH="$PATH:{value}"'
+
+    @staticmethod
+    def _read_profile(path: str) -> Optional[str]:
+        """
+        读取配置文件全部内容。
+
+        Args:
+            path: 配置文件路径。
+
+        Returns:
+            文件全部内容；文件不存在或读取失败时返回 None。
+        """
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return f.read()
+        except FileNotFoundError:
+            return None
+        except OSError as e:
+            log.error("读取配置文件失败: %s", e)
+            return None
+
+    @staticmethod
+    def _read_profile_lines(path: str) -> Optional[List[str]]:
+        """
+        读取配置文件的行列表。
+
+        Args:
+            path: 配置文件路径。
+
+        Returns:
+            行列表；文件不存在或读取失败时返回 None。
+        """
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return f.readlines()
+        except FileNotFoundError:
+            return None
+        except OSError as e:
+            log.error("读取配置文件失败: %s", e)
+            return None
+
+    @staticmethod
+    def _append_to_profile(path: str, text: str) -> bool:
+        """
+        向配置文件追加文本。
+
+        Args:
+            path: 配置文件路径。
+            text: 要追加的文本。
+
+        Returns:
+            写入成功返回 True，失败返回 False。
+        """
+        try:
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(text)
+            return True
+        except OSError as e:
+            log.error("写入配置文件失败: %s", e)
+            return False
+
+    @staticmethod
+    def _rewrite_profile(path: str, lines: List[str]) -> bool:
+        """
+        用给定行列表重写配置文件。
+
+        Args:
+            path: 配置文件路径。
+            lines: 要写入的行列表。
+
+        Returns:
+            写入成功返回 True，失败返回 False。
+        """
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.writelines(lines)
+            return True
+        except OSError as e:
+            log.error("写入配置文件失败: %s", e)
+            return False
+
+    @staticmethod
+    def _add_to_process_path(value: str) -> None:
+        """
+        将值追加到当前进程的 PATH。
+
+        Args:
+            value: 要追加的路径。
+        """
+        os.environ["PATH"] = f"{os.environ.get('PATH', '')}:{value}"
+
+    @staticmethod
+    def _remove_from_process_path(value: str) -> None:
+        """
+        从当前进程的 PATH 移除指定值。
+
+        Args:
+            value: 要移除的路径。
+        """
+        path_list = [p for p in os.environ.get("PATH", "").split(":") if p and p != value]
+        os.environ["PATH"] = ":".join(path_list)
+
+    # endregion
+
     # region ======== 策略接口实现 ========
 
     def set_var(self, name: str, value: str, scope: Optional[int] = None) -> bool:
@@ -37,82 +169,59 @@ class UnixEnvService(EnvVarService):
         profile_path = osenv.get_shell_profile_path()
         if not profile_path:
             return False
-        # 构建 export 行
-        export_line = f'export {name}="{value}"'
-        try:
-            # 已存在相同配置则跳过写入，仅同步到当前进程
-            if os.path.exists(profile_path):
-                with open(profile_path, "r", encoding="utf-8") as f:
-                    if export_line in f.read():
-                        os.environ[name] = value
-                        return True
-            with open(profile_path, "a", encoding="utf-8") as f:
-                f.write(f"\n{export_line}\n")
+        export_line = self._build_export_line(name, value)
+        # 已存在相同配置则跳过写入，仅同步到当前进程
+        content = self._read_profile(profile_path)
+        if content is not None and export_line in content:
             os.environ[name] = value
             return True
-        except (PermissionError, OSError):
+        if not self._append_to_profile(profile_path, f"\n{export_line}\n"):
             return False
+        os.environ[name] = value
+        return True
 
     def append_to_path(self, value: str) -> bool:
         config_file = osenv.get_shell_profile_path()
         if not config_file:
             return False
 
-        path_line = f'export PATH="$PATH:{value}"'
-
         # 检查是否已存在
-        if os.path.exists(config_file):
-            try:
-                with open(config_file, "r", encoding="utf-8") as f:
-                    content = f.read()
-                    if value in content and "PATH" in content:
-                        log.info("PATH 中已包含 %s", value)
-                        return True
-            except OSError as e:
-                log.error("读取配置文件失败: %s", e)
-                return False
+        content = self._read_profile(config_file)
+        if content is not None and value in content and "PATH" in content:
+            log.info("PATH 中已包含 %s", value)
+            return True
 
         # 追加到配置文件
-        try:
-            with open(config_file, "a", encoding="utf-8") as f:
-                f.write(f"\n# Add to PATH\n{path_line}\n")
-
-            # 同步到当前进程
-            os.environ["PATH"] = f"{os.environ.get('PATH', '')}:{value}"
-
-            return True
-        except OSError as e:
-            log.error("添加到 Unix PATH 时出错: %s", e)
+        path_line = self._build_path_append_line(value)
+        if not self._append_to_profile(config_file, f"\n# Add to PATH\n{path_line}\n"):
             return False
+
+        # 同步到当前进程
+        self._add_to_process_path(value)
+        return True
 
     def remove_from_path(self, value: str) -> bool:
         config_file = osenv.get_shell_profile_path()
         if not config_file:
             return False
 
-        # 读取配置文件
+        # 配置文件不存在视为无可移除项
         if not os.path.exists(config_file):
             log.info("配置文件不存在: %s", config_file)
             return True
 
-        try:
-            with open(config_file, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-
-            # 过滤掉包含该值的 PATH 相关行
-            new_lines = [line for line in lines if not (value in line and "PATH" in line)]
-
-            # 写回配置文件
-            with open(config_file, "w", encoding="utf-8") as f:
-                f.writelines(new_lines)
-
-            # 同步到当前进程
-            path_list = [p for p in os.environ.get("PATH", "").split(":") if p and p != value]
-            os.environ["PATH"] = ":".join(path_list)
-
-            return True
-        except OSError as e:
-            log.error("从 Unix PATH 移除时出错: %s", e)
+        # 读取并过滤掉包含该值的 PATH 相关行
+        lines = self._read_profile_lines(config_file)
+        if lines is None:
             return False
+        new_lines = [line for line in lines if not (value in line and "PATH" in line)]
+
+        # 写回配置文件
+        if not self._rewrite_profile(config_file, new_lines):
+            return False
+
+        # 同步到当前进程
+        self._remove_from_process_path(value)
+        return True
 
     # endregion

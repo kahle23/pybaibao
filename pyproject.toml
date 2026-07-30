@@ -22,6 +22,8 @@ where = ["src"]
 [project.optional-dependencies]
 all = ["easyocr>=1.7.0", "paddleocr>=2.7.0", "opencv-python>=4.8.0", "numpy>=1.24.0"]
 dev = ["pytest", "ruff", "mypy"]
+easyocr = ["easyocr>=1.7.0", "opencv-python>=4.8.0", "numpy>=1.24.0"]
+paddleocr = ["paddleocr>=2.7.0", "opencv-python>=4.8.0", "numpy>=1.24.0"]
 
 [tool.mypy]
 python_version = "3.8"
@@ -55,5 +57,8 @@ ignore = [
     # "此处为空占位/待子类实现" 的意图，与 docstring 配合可读性更好。
     "PIE790",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
 
 

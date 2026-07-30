@@ -33,19 +33,65 @@ class WindowsEnvService(EnvVarService):
     # region ======== 私有辅助 ========
 
     @staticmethod
-    def _read_system_path() -> str:
-        """读取系统 PATH 环境变量。"""
-        # 优先使用 PowerShell
+    def _run_powershell(command: str) -> Optional[str]:
+        """
+        执行 PowerShell 命令。
+
+        Args:
+            command: 要执行的 PowerShell 命令字符串。
+
+        Returns:
+            命令的 stdout（成功时可能为空串）；返回码非 0、抛出异常或
+            PowerShell 不可用时返回 None。
+        """
         try:
             result = subprocess.run(
-                ["powershell", "-NoProfile", "-Command",
-                 "[Environment]::GetEnvironmentVariable('Path', 'Machine')"],
+                ["powershell", "-NoProfile", "-Command", command],
                 capture_output=True, text=True, check=False,
             )
-            if result.returncode == 0:
-                return result.stdout.strip()
         except (FileNotFoundError, subprocess.SubprocessError):
-            pass
+            return None
+        return result.stdout if result.returncode == 0 else None
+
+    @staticmethod
+    def _set_system_var_via_reg(name: str, value: str) -> bool:
+        """
+        通过 ``reg add`` 写入系统级环境变量。
+
+        作为 PowerShell 不可用时的回退方案，仅支持系统级（HKLM）。
+
+        Args:
+            name: 环境变量名。
+            value: 环境变量值。
+
+        Returns:
+            写入成功返回 True，失败返回 False。
+        """
+        try:
+            result = subprocess.run(
+                ["reg", "add", _HKLM_ENV_PATH, "/v", name, "/t", "REG_SZ", "/d", value, "/f"],
+                capture_output=True, text=True, check=False,
+            )
+        except (FileNotFoundError, subprocess.SubprocessError):
+            return False
+        return result.returncode == 0
+
+    @staticmethod
+    def _read_system_path() -> str:
+        """
+        读取系统级 PATH 环境变量。
+
+        优先使用 PowerShell，失败回退到 ``reg query``。
+
+        Returns:
+            系统 PATH 字符串；读取失败返回空字符串。
+        """
+        # 优先使用 PowerShell
+        out = WindowsEnvService._run_powershell(
+            "[Environment]::GetEnvironmentVariable('Path', 'Machine')"
+        )
+        if out is not None:
+            return out.strip()
 
         # 回退到 reg query
         result = subprocess.run(
@@ -62,18 +108,21 @@ class WindowsEnvService(EnvVarService):
 
     @staticmethod
     def _write_system_path(new_path: str) -> bool:
-        """写入系统 PATH 环境变量。"""
+        """
+        写入系统级 PATH 环境变量。
+
+        优先使用 PowerShell，失败回退到 ``reg add``。
+
+        Args:
+            new_path: 新的 PATH 字符串。
+
+        Returns:
+            写入成功返回 True，失败返回 False。
+        """
         # 优先使用 PowerShell
-        try:
-            ps_cmd = f'[Environment]::SetEnvironmentVariable("Path", "{new_path}", "Machine")'
-            result = subprocess.run(
-                ["powershell", "-NoProfile", "-Command", ps_cmd],
-                capture_output=True, text=True, check=False,
-            )
-            if result.returncode == 0:
-                return True
-        except (FileNotFoundError, subprocess.SubprocessError):
-            pass
+        ps_cmd = f'[Environment]::SetEnvironmentVariable("Path", "{new_path}", "Machine")'
+        if WindowsEnvService._run_powershell(ps_cmd) is not None:
+            return True
 
         # 回退到 reg add
         result = subprocess.run(
@@ -82,6 +131,27 @@ class WindowsEnvService(EnvVarService):
         )
         return result.returncode == 0
 
+    @staticmethod
+    def _add_to_process_path(value: str) -> None:
+        """
+        将值追加到当前进程的 PATH。
+
+        Args:
+            value: 要追加的路径。
+        """
+        os.environ["PATH"] = f"{os.environ.get('PATH', '')};{value}"
+
+    @staticmethod
+    def _remove_from_process_path(value: str) -> None:
+        """
+        从当前进程的 PATH 移除指定值。
+
+        Args:
+            value: 要移除的路径。
+        """
+        path_list = [p for p in os.environ.get("PATH", "").split(";") if p and p != value]
+        os.environ["PATH"] = ";".join(path_list)
+
     # endregion
 
     # region ======== 策略接口实现 ========
@@ -89,29 +159,17 @@ class WindowsEnvService(EnvVarService):
     def set_var(self, name: str, value: str, scope: Optional[int] = None) -> bool:
         # scope：None / SCOPE_SYSTEM(1) -> 'Machine'；SCOPE_USER(2) -> 'User'
         target = 'User' if scope == env_var.SCOPE_USER else 'Machine'
-        try:
-            # 优先使用 PowerShell
-            ps_cmd = f'[Environment]::SetEnvironmentVariable("{name}", "{value}", "{target}")'
-            result = subprocess.run(
-                ["powershell", "-NoProfile", "-Command", ps_cmd],
-                capture_output=True, text=True, check=False,
-            )
-            if result.returncode == 0:
-                os.environ[name] = value
-                return True
+        # 优先使用 PowerShell
+        ps_cmd = f'[Environment]::SetEnvironmentVariable("{name}", "{value}", "{target}")'
+        if WindowsEnvService._run_powershell(ps_cmd) is not None:
+            os.environ[name] = value
+            return True
 
-            # reg 回退仅支持系统级（HKLM）；用户级依赖 PowerShell
-            if target == 'Machine':
-                result = subprocess.run(
-                    ["reg", "add", _HKLM_ENV_PATH, "/v", name, "/t", "REG_SZ", "/d", value, "/f"],
-                    capture_output=True, text=True, check=False,
-                )
-                if result.returncode == 0:
-                    os.environ[name] = value
-                    return True
-            return False
-        except (FileNotFoundError, subprocess.SubprocessError):
-            return False
+        # reg 回退仅支持系统级（HKLM）；用户级依赖 PowerShell
+        if target == 'Machine' and self._set_system_var_via_reg(name, value):
+            os.environ[name] = value
+            return True
+        return False
 
     def append_to_path(self, value: str) -> bool:
         try:
@@ -133,7 +191,7 @@ class WindowsEnvService(EnvVarService):
                 return False
 
             # 同步到当前进程
-            os.environ["PATH"] = f"{os.environ.get('PATH', '')};{value}"
+            self._add_to_process_path(value)
             return True
 
         except FileNotFoundError:
@@ -163,8 +221,7 @@ class WindowsEnvService(EnvVarService):
                 return False
 
             # 同步到当前进程
-            path_list = [p for p in os.environ.get("PATH", "").split(";") if p and p != value]
-            os.environ["PATH"] = ";".join(path_list)
+            self._remove_from_process_path(value)
 
             return True
 
