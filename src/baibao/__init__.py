@@ -5,7 +5,7 @@
 涵盖日志、包管理、数据库、消息发送、文字识别等常用场景。
 """
 
-from kunlun import env
+from kunlun.envinfo import pkginfo
 
 from baibao.ai import llm, ocr
 from baibao.ai.llm import ChatMessage, ChatResponse, LlmCfg, LlmService, OpenAiLlm
@@ -16,7 +16,7 @@ from baibao.message import email
 from baibao.message.email import EmailCfg, EmailClient, EmailSendResult
 
 # 不捕获 PackageNotFoundError：能执行到此处说明包已加载，版本缺失应报错而非静默回退
-__version__ = env.get_package_version("baibao")
+__version__ = pkginfo.get_package_version("baibao")
 
 
 __all__ = [

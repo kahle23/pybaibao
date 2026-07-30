@@ -8,8 +8,10 @@ Unix-like 平台（Linux、macOS、BSD 等）的环境变量管理实现。
 import os
 from typing import Optional
 
-from kunlun import EnvVarService, env_var, log
-from kunlun import env as _env_info
+from kunlun import EnvVarService, env_var, logutil
+from kunlun.envinfo import osenv
+
+log = logutil.getLogger(__name__)
 
 
 class UnixEnvService(EnvVarService):
@@ -32,7 +34,7 @@ class UnixEnvService(EnvVarService):
     def set_var(self, name: str, value: str, scope: Optional[int] = None) -> bool:
         if scope == env_var.SCOPE_SYSTEM:
             raise ValueError("Unix 暂不支持系统级环境变量（需 root 写入 /etc/environment）")
-        profile_path = _env_info.get_shell_profile_path()
+        profile_path = osenv.get_shell_profile_path()
         if not profile_path:
             return False
         # 构建 export 行
@@ -52,7 +54,7 @@ class UnixEnvService(EnvVarService):
             return False
 
     def append_to_path(self, value: str) -> bool:
-        config_file = _env_info.get_shell_profile_path()
+        config_file = osenv.get_shell_profile_path()
         if not config_file:
             return False
 
@@ -84,7 +86,7 @@ class UnixEnvService(EnvVarService):
             return False
 
     def remove_from_path(self, value: str) -> bool:
-        config_file = _env_info.get_shell_profile_path()
+        config_file = osenv.get_shell_profile_path()
         if not config_file:
             return False
 

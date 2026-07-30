@@ -10,7 +10,9 @@ import os
 import subprocess
 from typing import Optional
 
-from kunlun import EnvVarService, env_var, log
+from kunlun import EnvVarService, env_var, logutil
+
+log = logutil.getLogger(__name__)
 
 # 系统环境变量注册表路径
 _HKLM_ENV_PATH = r"HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment"

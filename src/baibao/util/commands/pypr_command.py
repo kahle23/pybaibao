@@ -5,7 +5,9 @@
 import os
 from typing import Any, List
 
-from kunlun import Command, file, log
+from kunlun import Command, fileutil, logutil
+
+log = logutil.getLogger(__name__)
 
 
 class PyCleanCommand(Command):
@@ -36,12 +38,12 @@ class PyCleanCommand(Command):
 
         removed = 0
         # 删除 build 和 dist（仅顶层）
-        removed += file.remove_target_dirs(base_dir, "build")
-        removed += file.remove_target_dirs(base_dir, "dist")
+        removed += fileutil.remove_target_dirs(base_dir, "build")
+        removed += fileutil.remove_target_dirs(base_dir, "dist")
         # 删除 *.egg-info
-        removed += file.remove_suffix_dirs(base_dir, ".egg-info")
+        removed += fileutil.remove_suffix_dirs(base_dir, ".egg-info")
         # 递归删除 __pycache__
-        removed += file.remove_target_dirs(base_dir, "__pycache__", recursive=True)
+        removed += fileutil.remove_target_dirs(base_dir, "__pycache__", recursive=True)
 
         if removed > 0:
             log.info(f"✓ 清理完成，共删除 {removed} 个目录")

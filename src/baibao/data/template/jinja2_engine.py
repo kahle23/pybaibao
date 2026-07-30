@@ -10,7 +10,7 @@ from typing import IO, TYPE_CHECKING, Any, Callable, Dict, Optional, Type
 if TYPE_CHECKING:
     import jinja2  # type: ignore[import-not-found]
 
-from kunlun import util
+from kunlun import modutil
 
 from ._template import TemplateEngine
 
@@ -61,7 +61,7 @@ class Jinja2Engine(TemplateEngine):
             ImportError: 当 jinja2 库未安装且自动安装失败时抛出。
         """
         # 导入 Jinja2 库
-        util.import_module('jinja2')
+        modutil.import_module('jinja2')
         # 初始化 Jinja2 环境配置
         self._template_dir = template_dir
         self._auto_escape = auto_escape

@@ -17,7 +17,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Union
 
-from kunlun import log, util, validate
+from kunlun import loadutil, logutil, modutil, validation
+
+log = logutil.getLogger(__name__)
 
 
 @dataclass
@@ -50,12 +52,18 @@ class DbCfg:
         验证数据库配置是否有效。
 
         检查数据库类型和连接参数的完整性。
+        SQLite 类型只需 database 字段（数据库文件路径）。
 
         Raises:
             ValueError: 配置无效时抛出。
         """
-        # 检查必填字段
-        check_required_fields_not_empty(self, 
+        # SQLite 只需要 database 字段
+        if self.db_type.lower() == 'sqlite':
+            validation.check_required_fields_not_empty(self, ['database', 'db_type'], '数据库配置')
+            return
+
+        # 其他数据库检查必填字段
+        validation.check_required_fields_not_empty(self, 
             ['host', 'port', 'username', 'password', 'database', 'db_type'], '数据库配置')
         # 验证端口号范围
         if not (1 <= self.port <= 65535):
@@ -79,7 +87,7 @@ class DbCfg:
             ValueError: 文件缺少必填字段时抛出。
             json.JSONDecodeError: JSON 格式解析失败时抛出。
         """
-        cfg = util.load_dataclass_from_json_file(config_path, DbCfg)
+        cfg = loadutil.load_dataclass_from_json_file(config_path, DbCfg)
         cfg.validate()
         return cfg
 
@@ -134,9 +142,9 @@ class DbClient:
         if self.use_pool:
             # 连接池模式：使用 DBUtils.PooledDB
             try:
-                PooledDB = util.import_module('dbutils.pooled_db', 'dbutils').PooledDB
+                PooledDB = modutil.import_module('dbutils.pooled_db', 'dbutils').PooledDB
             except ImportError:
-                PooledDB = util.import_module('DBUtils.PooledDB').PooledDB
+                PooledDB = modutil.import_module('DBUtils.PooledDB').PooledDB
             # 构建连接池参数
             pool_kwargs = {
                 'creator': driver,

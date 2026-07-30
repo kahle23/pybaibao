@@ -20,7 +20,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from kunlun import Command, log
+from kunlun import Command, logutil
+
+log = logutil.getLogger(__name__)
 
 
 # region ======== 通用工具 ========

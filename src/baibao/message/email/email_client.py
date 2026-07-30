@@ -14,7 +14,9 @@ from email.utils import make_msgid
 from pathlib import Path
 from typing import List, Optional, Union
 
-from kunlun import log, util, validate
+from kunlun import loadutil, logutil, validation
+
+log = logutil.getLogger(__name__)
 
 
 @dataclass
@@ -57,7 +59,7 @@ class EmailCfg:
             ValueError: 配置无效时抛出。
         """
         # 检查必填字段
-        validate.check_required_fields_not_empty(self,
+        validation.check_required_fields_not_empty(self,
             ['send_server', 'username', 'password'], '邮件发送配置')
         # 验证端口号范围
         if not (1 <= self.send_port <= 65535):
@@ -76,7 +78,7 @@ class EmailCfg:
             ValueError: 配置无效时抛出。
         """
         # 检查必填字段
-        validate.check_required_fields_not_empty(self,
+        validation.check_required_fields_not_empty(self,
             ['receive_server', 'username', 'password'], '邮件接收配置')
         # 验证端口号范围
         if not (1 <= self.receive_port <= 65535):
@@ -102,7 +104,7 @@ class EmailCfg:
             FileNotFoundError: 文件不存在时抛出。
             json.JSONDecodeError: JSON 格式解析失败时抛出。
         """
-        return util.load_dataclass_from_json_file(config_path, EmailCfg)
+        return loadutil.load_dataclass_from_json_file(config_path, EmailCfg)
 
 
 @dataclass

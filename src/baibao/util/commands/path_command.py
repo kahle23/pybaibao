@@ -6,9 +6,12 @@ import os
 import platform
 from typing import Any
 
-from kunlun import Command, env, log
+from kunlun import Command, logutil
+from kunlun.envinfo import pyinfo
 
 from baibao.system import env_var as sys_env
+
+log = logutil.getLogger(__name__)
 
 
 class PythonPathSetupCommand(Command):
@@ -80,10 +83,9 @@ class PythonPathSetupCommand(Command):
                 log.info("环境变量 %s 已存在且路径相同", var_name)
             else:
                 log.warning("环境变量 %s 已存在，当前值: %s", var_name, current_value)
-                if not force:
-                    if not self._confirm_action(f"覆盖现有{var_desc}"):
-                        log.info("跳过 %s 设置", var_name)
-                        return True  # 跳过不算失败
+                if not force and not self._confirm_action(f"覆盖现有{var_desc}"):
+                    log.info("跳过 %s 设置", var_name)
+                    return True  # 跳过不算失败
                 # 设置环境变量
                 if not svc.set_var(var_name, expected_value):
                     log.error("设置环境变量 %s 失败", var_name)
@@ -123,12 +125,12 @@ class PythonPathSetupCommand(Command):
         force = "--force" in args
 
         # 获取 Python 安装目录
-        python_home = env.get_python_home()
+        python_home = pyinfo.get_python_home()
 
         log.info("Python 安装目录: %s", python_home)
 
         # 获取 Scripts 目录
-        scripts_dir = env.get_python_bin_dir()
+        scripts_dir = pyinfo.get_python_bin_dir()
 
         # 检查 Scripts 目录是否存在
         if not os.path.isdir(scripts_dir):

@@ -9,9 +9,11 @@ import threading
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from kunlun import log, util
+from kunlun import logutil, modutil
 
 from .db_client import DbCfg, DbClient
+
+log = logutil.getLogger(__name__)
 
 # 存储不同配置名对应的 DbClient 实例
 _clients: Dict[str, DbClient] = {}
@@ -50,10 +52,10 @@ def get_driver(db_type: str):
         raise ValueError(f"不支持的数据库类型: {db_type}")
     # 导入驱动模块 
     module_name, install_name = driver_tuple
-    return util.import_module(module_name, install_name)
+    return modutil.import_module(module_name, install_name)
 
 
-def get_client(cfg_name: Optional[str] = None):
+def get_client(cfg_name: Optional[str] = None) -> DbClient:
     """
     获取指定配置名对应的 DbClient 实例。
 

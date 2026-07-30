@@ -4,7 +4,9 @@ pip 命令 - 安装和升级 Python 包。
 
 from typing import Any, List
 
-from kunlun import Command, log, pip
+from kunlun import Command, logutil, pip
+
+log = logutil.getLogger(__name__)
 
 
 class PipInstallCommand(Command):
