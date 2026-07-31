@@ -5,10 +5,9 @@
 """
 
 from baibao.db import rdb
-from baibao.db.rdb import DbCfg, DbClient
+from baibao.db.rdb import RdbCfg
 
 __all__ = [
-    'DbCfg',
-    'DbClient',
+    'RdbCfg',
     'rdb',
 ]
