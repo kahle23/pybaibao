@@ -20,7 +20,7 @@ sqlite 驱动复用 kunlun 内置的 :class:`~kunlun.db.SqliteClient`（connect-
     rows = rdb.query("SELECT * FROM t", name="test")
 """
 
-from kunlun.db import (
+from pykunlun.db import (
     RdbCfg,
     RdbManager,
     SqliteClient,

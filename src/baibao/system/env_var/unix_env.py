@@ -6,10 +6,9 @@ Unix-like 平台（Linux、macOS、BSD 等）的环境变量管理实现。
 """
 
 import os
-from typing import List, Optional
 
-from kunlun import EnvVarService, env_var, logutil
-from kunlun.envinfo import osenv
+from pykunlun import EnvVarService, env_var, logutil
+from pykunlun.envinfo import osenv
 
 log = logutil.getLogger(__name__)
 
@@ -59,7 +58,7 @@ class UnixEnvService(EnvVarService):
         return f'export PATH="$PATH:{value}"'
 
     @staticmethod
-    def _read_profile(path: str) -> Optional[str]:
+    def _read_profile(path: str) -> str | None:
         """
         读取配置文件全部内容。
 
@@ -79,7 +78,7 @@ class UnixEnvService(EnvVarService):
             return None
 
     @staticmethod
-    def _read_profile_lines(path: str) -> Optional[List[str]]:
+    def _read_profile_lines(path: str) -> list[str] | None:
         """
         读取配置文件的行列表。
 
@@ -119,7 +118,7 @@ class UnixEnvService(EnvVarService):
             return False
 
     @staticmethod
-    def _rewrite_profile(path: str, lines: List[str]) -> bool:
+    def _rewrite_profile(path: str, lines: list[str]) -> bool:
         """
         用给定行列表重写配置文件。
 
@@ -163,7 +162,7 @@ class UnixEnvService(EnvVarService):
 
     # region ======== 策略接口实现 ========
 
-    def set_var(self, name: str, value: str, scope: Optional[int] = None) -> bool:
+    def set_var(self, name: str, value: str, scope: int | None = None) -> bool:
         if scope == env_var.SCOPE_SYSTEM:
             raise ValueError("Unix 暂不支持系统级环境变量（需 root 写入 /etc/environment）")
         profile_path = osenv.get_shell_profile_path()

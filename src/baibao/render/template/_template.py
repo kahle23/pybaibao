@@ -8,7 +8,7 @@
 import threading
 from abc import ABC, abstractmethod
 from io import StringIO
-from typing import IO, Any, Dict, Optional
+from typing import IO, Any
 
 
 class TemplateEngine(ABC):
@@ -47,7 +47,7 @@ class TemplateEngine(ABC):
         pass
 
     def render_file_to_file(self, template_path: str, output_path: str,
-                            encoding: Optional[str] = None, **kwargs: Any) -> None:
+                            encoding: str | None = None, **kwargs: Any) -> None:
         """
         渲染模板文件，将结果直接写入另一个文件。
 
@@ -70,7 +70,7 @@ class TemplateEngine(ABC):
             self.render_stream_to_stream(fin, fout, **kwargs)
 
     def render_string_to_file(self, template_string: str, output_path: str,
-                              encoding: Optional[str] = None, **kwargs: Any) -> None:
+                              encoding: str | None = None, **kwargs: Any) -> None:
         """
         渲染模板字符串，将结果直接写入文件。
 
@@ -92,7 +92,7 @@ class TemplateEngine(ABC):
             self.render_stream_to_stream(sin, fout, **kwargs)
 
     def render_file_to_string(self, template_path: str,
-                              encoding: Optional[str] = None, **kwargs: Any) -> str:
+                              encoding: str | None = None, **kwargs: Any) -> str:
         """
         渲染模板文件，返回渲染后的文本结果。
 
@@ -142,14 +142,14 @@ class TemplateEngine(ABC):
 from .jinja2_engine import Jinja2Engine
 
 # 存储不同配置名对应的 TemplateEngine 实例
-_template_engines: Dict[str, TemplateEngine] = {}
+_template_engines: dict[str, TemplateEngine] = {}
 # 可重入锁，保护 _template_engines 的并发访问
 _lock = threading.RLock()
 # 默认配置名
 DEFAULT_ENGINE_NAME = "default"
 
 
-def get_template_engine(engine_name: Optional[str] = None) -> TemplateEngine:
+def get_template_engine(engine_name: str | None = None) -> TemplateEngine:
     """
     获取指定配置名对应的 TemplateEngine 实例。
 
@@ -197,7 +197,7 @@ def set_template_engine(engine_name: str, engine: TemplateEngine) -> None:
         _template_engines[engine_name] = engine
 
 
-def remove_template_engine(engine_name: Optional[str] = None) -> None:
+def remove_template_engine(engine_name: str | None = None) -> None:
     """
     移除指定配置名对应的 TemplateEngine 实例。
 
@@ -213,7 +213,7 @@ def remove_template_engine(engine_name: Optional[str] = None) -> None:
 
 
 def render_stream_to_stream(input_stream: IO[str], output_stream: IO[str],
-                            engine_name: Optional[str] = None, **kwargs: Any) -> None:
+                            engine_name: str | None = None, **kwargs: Any) -> None:
     """
     从输入流读取模板内容，渲染后写入输出流。
 
@@ -227,8 +227,8 @@ def render_stream_to_stream(input_stream: IO[str], output_stream: IO[str],
 
 
 def render_file_to_file(template_path: str, output_path: str,
-                        encoding: Optional[str] = None,
-                        engine_name: Optional[str] = None, **kwargs: Any) -> None:
+                        encoding: str | None = None,
+                        engine_name: str | None = None, **kwargs: Any) -> None:
     """
     渲染模板文件，将结果直接写入另一个文件。
 
@@ -247,8 +247,8 @@ def render_file_to_file(template_path: str, output_path: str,
 
 
 def render_string_to_file(template_string: str, output_path: str,
-                          encoding: Optional[str] = None,
-                          engine_name: Optional[str] = None, **kwargs: Any) -> None:
+                          encoding: str | None = None,
+                          engine_name: str | None = None, **kwargs: Any) -> None:
     """
     渲染模板字符串，将结果直接写入文件。
 
@@ -264,8 +264,8 @@ def render_string_to_file(template_string: str, output_path: str,
 
 
 def render_file_to_string(template_path: str,
-                          encoding: Optional[str] = None,
-                          engine_name: Optional[str] = None, **kwargs: Any) -> str:
+                          encoding: str | None = None,
+                          engine_name: str | None = None, **kwargs: Any) -> str:
     """
     渲染模板文件，返回渲染后的文本结果。
 
@@ -286,7 +286,7 @@ def render_file_to_string(template_path: str,
 
 
 def render_string_to_string(template_string: str,
-                            engine_name: Optional[str] = None, **kwargs: Any) -> str:
+                            engine_name: str | None = None, **kwargs: Any) -> str:
     """
     渲染模板字符串，返回渲染后的文本结果。
 

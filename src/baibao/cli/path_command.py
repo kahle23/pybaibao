@@ -6,8 +6,8 @@ import os
 import platform
 from typing import Any
 
-from kunlun import Command, logutil
-from kunlun.envinfo import pyinfo
+from pykunlun import Command, logutil
+from pykunlun.envinfo import pyinfo
 
 from baibao.system import env_var as sys_env
 

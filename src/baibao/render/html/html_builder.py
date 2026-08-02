@@ -7,9 +7,10 @@ HTML 报告片段工具集。
 
 import datetime
 import html
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from collections.abc import Callable
+from typing import Any
 
-from kunlun import objutil
+from pykunlun import objutil
 
 from baibao.data import currency as currency_mod
 from baibao.data.meta import Field, Style
@@ -60,7 +61,7 @@ def _empty_html(title: str) -> str:
     return f'<h3>{_esc(title)}</h3><p class="empty">暂无数据</p>'
 
 
-def _chart_header(title: str, legend_items: List[Tuple[str, Optional[str]]]) -> str:
+def _chart_header(title: str, legend_items: list[tuple[str, str | None]]) -> str:
     """
     构建图表容器头部（标题 + 图例）。
 
@@ -100,7 +101,7 @@ def _field_color(field: Field) -> str:
     return color or DEFAULT_BAR_COLOR
 
 
-def _get_currency_symbol(field: Field, data: Dict[str, Any]) -> str:
+def _get_currency_symbol(field: Field, data: dict[str, Any]) -> str:
     """
     根据 Field 的币种配置和行数据解析货币符号。
 
@@ -146,7 +147,7 @@ def create_style(color: str = '', **kwargs) -> Style:
 
 def create_field(name: str, display_name: str = '', is_currency: bool = False,
                  currency_field: str = '', currency_value: str = '',
-                 style: Optional[Style] = None) -> Field:
+                 style: Style | None = None) -> Field:
     """
     模板辅助：创建 Field 对象，供 ``topn_single_bar_chart`` 等函数使用。
 
@@ -171,7 +172,7 @@ def create_field(name: str, display_name: str = '', is_currency: bool = False,
     )
 
 
-def format_value(data: Dict[str, Any], field: Field, default: Any = 0) -> str:
+def format_value(data: dict[str, Any], field: Field, default: Any = 0) -> str:
     """
     根据 Field 元信息格式化数值（货币或普通数字）。
 
@@ -211,8 +212,8 @@ def format_value(data: Dict[str, Any], field: Field, default: Any = 0) -> str:
 
 def table_html(
     title: str,
-    data_list: List[Dict[str, Any]],
-    headers: Optional[Dict[str, Optional[Field]]] = None
+    data_list: list[dict[str, Any]],
+    headers: dict[str, Field | None] | None = None
 ) -> str:
     """
     生成表格 HTML。
@@ -268,7 +269,7 @@ def topn_single_bar_chart(
     title: str,
     name_field: Field,
     value_field: Field,
-    data_list: List[Dict[str, Any]],
+    data_list: list[dict[str, Any]],
 ) -> str:
     """
     生成 TopN 单柱状图 HTML（水平条形图）。
@@ -330,8 +331,8 @@ def topn_single_bar_chart(
 def topn_multi_bar_chart(
     title: str,
     name_field: Field,
-    value_fields: List[Field],
-    data_list: List[Dict[str, Any]],
+    value_fields: list[Field],
+    data_list: list[dict[str, Any]],
 ) -> str:
     """
     生成 TopN 多柱状图 HTML（水平条形图，支持多系列对比）。
@@ -360,12 +361,12 @@ def topn_multi_bar_chart(
     name_key = objutil.get_attr(name_field, 'name', '') or ''
 
     # 各系列独立计算最大绝对值，用于柱宽归一化
-    max_values: Dict[str, float] = {}
+    max_values: dict[str, float] = {}
     for vf in value_fields:
         key = objutil.get_attr(vf, 'name', '') or ''
         max_values[key] = max(abs(r.get(key, 0) or 0) for r in data_list) or 1
 
-    legend_items: List[Tuple[str, Optional[str]]] = []
+    legend_items: list[tuple[str, str | None]] = []
     for vf in value_fields:
         key = objutil.get_attr(vf, 'name', '') or ''
         label = objutil.get_attr(vf, 'display_name', '') or key
@@ -412,8 +413,8 @@ def topn_multi_bar_chart(
 
 def multi_line_chart(
     title: str,
-    rows: List[Dict[str, Any]],
-    value_fields: List[Field],
+    rows: list[dict[str, Any]],
+    value_fields: list[Field],
     x_field: str = 'month_label',
 ) -> str:
     """
@@ -494,11 +495,11 @@ def multi_line_chart(
         svg.append(f'<text x="{month_x}" y="{_SVG_HEIGHT - _SVG_PAD_B + 20}" class="line-chart-month-label">{_esc(label)}</text>')
 
     # 第一步：预计算每个系列在各 x 位置的点 (point_x, point_y, value, formatted, color)
-    series_points: Dict[int, List[Tuple[float, float, Any, str, str]]] = {}
+    series_points: dict[int, list[tuple[float, float, Any, str, str]]] = {}
     for field_idx, vf in enumerate(value_fields):
         key = objutil.get_attr(vf, 'name', '') or ''
         color = _field_color(vf)
-        pts: List[Tuple[float, float, Any, str, str]] = []
+        pts: list[tuple[float, float, Any, str, str]] = []
         for i, r in enumerate(rows):
             v = r.get(key, 0) or 0
             pts.append((x_pos(i), y_pos(v), v, format_value(r, vf), color))
@@ -523,7 +524,7 @@ def multi_line_chart(
             svg.append(f'<circle cx="{point_x}" cy="{point_y}" r="4" fill="{_esc_attr(color)}" class="line-chart-dot"/>')
 
     # 第三步：按 x 位置重组标签数据 (field_idx, point_x, point_y, value, color, formatted)
-    points_by_x: Dict[int, List[Tuple[int, float, float, Any, str, str]]] = {}
+    points_by_x: dict[int, list[tuple[int, float, float, Any, str, str]]] = {}
     for field_idx, pts in series_points.items():
         for i, (point_x, point_y, v, formatted, color) in enumerate(pts):
             points_by_x.setdefault(i, []).append((field_idx, point_x, point_y, v, color, formatted))
@@ -560,7 +561,7 @@ def multi_line_chart(
     svg.append('</svg>')
 
     # 组装最终 HTML（图例 + SVG）
-    legend_items: List[Tuple[str, Optional[str]]] = []
+    legend_items: list[tuple[str, str | None]] = []
     for vf in value_fields:
         key = objutil.get_attr(vf, 'name', '') or ''
         label = objutil.get_attr(vf, 'display_name', '') or key
@@ -572,12 +573,12 @@ def multi_line_chart(
 
 def horizontal_single_bar_chart(
     title: str,
-    data_list: List[Dict[str, Any]],
+    data_list: list[dict[str, Any]],
     name_field: str,
     value_field: str,
-    name_formatter: Optional[Callable[[Dict[str, Any], str], str]] = None,
-    value_formatter: Optional[Callable[[Dict[str, Any], int], str]] = None,
-    extra_fields: Optional[List[Dict[str, Any]]] = None,
+    name_formatter: Callable[[dict[str, Any], str], str] | None = None,
+    value_formatter: Callable[[dict[str, Any], int], str] | None = None,
+    extra_fields: list[dict[str, Any]] | None = None,
 ) -> str:
     """
     生成通用水平柱状图 HTML。
@@ -651,7 +652,7 @@ def horizontal_single_bar_chart(
 
 def hourly_distribution_bar_chart(
     title: str,
-    data_list: List[Dict[str, Any]],
+    data_list: list[dict[str, Any]],
     hour_field: str = 'hour',
     count_field: str = 'action_count'
 ) -> str:
@@ -687,7 +688,7 @@ def hourly_distribution_bar_chart(
     )
 
 
-def daily_trend_bar_chart(rows: List[Dict[str, Any]], chart_title: str = '每日操作趋势') -> str:
+def daily_trend_bar_chart(rows: list[dict[str, Any]], chart_title: str = '每日操作趋势') -> str:
     """
     生成每日趋势柱状图 HTML。
 

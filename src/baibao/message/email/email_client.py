@@ -12,9 +12,8 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import make_msgid
 from pathlib import Path
-from typing import List, Optional, Union
 
-from kunlun import loadutil, logutil, validation
+from pykunlun import loadutil, logutil, validation
 
 log = logutil.getLogger(__name__)
 
@@ -43,9 +42,9 @@ class EmailCfg:
     password: str
     send_port: int = 465
     send_protocol: str = "smtp"
-    sender_name: Optional[str] = None
+    sender_name: str | None = None
 
-    receive_server: Optional[str] = None
+    receive_server: str | None = None
     receive_port: int = 993
     receive_protocol: str = "imap"
 
@@ -88,7 +87,7 @@ class EmailCfg:
             raise ValueError(f"接收协议只支持 imap 和 pop3，当前值: {self.receive_protocol}")
 
     @staticmethod
-    def load_from_json_cfg(config_path: Union[str, Path]) -> 'EmailCfg':
+    def load_from_json_cfg(config_path: str | Path) -> 'EmailCfg':
         """
         从 JSON 文件加载邮件服务器配置。
 
@@ -120,7 +119,7 @@ class EmailSendResult:
     """
     message_id: str
     from_addr: str
-    recipients: List[str]
+    recipients: list[str]
     failed_recipients: dict
 
 
@@ -160,7 +159,7 @@ class EmailClient:
         """
         log.info(f"邮件客户端初始化，服务器：{config.send_server}:{config.send_port}")
         self._config = config
-        self._smtp: Optional[smtplib.SMTP] = None
+        self._smtp: smtplib.SMTP | None = None
 
     def _connect_send_server(self) -> None:
         """
@@ -208,11 +207,11 @@ class EmailClient:
 
     def _create_message(
         self,
-        to: Union[str, List[str]],
+        to: str | list[str],
         subject: str,
         content: str,
         content_type: str = "plain",
-        attachments: Optional[List[str]] = None
+        attachments: list[str] | None = None
     ) -> MIMEMultipart:
         """
         创建邮件消息对象。
@@ -263,12 +262,12 @@ class EmailClient:
 
     def send(
         self,
-        to: Union[str, List[str]],
+        to: str | list[str],
         subject: str,
         content: str,
-        cc: Optional[Union[str, List[str]]] = None,
-        bcc: Optional[Union[str, List[str]]] = None,
-        attachments: Optional[List[str]] = None,
+        cc: str | list[str] | None = None,
+        bcc: str | list[str] | None = None,
+        attachments: list[str] | None = None,
         is_html: bool = False
     ) -> EmailSendResult:
         """

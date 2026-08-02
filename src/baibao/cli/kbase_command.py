@@ -18,9 +18,9 @@ kbase_init 命令 - 知识库（Knowledge Base）目录脚手架。
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
-from kunlun import Command, logutil
+from pykunlun import Command, logutil
 
 log = logutil.getLogger(__name__)
 
@@ -42,7 +42,7 @@ def _mk(path: Path, desc: str = "", title: str = ""):
         (path / ".gitkeep").write_text("", encoding="utf-8")
 
 
-def _resolve_root(args: List[str], idx: int) -> Optional[Path]:
+def _resolve_root(args: list[str], idx: int) -> Path | None:
     """
     从 args[idx] 读取目标目录，缺省时使用当前目录。
 
@@ -81,10 +81,10 @@ class KbaseTemplate:
 
     name: str
     description: str = ""
-    top_levels: Dict[str, str] = field(default_factory=dict)
-    second_levels: Dict[str, List[str]] = field(default_factory=dict)
-    project_templates: Dict[str, Dict[str, List[str]]] = field(default_factory=dict)
-    seed_projects: List[Tuple[str, str]] = field(default_factory=list)
+    top_levels: dict[str, str] = field(default_factory=dict)
+    second_levels: dict[str, list[str]] = field(default_factory=dict)
+    project_templates: dict[str, dict[str, list[str]]] = field(default_factory=dict)
+    seed_projects: list[tuple[str, str]] = field(default_factory=list)
     project_root_name: str = "02-项目资产"
     template_number: str = "99"
     number_digits: int = 2
@@ -178,7 +178,7 @@ class KbaseTemplate:
 
 
 # region ======== 模板注册表 ========
-_TEMPLATES: Dict[str, KbaseTemplate] = {}
+_TEMPLATES: dict[str, KbaseTemplate] = {}
 
 
 def register_template(template: KbaseTemplate) -> KbaseTemplate:
@@ -191,12 +191,12 @@ def register_template(template: KbaseTemplate) -> KbaseTemplate:
     return template
 
 
-def get_template(name: str) -> Optional[KbaseTemplate]:
+def get_template(name: str) -> KbaseTemplate | None:
     """按名称取模板实例；不存在返回 None。"""
     return _TEMPLATES.get(name)
 
 
-def list_template_names() -> List[str]:
+def list_template_names() -> list[str]:
     """返回所有已注册模板名。"""
     return list(_TEMPLATES)
 # endregion
@@ -259,7 +259,7 @@ register_template(KbaseTemplate(
 
 
 # region ======== 参数解析 ========
-def _parse_template(args: List[str]) -> Tuple[Optional[str], List[str]]:
+def _parse_template(args: list[str]) -> tuple[str | None, list[str]]:
     """
     从 args 中剥离 -t / --template 选项。
 
@@ -267,7 +267,7 @@ def _parse_template(args: List[str]) -> Tuple[Optional[str], List[str]]:
     返回 (模板名或None, 剩余位置参数)；未指定 -t 时模板名为 None；-t 缺值时报错并返回 (None, ...)。
     """
     template = None
-    rest: List[str] = []
+    rest: list[str] = []
     i = 0
     while i < len(args):
         a = args[i]
@@ -313,7 +313,7 @@ class KbaseInitCommand(Command):
             "    列出可用模板"
         )
 
-    def execute(self, args: List[str]) -> Any:
+    def execute(self, args: list[str]) -> Any:
         # 1) 解析 -t/--template（未指定时 template_name 为 None）
         template_name, rest = _parse_template(args)
 

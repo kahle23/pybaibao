@@ -5,7 +5,7 @@
 涵盖日志、包管理、数据库、消息发送、文字识别等常用场景。
 """
 
-from kunlun.envinfo import pkginfo
+from pykunlun.envinfo import pkginfo
 
 from baibao.ai import llm, ocr
 from baibao.ai.llm import ChatMessage, ChatResponse, LlmCfg, LlmService, OpenAiLlm
@@ -23,7 +23,6 @@ __version__ = pkginfo.get_package_version("baibao")
 __all__ = [
     "ChatMessage",
     "ChatResponse",
-    "RdbCfg",
     "EasyOcr",
     "EmailCfg",
     "EmailClient",
@@ -36,6 +35,7 @@ __all__ = [
     "OcrService",
     "OpenAiLlm",
     "PaddleOcr",
+    "RdbCfg",
     "Style",
     "TemplateEngine",
     "currency",

@@ -6,19 +6,18 @@
 """
 
 import threading
-from typing import Dict, Optional, Union
 
 from .email_client import EmailCfg, EmailClient, EmailSendResult
 
 # 存储不同配置名对应的 EmailClient 实例
-_clients: Dict[str, EmailClient] = {}
+_clients: dict[str, EmailClient] = {}
 _clients_lock = threading.RLock()
 
 # 默认配置名
 DEFAULT_CFG_NAME = "default"
 
 
-def get_client(cfg_name: Optional[str] = None) -> EmailClient:
+def get_client(cfg_name: str | None = None) -> EmailClient:
     """
     获取指定配置名对应的 EmailClient 实例。
 
@@ -56,7 +55,7 @@ def get_client(cfg_name: Optional[str] = None) -> EmailClient:
         return _clients[cfg_name]
 
 
-def set_client(cfg_name: str, client: Union[EmailClient, EmailCfg, dict]) -> None:
+def set_client(cfg_name: str, client: EmailClient | EmailCfg | dict) -> None:
     """
     设置指定配置名对应的 EmailClient 或 EmailCfg。
 
@@ -82,7 +81,7 @@ def set_client(cfg_name: str, client: Union[EmailClient, EmailCfg, dict]) -> Non
             raise TypeError(f"client 必须是 EmailClient、EmailCfg 或 dict 类型，实际类型: {type(client)}")
 
 
-def remove_client(cfg_name: Optional[str] = None) -> None:
+def remove_client(cfg_name: str | None = None) -> None:
     """
     移除指定配置名对应的 EmailClient。
 
@@ -110,12 +109,12 @@ def clear():
 
 def send(
     cfg_name: str,
-    to: Union[str, list],
+    to: str | list,
     subject: str,
     content: str,
-    cc: Optional[Union[str, list]] = None,
-    bcc: Optional[Union[str, list]] = None,
-    attachments: Optional[list] = None,
+    cc: str | list | None = None,
+    bcc: str | list | None = None,
+    attachments: list | None = None,
     is_html: bool = False
 ) -> EmailSendResult:
     """
@@ -144,12 +143,12 @@ def send(
 
 def send_text(
     cfg_name: str,
-    to: Union[str, list],
+    to: str | list,
     subject: str,
     content: str,
-    cc: Optional[Union[str, list]] = None,
-    bcc: Optional[Union[str, list]] = None,
-    attachments: Optional[list] = None
+    cc: str | list | None = None,
+    bcc: str | list | None = None,
+    attachments: list | None = None
 ) -> EmailSendResult:
     """
     快速发送纯文本邮件。
@@ -174,12 +173,12 @@ def send_text(
 
 def send_html(
     cfg_name: str,
-    to: Union[str, list],
+    to: str | list,
     subject: str,
     html_content: str,
-    cc: Optional[Union[str, list]] = None,
-    bcc: Optional[Union[str, list]] = None,
-    attachments: Optional[list] = None
+    cc: str | list | None = None,
+    bcc: str | list | None = None,
+    attachments: list | None = None
 ) -> EmailSendResult:
     """
     快速发送 HTML 邮件。

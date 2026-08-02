@@ -6,10 +6,11 @@ LLM 核心模块，定义接口、数据对象和管理函数。
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Generator
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import Lock
-from typing import Any, Dict, Generator, List, Optional, Union
+from typing import Any
 
 # region ======== 配置类 ========
 
@@ -31,13 +32,13 @@ class LlmCfg:
 
     service_type: str
     api_key: str
-    base_url: Optional[str] = None
-    model: Optional[str] = None
+    base_url: str | None = None
+    model: str | None = None
     timeout: float = 60.0
     max_retries: int = 2
 
     @staticmethod
-    def load_from_json_cfg(config_path: Union[str, Path]) -> 'LlmCfg':
+    def load_from_json_cfg(config_path: str | Path) -> 'LlmCfg':
         """
         从 JSON 文件加载 LLM 配置。
 
@@ -52,7 +53,7 @@ class LlmCfg:
             ValueError: 文件缺少必填字段时抛出。
             json.JSONDecodeError: JSON 格式解析失败时抛出。
         """
-        from kunlun import loadutil
+        from pykunlun import loadutil
         cfg = loadutil.load_dataclass_from_json_file(config_path, LlmCfg)
         return cfg
 
@@ -91,7 +92,7 @@ class ChatResponse:
 
     content: str
     model: str
-    usage: Dict[str, int] = field(default_factory=dict)
+    usage: dict[str, int] = field(default_factory=dict)
     finish_reason: str = ""
     raw: Any = None
 
@@ -112,9 +113,9 @@ class LlmService(ABC):
     @abstractmethod
     def chat(
         self,
-        messages: List[ChatMessage],
+        messages: list[ChatMessage],
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
         **kwargs,
     ) -> ChatResponse:
         """
@@ -139,9 +140,9 @@ class LlmService(ABC):
     @abstractmethod
     def stream_chat(
         self,
-        messages: List[ChatMessage],
+        messages: list[ChatMessage],
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
         **kwargs,
     ) -> Generator[str, None, None]:
         """
@@ -170,14 +171,14 @@ class LlmService(ABC):
 # region ======== 模块级 LLM 管理 ========
 
 # 存储不同配置名对应的 LlmService 实例
-_llmServices: Dict[str, LlmService] = {}
+_llmServices: dict[str, LlmService] = {}
 # 保护 _llmServices 字典并发访问的锁
 _llmServices_lock = Lock()
 # 默认配置名
 DEFAULT_LLM_NAME = "default"
 
 
-def get_llm_service(llm_name: Optional[str] = None) -> LlmService:
+def get_llm_service(llm_name: str | None = None) -> LlmService:
     """
     获取指定配置名对应的 LlmService 实例。
 
@@ -242,7 +243,7 @@ def set_llm_service(llm_name: str, service: LlmService) -> None:
         _llmServices[llm_name] = service
 
 
-def remove_llm_service(llm_name: Optional[str] = None) -> None:
+def remove_llm_service(llm_name: str | None = None) -> None:
     """
     移除指定配置名对应的 LlmService 实例。
 
@@ -257,10 +258,10 @@ def remove_llm_service(llm_name: Optional[str] = None) -> None:
 
 
 def chat(
-    messages: List[ChatMessage],
+    messages: list[ChatMessage],
     temperature: float = 0.7,
-    max_tokens: Optional[int] = None,
-    llm_name: Optional[str] = None,
+    max_tokens: int | None = None,
+    llm_name: str | None = None,
     **kwargs,
 ) -> ChatResponse:
     """
@@ -285,10 +286,10 @@ def chat(
 
 
 def stream_chat(
-    messages: List[ChatMessage],
+    messages: list[ChatMessage],
     temperature: float = 0.7,
-    max_tokens: Optional[int] = None,
-    llm_name: Optional[str] = None,
+    max_tokens: int | None = None,
+    llm_name: str | None = None,
     **kwargs,
 ) -> Generator[str, None, None]:
     """

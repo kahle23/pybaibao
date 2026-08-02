@@ -4,10 +4,10 @@
 提供基于策略模式的环境变量管理能力，支持 Windows、Unix-like
 （Linux、macOS、BSD 等）平台。
 
-抽象接口与平台注册表位于 :mod:`kunlun.system.env_var`
-（:class:`~kunlun.system.env_var.EnvVarService` /
-:class:`~kunlun.system.env_var.EnvVarManager`）；本模块在包导入时实例化
-:class:`~kunlun.system.env_var.EnvVarManager`，注册 Windows / Unix 的具体实现，
+抽象接口与平台注册表位于 :mod:`pykunlun.system.env_var`
+（:class:`~pykunlun.system.env_var.EnvVarService` /
+:class:`~pykunlun.system.env_var.EnvVarManager`）；本模块在包导入时实例化
+:class:`~pykunlun.system.env_var.EnvVarManager`，注册 Windows / Unix 的具体实现，
 并通过 :data:`env_var_manager` 对外暴露。调用方据此获取当前平台的服务实例。
 
 用法示例::
@@ -22,14 +22,14 @@
     svc.append_to_path("/some/path")
 """
 
-import kunlun.system as _kunlun
+import pykunlun.system as _pykunlun
 
 from .unix_env import UnixEnvService
 from .windows_env import WindowsEnvService
 
 # 平台服务管理器实例（注册表为实例属性）：注册 Windows / Unix 具体实现后对外提供。
 # 通过模块别名引用 EnvVarManager，避免该类名泄漏到本包命名空间。
-env_var_manager = _kunlun.EnvVarManager()
+env_var_manager = _pykunlun.EnvVarManager()
 env_var_manager.register_service("windows", WindowsEnvService())
 env_var_manager.register_service("unix", UnixEnvService())
 

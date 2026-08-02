@@ -19,7 +19,7 @@ class _RdbTestBase(unittest.TestCase):
         _reset_registry()
         self._fd, self._db_path = tempfile.mkstemp(suffix='.db')
         os.close(self._fd)
-        # 注册为默认实例（SqliteClient 来自 kunlun，connect-per-call）
+        # 注册为默认实例（SqliteClient 来自 pykunlun，connect-per-call）
         rdb.register("default", SqliteClient(RdbCfg(db_type='sqlite', database=self._db_path)))
 
     def tearDown(self):

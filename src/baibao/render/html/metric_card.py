@@ -30,9 +30,10 @@
 """
 
 import html
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from dataclasses import field as dc_field
-from typing import Any, Callable, List, Mapping, Optional, Sequence
+from typing import Any
 
 from baibao.data import currency as currency_mod
 
@@ -83,7 +84,7 @@ def format_percent(value: Any) -> str:
 
 def _resolve_currency_symbol(row: Mapping[str, Any],
                              currency_field: str,
-                             currency_resolver: Optional[Callable[[Mapping[str, Any]], str]] = None) -> str:
+                             currency_resolver: Callable[[Mapping[str, Any]], str] | None = None) -> str:
     """从行数据解析货币符号。
 
     解析优先级：
@@ -160,10 +161,10 @@ class MetricGroupSpec:
 
     title: str
     source_key: str = ''
-    metrics: List[MetricSpec] = dc_field(default_factory=list)
+    metrics: list[MetricSpec] = dc_field(default_factory=list)
     currency_field: str = ''
     layout: str = 'per_currency_grid'
-    renderer: Optional[Callable[[Mapping[str, Any]], str]] = None
+    renderer: Callable[[Mapping[str, Any]], str] | None = None
 
 # endregion
 
@@ -188,7 +189,7 @@ def _format_metric_value(spec: MetricSpec, row: Mapping[str, Any],
 
 def _render_metric_cards(specs: Sequence[MetricSpec], row: Mapping[str, Any],
                          multi_currency: bool, currency_field: str,
-                         currency_resolver: Optional[Callable[[Mapping[str, Any]], str]] = None) -> str:
+                         currency_resolver: Callable[[Mapping[str, Any]], str] | None = None) -> str:
     """渲染一行数据对应的若干指标卡片。
 
     每张卡片共享本行的币种上下文：当 ``multi_currency`` 为真且配置了
@@ -197,7 +198,7 @@ def _render_metric_cards(specs: Sequence[MetricSpec], row: Mapping[str, Any],
     """
     sym = _resolve_currency_symbol(row, currency_field, currency_resolver)
     cur_code = str(row.get(currency_field, '')) if currency_field else ''
-    parts: List[str] = []
+    parts: list[str] = []
     for spec in specs:
         # 多币种场景下追加 code 后缀，单币种场景保持原标签
         if multi_currency and currency_field:
@@ -215,7 +216,7 @@ def _render_metric_cards(specs: Sequence[MetricSpec], row: Mapping[str, Any],
 
 
 def render_metric_group(spec: MetricGroupSpec, data: Mapping[str, Any],
-                        currency_resolver: Optional[Callable[[Mapping[str, Any]], str]] = None) -> str:
+                        currency_resolver: Callable[[Mapping[str, Any]], str] | None = None) -> str:
     """渲染一个指标分组为 HTML 片段。
 
     分派顺序：
@@ -245,7 +246,7 @@ def render_metric_group(spec: MetricGroupSpec, data: Mapping[str, Any],
         rows = rows[:1]
 
     multi = len(rows) > 1
-    parts: List[str] = [f'  <div class="metric-group-label">{_esc(spec.title)}</div>\n']
+    parts: list[str] = [f'  <div class="metric-group-label">{_esc(spec.title)}</div>\n']
 
     if spec.layout == 'per_currency_grid':
         # 每个币种独立一个 grid，避免不同币种的卡片混在同一行
@@ -265,7 +266,7 @@ def render_metric_group(spec: MetricGroupSpec, data: Mapping[str, Any],
 
 
 def render_metric_section(specs: Sequence[MetricGroupSpec], data: Mapping[str, Any],
-                          currency_resolver: Optional[Callable[[Mapping[str, Any]], str]] = None) -> str:
+                          currency_resolver: Callable[[Mapping[str, Any]], str] | None = None) -> str:
     """渲染多个指标分组为 HTML 片段（即报表顶部的关键指标概览区）。
 
     Args:

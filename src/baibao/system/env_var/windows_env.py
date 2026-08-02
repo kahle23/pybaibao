@@ -8,9 +8,8 @@ Windows 平台的环境变量管理实现。
 
 import os
 import subprocess
-from typing import Optional
 
-from kunlun import EnvVarService, env_var, logutil
+from pykunlun import EnvVarService, env_var, logutil
 
 log = logutil.getLogger(__name__)
 
@@ -33,7 +32,7 @@ class WindowsEnvService(EnvVarService):
     # region ======== 私有辅助 ========
 
     @staticmethod
-    def _run_powershell(command: str) -> Optional[str]:
+    def _run_powershell(command: str) -> str | None:
         """
         执行 PowerShell 命令。
 
@@ -156,7 +155,7 @@ class WindowsEnvService(EnvVarService):
 
     # region ======== 策略接口实现 ========
 
-    def set_var(self, name: str, value: str, scope: Optional[int] = None) -> bool:
+    def set_var(self, name: str, value: str, scope: int | None = None) -> bool:
         # scope：None / SCOPE_SYSTEM(1) -> 'Machine'；SCOPE_USER(2) -> 'User'
         target = 'User' if scope == env_var.SCOPE_USER else 'Machine'
         # 优先使用 PowerShell

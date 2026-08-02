@@ -5,12 +5,13 @@ Jinja2 模板引擎策略实现模块。
 自动转义等特性，适用于 HTML 渲染和代码生成等场景。
 """
 import os
-from typing import IO, TYPE_CHECKING, Any, Callable, Dict, Optional, Type
+from collections.abc import Callable
+from typing import IO, TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     import jinja2  # type: ignore[import-not-found]
 
-from kunlun import modutil
+from pykunlun import modutil
 
 from ._template import TemplateEngine
 
@@ -35,12 +36,12 @@ class Jinja2Engine(TemplateEngine):
 
     def __init__(
         self,
-        template_dir: Optional[str] = None,
+        template_dir: str | None = None,
         auto_escape: bool = True,
         cache_size: int = 400,
         undefined: str = "strict",
-        filters: Optional[Dict[str, Callable]] = None,
-        globals: Optional[Dict[str, Any]] = None,
+        filters: dict[str, Callable] | None = None,
+        globals: dict[str, Any] | None = None,
     ) -> None:
         """
         初始化 Jinja2 模板引擎。
@@ -82,7 +83,7 @@ class Jinja2Engine(TemplateEngine):
         # 导入 Jinja2 库
         import jinja2
         # 配置未定义变量处理
-        undefined: Type[jinja2.Undefined]
+        undefined: type[jinja2.Undefined]
         if self._undefined == "strict":
             undefined = jinja2.StrictUndefined
         elif self._undefined == "undefined":
@@ -114,7 +115,7 @@ class Jinja2Engine(TemplateEngine):
         return env
 
     @property
-    def template_dir(self) -> Optional[str]:
+    def template_dir(self) -> str | None:
         """
         获取模板目录路径。
 
@@ -154,7 +155,7 @@ class Jinja2Engine(TemplateEngine):
         return self._undefined
 
     @property
-    def filters(self) -> Dict[str, Callable]:
+    def filters(self) -> dict[str, Callable]:
         """
         获取所有自定义过滤器。
 
@@ -164,7 +165,7 @@ class Jinja2Engine(TemplateEngine):
         return self._filters.copy()
 
     @property
-    def globals(self) -> Dict[str, Any]:
+    def globals(self) -> dict[str, Any]:
         """
         获取所有全局变量。
 

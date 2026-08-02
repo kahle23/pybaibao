@@ -1,16 +1,17 @@
 """
 带连接池的 RdbClient 基类。
 
-基于 kunlun 的 :class:`~kunlun.db.RdbClient`，覆盖 :meth:`get_connection`
+基于 pykunlun 的 :class:`~pykunlun.db.RdbClient`，覆盖 :meth:`get_connection`
 走连接池（DBUtils.PooledDB）或单连接，使继承的 query / execute 自动获得
-连接复用能力。子类需实现 :meth:`~kunlun.db.RdbClient.get_driver` 与
-:meth:`~kunlun.db.RdbClient.build_connect_kwargs`。
+连接复用能力。子类需实现 :meth:`~pykunlun.db.RdbClient.get_driver` 与
+:meth:`~pykunlun.db.RdbClient.build_connect_kwargs`。
 """
 
-from typing import Any, Callable, ClassVar, Dict, List, Optional, Tuple
+from collections.abc import Callable
+from typing import Any, ClassVar
 
-from kunlun import logutil, modutil
-from kunlun.db import RdbClient
+from pykunlun import logutil, modutil
+from pykunlun.db import RdbClient
 
 log = logutil.getLogger(__name__)
 
@@ -41,14 +42,14 @@ class _SingleConnectionProxy:
 
 class PooledDBClient(RdbClient):
     """
-    带连接池的 :class:`~kunlun.db.RdbClient` 基类。
+    带连接池的 :class:`~pykunlun.db.RdbClient` 基类。
 
     覆盖 :meth:`get_connection` 走连接池（或单连接），使继承自基类的
-    :meth:`~kunlun.db.RdbClient.query` / :meth:`~kunlun.db.RdbClient.execute`
+    :meth:`~pykunlun.db.RdbClient.query` / :meth:`~pykunlun.db.RdbClient.execute`
     自动获得连接复用能力，无需重复实现。
 
-    子类仍需实现 :meth:`~kunlun.db.RdbClient.get_driver` 与
-    :meth:`~kunlun.db.RdbClient.build_connect_kwargs`。
+    子类仍需实现 :meth:`~pykunlun.db.RdbClient.get_driver` 与
+    :meth:`~pykunlun.db.RdbClient.build_connect_kwargs`。
 
     支持两种模式：
       - 连接池模式（默认）：基于 DBUtils.PooledDB，线程安全；
@@ -61,7 +62,7 @@ class PooledDBClient(RdbClient):
 
     #: :meth:`query` 的默认值转换器映射，``None`` 表示不做任何转换。
     #: 子类按驱动返回类型覆盖（如 ``{Decimal: float}``）。仅在调用方未传 ``converters`` 时生效。
-    DEFAULT_CONVERTERS: ClassVar[Optional[Dict[type, Callable[[Any], Any]]]] = None
+    DEFAULT_CONVERTERS: ClassVar[dict[type, Callable[[Any], Any]] | None] = None
 
     def __init__(self, cfg, use_pool: bool = True, mincached: int = 1,
                  maxcached: int = 10, maxconnections: int = 20) -> None:
@@ -79,7 +80,7 @@ class PooledDBClient(RdbClient):
         self.mincached = mincached
         self.maxcached = maxcached
         self.maxconnections = maxconnections
-        self._pool = None
+        self._pool: Any = None
         self._connection = None
         super().__init__(cfg)
         log.info("数据库连接初始化（use_pool:%s），地址：%s://%s:%s/%s",
@@ -95,7 +96,7 @@ class PooledDBClient(RdbClient):
                 PooledDB = modutil.import_module('dbutils.pooled_db', 'dbutils').PooledDB
             except ImportError:
                 PooledDB = modutil.import_module('DBUtils.PooledDB').PooledDB
-            pool_kwargs: Dict[str, Any] = {
+            pool_kwargs: dict[str, Any] = {
                 'creator': self.get_driver(),
                 'mincached': self.mincached,
                 'maxcached': self.maxcached,
@@ -128,12 +129,12 @@ class PooledDBClient(RdbClient):
             self._init_connection_source()
         return _SingleConnectionProxy(self._connection)
 
-    def query(self, sql: str, params: Optional[Tuple[Any, ...]] = None,
-              converters: Optional[Dict[type, Callable[[Any], Any]]] = None) -> List[Dict]:
+    def query(self, sql: str, params: tuple[Any, ...] | None = None,
+              converters: dict[type, Callable[[Any], Any]] | None = None) -> list[dict]:
         """
         执行查询（连接池/单连接版）。
 
-        与 :meth:`~kunlun.db.RdbClient.query` 一致，额外约定：当调用方未传入
+        与 :meth:`~pykunlun.db.RdbClient.query` 一致，额外约定：当调用方未传入
         ``converters``（``None``）时，采用 :attr:`DEFAULT_CONVERTERS` 作为默认转换器
         （便于子类为特定驱动注册默认转换，如 ``Decimal → float``）；
         显式传入 ``{}`` 则表示本次**不做任何转换**。

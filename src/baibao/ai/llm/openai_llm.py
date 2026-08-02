@@ -6,9 +6,10 @@ OpenAI 兼容 LLM 策略实现模块。
 """
 
 import os
-from typing import Any, Dict, Generator, List, Optional
+from collections.abc import Generator
+from typing import Any
 
-from kunlun import pip
+from pykunlun import pip
 
 from ._llm import ChatMessage, ChatResponse, LlmCfg, LlmService
 
@@ -140,8 +141,8 @@ class OpenAiLlm(LlmService):
     def _build_messages(
         self,
         prompt: str,
-        system: Optional[str] = None,
-    ) -> List[Dict[str, str]]:
+        system: str | None = None,
+    ) -> list[dict[str, str]]:
         """
         构建消息列表。
 
@@ -152,7 +153,7 @@ class OpenAiLlm(LlmService):
         Returns:
             符合 OpenAI API 格式的消息列表。
         """
-        messages: List[Dict[str, str]] = []
+        messages: list[dict[str, str]] = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
@@ -160,8 +161,8 @@ class OpenAiLlm(LlmService):
 
     def _to_api_messages(
         self,
-        messages: List[ChatMessage],
-    ) -> List[Dict[str, str]]:
+        messages: list[ChatMessage],
+    ) -> list[dict[str, str]]:
         """
         将 ChatMessage 列表转换为 OpenAI API 格式。
 
@@ -201,9 +202,9 @@ class OpenAiLlm(LlmService):
 
     def chat(
         self,
-        messages: List[ChatMessage],
+        messages: list[ChatMessage],
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
         **kwargs,
     ) -> ChatResponse:
         """
@@ -225,7 +226,7 @@ class OpenAiLlm(LlmService):
             openai.APIError: 其他 API 错误。
         """
         api_messages = self._to_api_messages(messages)
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "model": self._model,
             "messages": api_messages,
             "temperature": temperature,
@@ -239,9 +240,9 @@ class OpenAiLlm(LlmService):
 
     def stream_chat(
         self,
-        messages: List[ChatMessage],
+        messages: list[ChatMessage],
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
         **kwargs,
     ) -> Generator[str, None, None]:
         """
@@ -263,7 +264,7 @@ class OpenAiLlm(LlmService):
             openai.APIError: 其他 API 错误。
         """
         api_messages = self._to_api_messages(messages)
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "model": self._model,
             "messages": api_messages,
             "temperature": temperature,
