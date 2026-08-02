@@ -1,8 +1,9 @@
 import os
+import sqlite3
 import tempfile
 import unittest
 
-from baibao.db.rdb import RdbCfg, SqliteRdbClient, rdb
+from baibao.db.rdb import RdbCfg, SqliteClient, rdb
 
 
 def _reset_registry():
@@ -18,8 +19,8 @@ class _RdbTestBase(unittest.TestCase):
         _reset_registry()
         self._fd, self._db_path = tempfile.mkstemp(suffix='.db')
         os.close(self._fd)
-        # 注册为默认实例（SqliteRdbClient 来自 kunlun，connect-per-call）
-        rdb.register("default", SqliteRdbClient(RdbCfg(db_type='sqlite', database=self._db_path)))
+        # 注册为默认实例（SqliteClient 来自 kunlun，connect-per-call）
+        rdb.register("default", SqliteClient(RdbCfg(db_type='sqlite', database=self._db_path)))
 
     def tearDown(self):
         _reset_registry()
@@ -43,7 +44,7 @@ class TestExecute(_RdbTestBase):
         """出错时回滚，数据不残留"""
         rdb.execute("CREATE TABLE u (id INTEGER PRIMARY KEY)")
         rdb.execute("INSERT INTO u VALUES (1)")
-        with self.assertRaises(Exception):
+        with self.assertRaises(sqlite3.IntegrityError):
             rdb.execute("INSERT INTO u VALUES (1)")  # 主键冲突
         # 回滚后仍为 1 行
         self.assertEqual(rdb.query("SELECT COUNT(*) AS c FROM u"), [{'c': 1}])
@@ -76,7 +77,7 @@ class TestNamedInstances(_RdbTestBase):
         fd, p2 = tempfile.mkstemp(suffix='.db')
         os.close(fd)
         try:
-            rdb.register("other", SqliteRdbClient(RdbCfg(db_type='sqlite', database=p2)))
+            rdb.register("other", SqliteClient(RdbCfg(db_type='sqlite', database=p2)))
             rdb.execute("CREATE TABLE t (id INTEGER)", name="default")
             rdb.execute("INSERT INTO t VALUES (1)", name="default")
             # default 有 t 表，other 没有

@@ -11,7 +11,7 @@ from baibao.ai import llm, ocr
 from baibao.ai.llm import ChatMessage, ChatResponse, LlmCfg, LlmService, OpenAiLlm
 from baibao.ai.ocr import EasyOcr, OcrResult, OcrService, PaddleOcr
 from baibao.data import Field, Style, currency
-from baibao.db import DbCfg, DbClient, rdb
+from baibao.db import RdbCfg, rdb
 from baibao.message import email
 from baibao.message.email import EmailCfg, EmailClient, EmailSendResult
 from baibao.render import Jinja2Engine, TemplateEngine, html, template
@@ -23,8 +23,7 @@ __version__ = pkginfo.get_package_version("baibao")
 __all__ = [
     "ChatMessage",
     "ChatResponse",
-    "DbCfg",
-    "DbClient",
+    "RdbCfg",
     "EasyOcr",
     "EmailCfg",
     "EmailClient",

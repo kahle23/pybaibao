@@ -7,7 +7,7 @@
 :meth:`~kunlun.db.RdbClient.build_connect_kwargs`。
 """
 
-from typing import Any, Dict
+from typing import Any, Callable, ClassVar, Dict, List, Optional, Tuple
 
 from kunlun import logutil, modutil
 from kunlun.db import RdbClient
@@ -20,7 +20,7 @@ class _SingleConnectionProxy:
     单连接模式代理包装器。
 
     包装单连接模式下的数据库连接，使调用方的 ``close()`` 不会真正关闭底层连接，
-    而是交由 :class:`PooledRdbClient` 统一管理连接的生命周期。
+    而是交由 :class:`PooledDBClient` 统一管理连接的生命周期。
     其他属性与方法调用均透传给底层连接。
     """
 
@@ -28,7 +28,9 @@ class _SingleConnectionProxy:
         object.__setattr__(self, '_connection', connection)
 
     def close(self) -> None:
-        """空操作，不关闭底层连接。"""
+        """
+        空操作，不关闭底层连接。
+        """
 
     def __getattr__(self, name):
         return getattr(self._connection, name)
@@ -37,7 +39,7 @@ class _SingleConnectionProxy:
         setattr(self._connection, name, value)
 
 
-class PooledRdbClient(RdbClient):
+class PooledDBClient(RdbClient):
     """
     带连接池的 :class:`~kunlun.db.RdbClient` 基类。
 
@@ -51,7 +53,15 @@ class PooledRdbClient(RdbClient):
     支持两种模式：
       - 连接池模式（默认）：基于 DBUtils.PooledDB，线程安全；
       - 单连接模式：直接复用单个连接，**非线程安全，仅限单线程**。
+
+    默认转换器：子类可通过覆盖 :attr:`DEFAULT_CONVERTERS` 为常用驱动返回类型
+    注册默认转换（如 MySQL/PostgreSQL 的 :class:`~decimal.Decimal` → :class:`float`）；
+    :meth:`query` 在调用方未显式传入 ``converters``（``None``）时采用之。
     """
+
+    #: :meth:`query` 的默认值转换器映射，``None`` 表示不做任何转换。
+    #: 子类按驱动返回类型覆盖（如 ``{Decimal: float}``）。仅在调用方未传 ``converters`` 时生效。
+    DEFAULT_CONVERTERS: ClassVar[Optional[Dict[type, Callable[[Any], Any]]]] = None
 
     def __init__(self, cfg, use_pool: bool = True, mincached: int = 1,
                  maxcached: int = 10, maxconnections: int = 20) -> None:
@@ -77,7 +87,9 @@ class PooledRdbClient(RdbClient):
         self._init_connection_source()
 
     def _init_connection_source(self) -> None:
-        """初始化连接池或单连接。"""
+        """
+        初始化连接池或单连接。
+        """
         if self.use_pool:
             try:
                 PooledDB = modutil.import_module('dbutils.pooled_db', 'dbutils').PooledDB
@@ -116,8 +128,33 @@ class PooledRdbClient(RdbClient):
             self._init_connection_source()
         return _SingleConnectionProxy(self._connection)
 
+    def query(self, sql: str, params: Optional[Tuple[Any, ...]] = None,
+              converters: Optional[Dict[type, Callable[[Any], Any]]] = None) -> List[Dict]:
+        """
+        执行查询（连接池/单连接版）。
+
+        与 :meth:`~kunlun.db.RdbClient.query` 一致，额外约定：当调用方未传入
+        ``converters``（``None``）时，采用 :attr:`DEFAULT_CONVERTERS` 作为默认转换器
+        （便于子类为特定驱动注册默认转换，如 ``Decimal → float``）；
+        显式传入 ``{}`` 则表示本次**不做任何转换**。
+
+        Args:
+            sql: SQL 查询语句字符串。
+            params: SQL 参数，用于参数化查询，防止 SQL 注入。
+            converters: 值转换器映射；``None`` 用 :attr:`DEFAULT_CONVERTERS`，
+                ``{}`` 表示不转换。
+
+        Returns:
+            查询结果列表，每个元素是一个字典，键为列名。
+        """
+        if converters is None:
+            converters = self.DEFAULT_CONVERTERS
+        return super().query(sql, params, converters)
+
     def close(self) -> None:
-        """关闭连接池（或单连接），释放资源。"""
+        """
+        关闭连接池（或单连接），释放资源。
+        """
         if self.use_pool:
             if self._pool is not None:
                 self._pool.close()

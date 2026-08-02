@@ -1,22 +1,28 @@
 """
 PostgreSQL 驱动客户端（psycopg2，连接池）。
 
-继承 :class:`~baibao.db.rdb.pooled_client.PooledRdbClient`，驱动模块由本类
+继承 :class:`~baibao.db.rdb.pooled_client.PooledDBClient`，驱动模块由本类
 通过 :func:`kunlun.modutil.import_module` 自行导入与按需安装。
 """
 
 from decimal import Decimal
-from typing import Any, Callable, Dict
+from typing import Any, Callable, ClassVar, Dict, Optional
 
 from kunlun import modutil
 
-from .pooled_client import PooledRdbClient
+from .pooled_client import PooledDBClient
 
 
-class PostgresqlRdbClient(PooledRdbClient):
-    """PostgreSQL 驱动客户端（psycopg2，连接池）。"""
+class PostgresqlClient(PooledDBClient):
+    """
+    PostgreSQL 驱动客户端（psycopg2，连接池）。
+    """
 
     db_type = 'postgresql'
+
+    #: 默认转换器：psycopg2 将 NUMERIC/DECIMAL 列默认映射为 :class:`~decimal.Decimal`，
+    #: 默认转 :class:`float`，以适配 JSON 序列化等不原生支持 Decimal 的场景。
+    DEFAULT_CONVERTERS: ClassVar[Optional[Dict[type, Callable[[Any], Any]]]] = {Decimal: float}
 
     def _validate_and_prepare_cfg(self) -> None:
         # PostgreSQL 标准默认：端口 5432、字符集 utf8；先填再交基类校验。
@@ -25,11 +31,6 @@ class PostgresqlRdbClient(PooledRdbClient):
         if not self.cfg.charset:
             self.cfg.charset = 'utf8'
         super()._validate_and_prepare_cfg()
-
-    def _default_converters(self) -> Dict[type, Callable[[Any], Any]]:
-        # psycopg2 将 NUMERIC/DECIMAL 列默认映射为 decimal.Decimal，
-        # 默认转 float，以适配 JSON 序列化等不原生支持 Decimal 的场景。
-        return {Decimal: float}
 
     def get_driver(self):
         return modutil.import_module('psycopg2', 'psycopg2')
