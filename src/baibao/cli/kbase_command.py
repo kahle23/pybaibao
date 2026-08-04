@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from pykunlun import Command, logutil
+from pykunlun import CliContext, Command, logutil
 
 log = logutil.getLogger(__name__)
 
@@ -313,7 +313,8 @@ class KbaseInitCommand(Command):
             "    列出可用模板"
         )
 
-    def execute(self, args: list[str]) -> Any:
+    def execute(self, ctx: CliContext) -> Any:
+        args = ctx.current_args
         # 1) 解析 -t/--template（未指定时 template_name 为 None）
         template_name, rest = _parse_template(args)
 

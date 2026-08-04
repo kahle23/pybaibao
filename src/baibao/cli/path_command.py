@@ -6,7 +6,7 @@ import os
 import platform
 from typing import Any
 
-from pykunlun import Command, logutil
+from pykunlun import CliContext, Command, logutil
 from pykunlun.envinfo import pyinfo
 
 from baibao.system import env_var as sys_env
@@ -111,16 +111,17 @@ class PythonPathSetupCommand(Command):
 
     # region ======== 公共方法 ========
 
-    def execute(self, args: list[str]) -> Any:
+    def execute(self, ctx: CliContext) -> Any:
         """
         执行命令，将 Python 安装目录和 Scripts 目录添加到 PATH。
 
         Args:
-            args: 命令参数列表，支持 --force 跳过确认。
+            ctx: 当前命令行上下文；命令参数经 ``ctx.current_args`` 获取。
 
         Returns:
             执行成功返回 True，失败返回 False。
         """
+        args = ctx.current_args
         # 解析参数
         force = "--force" in args
 

@@ -5,7 +5,7 @@
 import os
 from typing import Any
 
-from pykunlun import Command, fileutil, logutil
+from pykunlun import CliContext, Command, fileutil, logutil
 
 log = logutil.getLogger(__name__)
 
@@ -27,7 +27,8 @@ class PyCleanCommand(Command):
     def usage(self) -> str:
         return "python -m baibao py_clean [目录路径]（默认当前目录）"
 
-    def execute(self, args: list[str]) -> Any:
+    def execute(self, ctx: CliContext) -> Any:
+        args = ctx.current_args
         base_dir = args[0] if args else os.getcwd()
 
         if not os.path.isdir(base_dir):

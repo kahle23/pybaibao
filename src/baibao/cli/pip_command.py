@@ -4,7 +4,7 @@ pip 命令 - 安装和升级 Python 包。
 
 from typing import Any
 
-from pykunlun import Command, logutil, pip
+from pykunlun import CliContext, Command, logutil, pip
 
 log = logutil.getLogger(__name__)
 
@@ -25,7 +25,8 @@ class PipInstallCommand(Command):
     def usage(self) -> str:
         return "python -m baibao pip_install <包名> [包名2 ...]"
     
-    def execute(self, args: list[str]) -> Any:
+    def execute(self, ctx: CliContext) -> Any:
+        args = ctx.current_args
         if not args:
             log.error("请指定要安装的包名")
             self.show_usage()
@@ -60,7 +61,8 @@ class PipUpgradeCommand(Command):
     def usage(self) -> str:
         return "python -m baibao pip_upgrade <包名> [包名2 ...]"
     
-    def execute(self, args: list[str]) -> Any:
+    def execute(self, ctx: CliContext) -> Any:
+        args = ctx.current_args
         if not args:
             log.error("请指定要升级的包名")
             self.show_usage()
