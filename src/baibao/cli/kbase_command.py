@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from pykunlun.core import CliContext, Command
+from pykunlun.cli import CliContext, Command
 from pykunlun.util import logutil
 
 log = logutil.getLogger(__name__)

@@ -4,7 +4,7 @@ pip 命令 - 安装和升级 Python 包。
 
 from typing import Any
 
-from pykunlun.core import CliContext, Command
+from pykunlun.cli import CliContext, Command
 from pykunlun.system import pip
 from pykunlun.util import logutil
 

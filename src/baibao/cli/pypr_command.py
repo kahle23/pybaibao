@@ -5,7 +5,7 @@
 import os
 from typing import Any
 
-from pykunlun.core import CliContext, Command
+from pykunlun.cli import CliContext, Command
 from pykunlun.util import fileutil, logutil
 
 log = logutil.getLogger(__name__)

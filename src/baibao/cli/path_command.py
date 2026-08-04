@@ -6,7 +6,7 @@ import os
 import platform
 from typing import Any
 
-from pykunlun.core import CliContext, Command
+from pykunlun.cli import CliContext, Command
 from pykunlun.envinfo import pyinfo
 from pykunlun.util import logutil
 

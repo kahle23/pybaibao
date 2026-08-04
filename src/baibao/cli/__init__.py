@@ -5,7 +5,7 @@ CLI 命令模块，实现命令模式架构。
 通过 CommandManager 注册和管理所有命令。
 """
 
-from pykunlun.core import CommandManager
+from pykunlun.cli import CommandManager
 
 from .help_command import BaibaoHelpCommand
 from .kbase_command import KbaseInitCommand
