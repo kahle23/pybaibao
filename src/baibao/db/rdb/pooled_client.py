@@ -7,6 +7,7 @@
 :meth:`~pykunlun.db.RdbClient.build_connect_kwargs`。
 """
 
+import threading
 from collections.abc import Callable
 from typing import Any, ClassVar
 
@@ -82,10 +83,11 @@ class PooledDBClient(RdbClient):
         self.maxconnections = maxconnections
         self._pool: Any = None
         self._connection = None
+        self._init_lock = threading.RLock()
         super().__init__(cfg)
-        log.info("数据库连接初始化（use_pool:%s），地址：%s://%s:%s/%s",
-                 use_pool, cfg.db_type, cfg.host, cfg.port, cfg.database)
-        self._init_connection_source()
+        self._connection_created = False
+        log.debug("数据库客户端已注册（懒加载，use_pool:%s），地址：%s://%s:%s/%s",
+                  use_pool, cfg.db_type, cfg.host, cfg.port, cfg.database)
 
     def _init_connection_source(self) -> None:
         """
@@ -115,18 +117,26 @@ class PooledDBClient(RdbClient):
 
     def get_connection(self):
         """
-        获取数据库连接。
+        获取数据库连接（懒加载：首次调用时才创建连接池/连接，线程安全）。
 
         连接池模式：从池中获取一个连接，使用后调用其 ``close()`` 归还到池中。
         单连接模式：返回 :class:`_SingleConnectionProxy` 代理，其 ``close()`` 为空操作，
         防止调用方误关共享连接。
         """
+        if not self._connection_created:
+            with self._init_lock:
+                if not self._connection_created:
+                    self._init_connection_source()
+                    self._connection_created = True
+                    log.info("数据库连接已创建（use_pool:%s），地址：%s://%s:%s/%s",
+                             self.use_pool, self.cfg.db_type, self.cfg.host, self.cfg.port, self.cfg.database)
+
         if self.use_pool:
-            if self._pool is None:
-                self._init_connection_source()
             return self._pool.connection()
         if self._connection is None or not self.is_connection_open(self._connection):
-            self._init_connection_source()
+            with self._init_lock:
+                if self._connection is None or not self.is_connection_open(self._connection):
+                    self._init_connection_source()
         return _SingleConnectionProxy(self._connection)
 
     def query(self, sql: str, params: tuple[Any, ...] | None = None,

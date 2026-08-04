@@ -5,9 +5,10 @@
 """
 
 from baibao.db import rdb
-from baibao.db.rdb import RdbCfg
+from baibao.db.rdb import RdbCfg, rdb_mgr
 
 __all__ = [
     'RdbCfg',
     'rdb',
+    'rdb_mgr',
 ]

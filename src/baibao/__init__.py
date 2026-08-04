@@ -11,7 +11,7 @@ from baibao.ai import llm, ocr
 from baibao.ai.llm import ChatMessage, ChatResponse, LlmCfg, LlmService, OpenAiLlm
 from baibao.ai.ocr import EasyOcr, OcrResult, OcrService, PaddleOcr
 from baibao.data import Field, Style, currency
-from baibao.db import RdbCfg, rdb
+from baibao.db import RdbCfg, rdb, rdb_mgr
 from baibao.message import email
 from baibao.message.email import EmailCfg, EmailClient, EmailSendResult
 from baibao.render import Jinja2Engine, TemplateEngine, html, template
@@ -44,5 +44,6 @@ __all__ = [
     "llm",
     "ocr",
     "rdb",
+    "rdb_mgr",
     "template",
 ]
