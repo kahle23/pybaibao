@@ -11,7 +11,7 @@ from typing import IO, TYPE_CHECKING, Any
 if TYPE_CHECKING:
     import jinja2  # type: ignore[import-not-found]
 
-from pykunlun import modutil
+from pykunlun.util import modutil
 
 from ._template import TemplateEngine
 

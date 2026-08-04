@@ -7,9 +7,9 @@ AI 能力模块。
   - ocr: 光学字符识别（EasyOCR / PaddleOCR）
 """
 
-from baibao.ai import llm, ocr
-from baibao.ai.llm import ChatMessage, ChatResponse, LlmCfg, LlmService, OpenAiLlm
-from baibao.ai.ocr import EasyOcr, OcrResult, OcrService, PaddleOcr
+from . import llm, ocr
+from .llm import ChatMessage, ChatResponse, LlmCfg, LlmService, OpenAiLlm
+from .ocr import EasyOcr, OcrResult, OcrService, PaddleOcr
 
 __all__ = [
     'ChatMessage',

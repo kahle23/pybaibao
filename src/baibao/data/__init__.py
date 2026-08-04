@@ -5,8 +5,8 @@
 为数据展示和报告生成提供基础的数据结构。
 """
 
-from baibao.data import currency
-from baibao.data.meta import Field, Style
+from . import currency
+from .meta import Field, Style
 
 __all__ = [
     'Field',

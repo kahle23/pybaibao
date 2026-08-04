@@ -10,7 +10,7 @@ import html
 from collections.abc import Callable
 from typing import Any
 
-from pykunlun import objutil
+from pykunlun.util import objutil
 
 from baibao.data import currency as currency_mod
 from baibao.data.meta import Field, Style

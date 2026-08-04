@@ -4,8 +4,8 @@
 提供统一的数据库操作接口。
 """
 
-from baibao.db import rdb
-from baibao.db.rdb import RdbCfg, rdb_mgr
+from . import rdb
+from .rdb import RdbCfg, rdb_mgr
 
 __all__ = [
     'RdbCfg',

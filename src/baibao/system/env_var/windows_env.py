@@ -9,7 +9,8 @@ Windows 平台的环境变量管理实现。
 import os
 import subprocess
 
-from pykunlun import EnvVarService, env_var, logutil
+from pykunlun.system import EnvVarService, env_var
+from pykunlun.util import logutil
 
 log = logutil.getLogger(__name__)
 

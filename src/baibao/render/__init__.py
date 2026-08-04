@@ -7,8 +7,8 @@
   - template: 模板引擎（支持 Jinja2 等多种实现）
 """
 
-from baibao.render import html, template
-from baibao.render.template import Jinja2Engine, TemplateEngine
+from . import html, template
+from .template import Jinja2Engine, TemplateEngine
 
 __all__ = [
     'Jinja2Engine',

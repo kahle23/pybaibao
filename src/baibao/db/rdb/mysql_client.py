@@ -9,7 +9,7 @@ from collections.abc import Callable
 from decimal import Decimal
 from typing import Any, ClassVar
 
-from pykunlun import modutil
+from pykunlun.util import modutil
 
 from .pooled_client import PooledDBClient
 

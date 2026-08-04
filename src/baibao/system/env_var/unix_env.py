@@ -7,8 +7,9 @@ Unix-like 平台（Linux、macOS、BSD 等）的环境变量管理实现。
 
 import os
 
-from pykunlun import EnvVarService, env_var, logutil
 from pykunlun.envinfo import osenv
+from pykunlun.system import EnvVarService, env_var
+from pykunlun.util import logutil
 
 log = logutil.getLogger(__name__)
 

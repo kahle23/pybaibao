@@ -11,8 +11,8 @@ import threading
 from collections.abc import Callable
 from typing import Any, ClassVar
 
-from pykunlun import logutil, modutil
 from pykunlun.db import RdbClient
+from pykunlun.util import logutil, modutil
 
 log = logutil.getLogger(__name__)
 

@@ -13,7 +13,7 @@ from email.mime.text import MIMEText
 from email.utils import make_msgid
 from pathlib import Path
 
-from pykunlun import loadutil, logutil, validation
+from pykunlun.util import loadutil, logutil, validation
 
 log = logutil.getLogger(__name__)
 

@@ -9,7 +9,7 @@ import os
 from collections.abc import Generator
 from typing import Any
 
-from pykunlun import pip
+from pykunlun.system import pip
 
 from ._llm import ChatMessage, ChatResponse, LlmCfg, LlmService
 

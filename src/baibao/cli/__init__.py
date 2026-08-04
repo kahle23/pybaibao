@@ -5,13 +5,13 @@ CLI 命令模块，实现命令模式架构。
 通过 CommandManager 注册和管理所有命令。
 """
 
-from pykunlun import CommandManager
+from pykunlun.core import CommandManager
 
-from baibao.cli.help_command import BaibaoHelpCommand
-from baibao.cli.kbase_command import KbaseInitCommand
-from baibao.cli.path_command import PythonPathSetupCommand
-from baibao.cli.pip_command import PipInstallCommand, PipUpgradeCommand
-from baibao.cli.pypr_command import PyCleanCommand
+from .help_command import BaibaoHelpCommand
+from .kbase_command import KbaseInitCommand
+from .path_command import PythonPathSetupCommand
+from .pip_command import PipInstallCommand, PipUpgradeCommand
+from .pypr_command import PyCleanCommand
 
 __all__ = ['command_manager']
 
