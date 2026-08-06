@@ -7,6 +7,7 @@ CLI 命令模块，实现命令模式架构。
 
 from pykunlun.cli import CommandManager
 
+from .agent_memory_command import AgentMemoryCommand
 from .help_command import BaibaoHelpCommand
 from .kbase_command import KbaseInitCommand
 from .path_command import PythonPathSetupCommand
@@ -31,3 +32,4 @@ command_manager.register(KbaseInitCommand())
 command_manager.register(PythonPathSetupCommand())
 command_manager.register(RdbDumpCommand())
 command_manager.register(RdbCommand())
+command_manager.register(AgentMemoryCommand())
