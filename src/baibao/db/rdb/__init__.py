@@ -1,11 +1,15 @@
 """
 SQL 数据库模块。
 
-基于 pykunlun 的 RdbClient / RdbManager 抽象层，
-提供驱动客户端，以及默认管理器实例
-:data:`rdb_mgr`，用户直接拿该实例按名称/类型注册和管理实例。
+基于 pykunlun 的 RdbClient / RdbManager 与 RdbBackupService 抽象层，
+提供驱动客户端、备份（转储）/恢复服务实现，以及模块级默认管理器实例
+:data:`rdb_mgr`，用户直接拿它按名称注册 client、按 db_type 注册备份服务。
 
 sqlite 驱动复用 pykunlun 内置的 :class:`~pykunlun.db.SqliteClient`（connect-per-call）；
+sqlite 备份使用内置 sqlite3 的 :class:`~pykunlun.db.SqliteBackupService`。
+
+驱动与备份统一收敛在 :class:`~pykunlun.db.RdbManager`：client 实例走 ``name`` 索引
+（query/execute），备份服务走 ``db_type`` 索引、``cfg`` 作参数（dump/restore）。
 
 典型用法::
 
@@ -18,20 +22,27 @@ sqlite 驱动复用 pykunlun 内置的 :class:`~pykunlun.db.SqliteClient`（conn
     # 按别名选择实例执行（省略 name 时用默认名 "default"）
     rdb_mgr.execute("INSERT INTO t VALUES (1)", name="dev")
     rows = rdb_mgr.query("SELECT * FROM t", name="test")
+
+    # 备份：默认已注册 mysql/postgresql/sqlite 备份服务，直接传 cfg 执行
+    rdb_mgr.dump(cfg, './backups/mysql_mydb.sql.gz')
 """
 
 import json
 import logging
 
 from pykunlun.db import (
+    RdbBackupService,
     RdbCfg,
     RdbManager,
+    SqliteBackupService,
     SqliteClient,
 )
 from pykunlun.util import ResolveType, fileutil
 
+from .mysql_backup import MysqlBackupService
 from .mysql_client import MysqlClient
 from .pooled_client import PooledDBClient
+from .postgresql_backup import PostgresqlBackupService
 from .postgresql_client import PostgresqlClient
 
 log = logging.getLogger(__name__)
@@ -70,14 +81,28 @@ def _config_loader(manager: RdbManager, name: str) -> None:
 
 # region ======== 模块级管理器实例 ========
 
-#: 模块级默认驱动管理器实例，按名称（别名）管理各数据库客户端实例
+#: 模块级默认管理器实例：按名称（别名）管理各数据库客户端实例，
+#: 同时承载备份服务注册表（按 db_type），经 dump/restore 方法备份/恢复。
 rdb_mgr: RdbManager = RdbManager(config_loader=_config_loader)
 
+# 注册内置备份服务（无状态策略对象，模块级立即注册）
+rdb_mgr.register_backup_service(MysqlBackupService())
+rdb_mgr.register_backup_service(PostgresqlBackupService())
+rdb_mgr.register_backup_service(SqliteBackupService())
+
 # endregion
+
+
 __all__ = [
+    'MysqlBackupService',
     'MysqlClient',
     'PooledDBClient',
+    'PostgresqlBackupService',
+    'PostgresqlClient',
+    'RdbBackupService',
     'RdbCfg',
+    'RdbManager',
+    'SqliteBackupService',
     'SqliteClient',
     'rdb_mgr',
 ]
