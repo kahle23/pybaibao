@@ -24,6 +24,7 @@ all = ["easyocr>=1.7.0", "paddleocr>=2.7.0", "opencv-python>=4.8.0", "numpy>=1.2
 dev = ["pytest", "ruff", "mypy"]
 easyocr = ["easyocr>=1.7.0", "opencv-python>=4.8.0", "numpy>=1.24.0"]
 paddleocr = ["paddleocr>=2.7.0", "opencv-python>=4.8.0", "numpy>=1.24.0"]
+autotest = ["playwright>=1.40", "pytest-playwright>=0.4.3", "python-dotenv>=1.0", "faker"]
 
 [tool.mypy]
 python_version = "3.10"
@@ -32,7 +33,7 @@ warn_return_any = true
 warn_unused_configs = true
 
 [[tool.mypy.overrides]]
-module = ["easyocr", "paddleocr", "bottle"]
+module = ["easyocr", "paddleocr", "bottle", "playwright", "playwright.sync_api", "dotenv", "faker"]
 ignore_missing_imports = true
 
 [tool.ruff]
@@ -44,10 +45,12 @@ ignore = [
     "BLE001",  # 盲异常：与 S110 重叠的工具库资源清理场景
     "DTZ005",  # datetime.now() 无 tz：工具库默认使用 naive datetime
     "DTZ007",  # strptime 无 %z：同上
+    "DTZ011",  # date.today() 无 tz：同上（naive date）
     # PIE790：不必要的 pass 语句
     # 抽象方法、空实现方法、异常子类等场景显式保留 pass，更直观表达
     # "此处为空占位/待子类实现" 的意图，与 docstring 配合可读性更好。
     "PIE790",
+    "S112",    # try-except-continue：与 S110 重叠的工具库资源清理/候选回退场景
 ]
 
 [tool.pytest.ini_options]
