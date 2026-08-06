@@ -12,6 +12,8 @@ from .kbase_command import KbaseInitCommand
 from .path_command import PythonPathSetupCommand
 from .pip_command import PipInstallCommand, PipUpgradeCommand
 from .pypr_command import PyCleanCommand
+from .rdb_command import RdbCommand
+from .rdb_dump_command import RdbDumpCommand
 
 __all__ = ['command_manager']
 
@@ -27,3 +29,5 @@ command_manager.register(PipUpgradeCommand())
 command_manager.register(PyCleanCommand())
 command_manager.register(KbaseInitCommand())
 command_manager.register(PythonPathSetupCommand())
+command_manager.register(RdbDumpCommand())
+command_manager.register(RdbCommand())
