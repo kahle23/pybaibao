@@ -52,6 +52,8 @@ _COLUMNS: list[tuple[str, str, str, str, str]] = [
     ('content',     'TEXT',                               'TEXT',                          'TEXT',                              '完整内容'),
     ('owner',       'VARCHAR(64)',                        'VARCHAR(64)',                   'TEXT',                              '所有者（用户标识，鉴权字段；NULL=共享）'),
     ('owner_group', 'VARCHAR(64)',                        'VARCHAR(64)',                   'TEXT',                              '所有者团队/组（标签，不参与鉴权）'),
+    ('machine',     'VARCHAR(64)',                        'VARCHAR(64)',                   'TEXT',                              '物理机标识（标签，不参与鉴权；多机隔离用）'),
+    ('agent_name',  'VARCHAR(64)',                        'VARCHAR(64)',                   'TEXT',                              '沉淀本条的 agent 外壳标识（标签，不参与鉴权）'),
     ('keywords',    "VARCHAR(255) DEFAULT ''",            "VARCHAR(255) DEFAULT ''",       "TEXT DEFAULT ''",                  '逗号分隔的关键词/标签'),
     ('source',      "VARCHAR(32) DEFAULT 'user-told'",    "VARCHAR(32) DEFAULT 'user-told'", "TEXT DEFAULT 'user-told'",        '来源（user-told/code-derived/inferred）'),
     ('confidence',  'TINYINT DEFAULT 80',                 'SMALLINT DEFAULT 80',           'INTEGER DEFAULT 80',                '置信度 0~100'),
@@ -86,6 +88,8 @@ class RdbMemoryStore(MemoryStore):
         db_name: rdb 实例名；None 用 rdb 默认实例。
         owner: 当前身份（用户标识）；None 表示无身份（天然处于共享域）。
         owner_group: 当前团队/组（标签，仅 remember 盖章用，不参与鉴权）。
+        machine: 当前物理机标识（标签，仅 remember 盖章 + machine_bound 去重用，不参与鉴权）。
+        agent_name: 当前 agent 外壳标识（标签，仅 remember 盖章用，不参与鉴权）。
         table: 记忆表名（默认 ``ai_memory``）。
     """
 
@@ -96,11 +100,15 @@ class RdbMemoryStore(MemoryStore):
         db_name: str | None = None,
         owner: str | None = None,
         owner_group: str | None = None,
+        machine: str | None = None,
+        agent_name: str | None = None,
         table: str = 'ai_memory',
     ) -> None:
         self._db_name = db_name
         self._owner = owner if (owner is not None and owner.strip()) else None
         self._owner_group = owner_group
+        self._machine = machine if (machine is not None and machine.strip()) else None
+        self._agent_name = agent_name if (agent_name is not None and agent_name.strip()) else None
         self._table = table
         self._db_type: str | None = None  # 懒加载并缓存
 
@@ -115,6 +123,14 @@ class RdbMemoryStore(MemoryStore):
     @property
     def owner_group(self) -> str | None:
         return self._owner_group
+
+    @property
+    def machine(self) -> str | None:
+        return self._machine
+
+    @property
+    def agent_name(self) -> str | None:
+        return self._agent_name
 
     @property
     def table(self) -> str:
@@ -137,19 +153,49 @@ class RdbMemoryStore(MemoryStore):
     # region ======== 建表 DDL ========
 
     def init_store(self) -> None:
-        """幂等建表 + 索引（按目标方言选择 DDL）。"""
+        """幂等建表 + 索引（按目标方言）。
+
+        顺序：建表 → 老库补列 → 索引。索引必须在补列之后（pg/sqlite 的
+        ``CREATE INDEX ... (machine, ...)`` 依赖 machine 列已存在）。
+        """
         db_type = self._get_db_type()
-        for stmt in self._ddl(db_type):
+        rdb_mgr.execute(self._ddl_create_table(db_type), name=self._db_name)
+        self._migrate(db_type)  # 老库补列；新库本就有，幂等
+        for stmt in self._ddl_indexes(db_type):
             rdb_mgr.execute(stmt, name=self._db_name)
         log.info("RdbMemoryStore 已初始化表 %s (db_type=%s, db_name=%s)",
                  self._table, db_type, self._db_name)
 
-    def _ddl(self, db_type: str) -> list[str]:
-        """按数据库类型返回幂等建表语句列表（含索引与注释）。
+    def _migrate(self, db_type: str) -> None:
+        """幂等迁移：补齐老库缺失的 machine/agent_name 列。
 
-        - MySQL：列与表注释内联 ``COMMENT``，索引内联在 CREATE TABLE 内。
-        - PostgreSQL：CREATE TABLE 后追加 ``COMMENT ON`` 与 ``CREATE INDEX``。
-        - SQLite：无原生注释支持，仅 CREATE TABLE + CREATE INDEX。
+        CREATE TABLE IF NOT EXISTS 对已存在的表是 noop，故老库（无新列）需靠此方法补列。
+        按方言查列名：SQLite 用 PRAGMA、MySQL/PostgreSQL 用 information_schema。
+        """
+        t = self._table
+        if db_type == 'sqlite':
+            rows = rdb_mgr.query(f'PRAGMA table_info({t})', name=self._db_name)
+            existing = {r['name'] for r in rows}
+        else:
+            # MySQL / PostgreSQL：schema 用当前库的；表名可能含大小写，按 lower 匹配
+            rows = rdb_mgr.query(
+                'SELECT column_name AS name FROM information_schema.columns '
+                'WHERE table_name = %s',
+                (t,), name=self._db_name)
+            existing = {r['name'] for r in rows}
+        col_type = 'TEXT' if db_type == 'sqlite' else 'VARCHAR(64)'
+        if 'machine' not in existing:
+            rdb_mgr.execute(f'ALTER TABLE {t} ADD COLUMN machine {col_type}', name=self._db_name)
+        if 'agent_name' not in existing:
+            rdb_mgr.execute(f'ALTER TABLE {t} ADD COLUMN agent_name {col_type}', name=self._db_name)
+
+    def _ddl_create_table(self, db_type: str) -> str:
+        """按方言返回建表语句（仅 CREATE TABLE，不含索引）。
+
+        - MySQL：列与表注释内联 ``COMMENT``（索引由 :meth:`_ddl_indexes` 经内联方式
+          附加——MySQL 索引只能内联在 CREATE TABLE 内，故新库才有全部索引；
+          老库靠 :meth:`_migrate` 只补列，索引缺失可接受）。
+        - PostgreSQL / SQLite：仅列定义，索引走单独的 :meth:`_ddl_indexes`。
         """
         t = self._table
         if db_type == 'mysql':
@@ -158,30 +204,41 @@ class RdbMemoryStore(MemoryStore):
                 f'    INDEX idx_{t}_scope_del (scope, is_deleted)',
                 f'    INDEX idx_{t}_scope_cat (scope, category)',
                 f'    INDEX idx_{t}_owner_del (owner, is_deleted)',
+                f'    INDEX idx_{t}_machine_del (machine, is_deleted)',
             ]
             body = ',\n'.join(col_lines + idx_lines)
-            return [(f'CREATE TABLE IF NOT EXISTS {t} (\n{body}\n) '
-                     f'CHARACTER SET utf8mb4 COMMENT={_sql_str(_TABLE_COMMENT)}')]
+            return (f'CREATE TABLE IF NOT EXISTS {t} (\n{body}\n) '
+                    f'CHARACTER SET utf8mb4 COMMENT={_sql_str(_TABLE_COMMENT)}')
         if db_type == 'postgresql':
             col_lines = [f'    {c[0]} {c[2]}' for c in _COLUMNS]
             body = ',\n'.join(col_lines)
-            stmts = [f'CREATE TABLE IF NOT EXISTS {t} (\n{body}\n)']
-            stmts.append(f'CREATE INDEX IF NOT EXISTS idx_{t}_scope_del ON {t} (scope, is_deleted)')
-            stmts.append(f'CREATE INDEX IF NOT EXISTS idx_{t}_scope_cat ON {t} (scope, category)')
-            stmts.append(f'CREATE INDEX IF NOT EXISTS idx_{t}_owner_del ON {t} (owner, is_deleted)')
-            stmts.append(f'COMMENT ON TABLE {t} IS {_sql_str(_TABLE_COMMENT)}')
-            for c in _COLUMNS:
-                stmts.append(f'COMMENT ON COLUMN {t}.{c[0]} IS {_sql_str(c[4])}')
-            return stmts
-        # 默认 SQLite（文件型，无原生注释）
+            return f'CREATE TABLE IF NOT EXISTS {t} (\n{body}\n)'
+        # 默认 SQLite
         col_lines = [f'    {c[0]} {c[3]}' for c in _COLUMNS]
         body = ',\n'.join(col_lines)
-        return [
-            f'CREATE TABLE IF NOT EXISTS {t} (\n{body}\n)',
+        return f'CREATE TABLE IF NOT EXISTS {t} (\n{body}\n)'
+
+    def _ddl_indexes(self, db_type: str) -> list[str]:
+        """按方言返回索引语句列表（在 :meth:`_migrate` 之后执行）。
+
+        - MySQL：空（索引已内联在 CREATE TABLE 内，无法单独追加；老库索引缺失可接受）。
+        - PostgreSQL：CREATE INDEX + COMMENT ON。
+        - SQLite：CREATE INDEX（无注释）。
+        """
+        t = self._table
+        if db_type == 'mysql':
+            return []
+        stmts = [
             f'CREATE INDEX IF NOT EXISTS idx_{t}_scope_del ON {t} (scope, is_deleted)',
             f'CREATE INDEX IF NOT EXISTS idx_{t}_scope_cat ON {t} (scope, category)',
             f'CREATE INDEX IF NOT EXISTS idx_{t}_owner_del ON {t} (owner, is_deleted)',
+            f'CREATE INDEX IF NOT EXISTS idx_{t}_machine_del ON {t} (machine, is_deleted)',
         ]
+        if db_type == 'postgresql':
+            stmts.append(f'COMMENT ON TABLE {t} IS {_sql_str(_TABLE_COMMENT)}')
+            for c in _COLUMNS:
+                stmts.append(f'COMMENT ON COLUMN {t}.{c[0]} IS {_sql_str(c[4])}')
+        return stmts
 
     # endregion
 
@@ -199,16 +256,21 @@ class RdbMemoryStore(MemoryStore):
             record.owner = None
         elif record.owner is None:
             record.owner = self._owner
-        cols = ('scope, category, title, content, owner, owner_group, keywords, source, '
-                'confidence, pinned, use_count, last_used_at, is_deleted, '
+        # machine / agent_name：始终盖当前绑定值（record 显式给非 None 时保留之）
+        if record.machine is None:
+            record.machine = self._machine
+        if record.agent_name is None:
+            record.agent_name = self._agent_name
+        cols = ('scope, category, title, content, owner, owner_group, machine, agent_name, '
+                'keywords, source, confidence, pinned, use_count, last_used_at, is_deleted, '
                 'created_at, updated_at')
-        placeholders = ', '.join([ph] * 15)
+        placeholders = ', '.join([ph] * 17)
         sql = f'INSERT INTO {self._table} ({cols}) VALUES ({placeholders})'
         params: tuple = (
             record.scope, record.category, record.title, record.content,
-            record.owner, record.owner_group, record.keywords, record.source,
-            record.confidence, record.pinned, record.use_count,
-            record.last_used_at or now, record.is_deleted, now, now,
+            record.owner, record.owner_group, record.machine, record.agent_name,
+            record.keywords, record.source, record.confidence, record.pinned,
+            record.use_count, record.last_used_at or now, record.is_deleted, now, now,
         )
 
         if db_type == 'postgresql':
@@ -294,12 +356,17 @@ class RdbMemoryStore(MemoryStore):
         title: str,
         include_deleted: bool = False,
         shared_mode: bool = False,
+        machine_bound: bool = False,
     ) -> list[MemoryRecord]:
         ph = self._ph()
         vis_sql, vis_params = visibility_clause(shared_mode, self._owner, ph)
         params: list[Any] = [scope, title]
         params.extend(vis_params)
         where = f'scope = {ph} AND title = {ph} AND {vis_sql}'
+        # machine_bound 且当前有 machine 绑定时，追加本机隔离条件（self._machine 为空则退化忽略）
+        if machine_bound and self._machine:
+            where += f' AND machine = {ph}'
+            params.append(self._machine)
         if not include_deleted:
             where += ' AND is_deleted = 0'
         sql = f'SELECT * FROM {self._table} WHERE {where}'

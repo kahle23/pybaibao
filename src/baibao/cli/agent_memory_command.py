@@ -18,10 +18,16 @@ agent_memory 命令 - AI 记忆的高层操作（remember / recall / update / fo
   - ``--owner`` / ``--owner-group``：当前身份（用户/团队）；缺省时按
     环境变量 ``AGENT_MEMORY_OWNER`` / ``AGENT_MEMORY_OWNER_GROUP`` →
     配置文件（``.baibao/agent_memory.config``）解析。
+  - ``--machine`` / ``--agent-name``：物理机/agent 外壳标签（仅 remember 盖章 + machine 去重用）。
+    machine 注入优先级：``--machine`` > ``AGENT_MEMORY_MACHINE`` > 配置 > ``socket.gethostname()``；
+    agent_name 无自动探测源，未配置则为空。
+  - ``--dedup {auto,machine,global}``（仅 remember）：去重维度。auto（默认）按 category 自动
+    （路径类按 machine，其余按 global）；machine/global 显式覆盖。
   - ``--shared``：切换为**共享角色**——owner 被忽略，仅查看/操作 owner 为空的共享数据，
     个人数据不可见不可改。改/删共享数据必须加此开关。
 
   鉴权模型详见 :mod:`pykunlun.ai_agent.memory` 的 ``visibility_clause`` / ``permission_clause``。
+  machine/agent_name 为纯标签字段，**不参与鉴权与过滤**，recall 时仅随结果返回供 AI 自判。
 """
 
 import argparse
@@ -29,11 +35,12 @@ import csv
 import io
 import json
 import os
+import socket
 import sys
 from datetime import date, datetime
 from typing import Any
 
-from pykunlun.ai_agent import VALID_CATEGORIES, MemoryManager, MemoryRecord
+from pykunlun.ai_agent import PATH_LIKE_CATEGORIES, VALID_CATEGORIES, MemoryManager, MemoryRecord
 from pykunlun.cli import CliContext, Command
 from pykunlun.util import logutil
 
@@ -46,6 +53,16 @@ _CONFIG_FILENAME = 'agent_memory.config'
 
 #: 配置缓存（一次进程内复用）
 _config_cache: dict[str, Any] | None = None
+
+
+def _detect_machine() -> str | None:
+    """自动探测当前物理机名（socket.gethostname），失败时返回 None。"""
+    try:
+        name = socket.gethostname()
+        return name.strip() or None
+    except Exception:
+        log.warning("探测 hostname 失败，machine 字段将以 None 记入", exc_info=True)
+        return None
 
 
 def _load_config() -> dict[str, Any]:
@@ -108,7 +125,7 @@ class AgentMemoryCommand(Command):
     """
     AI 记忆命令。
 
-    每次调用按 ``--db`` 构造一个指向相应 rdb 实例、绑定 ``--owner`` 身份的
+    每次调用按配置（环境变量/配置文件）解析 rdb 实例名，构造绑定 ``--owner`` 身份的
     :class:`RdbMemoryStore`，并经 :class:`MemoryManager` 转发（recall 自动叠加命中计数）。
     """
 
@@ -142,10 +159,14 @@ class AgentMemoryCommand(Command):
             "身份与角色:\n"
             "  --owner NAME      当前用户标识（默认按 环境变量>配置文件 解析）\n"
             "  --owner-group G   当前团队/组（标签，仅 remember 盖章用）\n"
+            "  --machine NAME    当前物理机标识（标签，默认: 配置>环境变量>socket.gethostname()）\n"
+            "  --agent-name NAME 当前 agent 外壳标识（标签，默认: 配置>环境变量；无自动探测）\n"
             "  --shared          切换为共享角色：仅查看/操作共享数据，忽略 owner，个人不可见\n"
             "\n"
+            "去重维度（仅 remember）:\n"
+            "  --dedup {auto,machine,global}  auto=按 category 自动（默认），machine=按 scope+title+machine，global=按 scope+title\n"
+            "\n"
             "通用选项:\n"
-            "  --db NAME     rdb 实例名（默认: default；记忆库建议注册别名 memory）\n"
             "  --format FMT  输出格式: json|jsonl|csv|table（默认: jsonl）\n"
             "  -h, --help    显示帮助信息"
         )
@@ -188,38 +209,53 @@ class AgentMemoryCommand(Command):
     # region ======== 工具：身份解析与构造 ========
 
     @staticmethod
-    def _resolve(ns: argparse.Namespace) -> tuple[str | None, str | None, str | None, bool]:
-        """解析 (db, owner, owner_group, shared_mode)：标志 > 环境变量 > 配置文件。"""
+    def _resolve(ns: argparse.Namespace) -> tuple[str | None, str | None, str | None, str | None, bool]:
+        """解析 (owner, owner_group, machine, agent_name, shared_mode)。
+
+        优先级（machine / agent_name 同 owner 套路：标志 > 环境变量 > 配置文件），
+        其中 machine 末尾兜底 ``socket.gethostname()``（自动探测），agent_name 无探测源。
+        """
         cfg = _load_config()
-        db = (getattr(ns, 'db', None)
-              or os.environ.get('AGENT_MEMORY_DB')
-              or cfg.get('rdb_name'))
         owner = (getattr(ns, 'owner', None)
                  or os.environ.get('AGENT_MEMORY_OWNER')
                  or cfg.get('owner'))
         owner_group = (getattr(ns, 'owner_group', None)
                        or os.environ.get('AGENT_MEMORY_OWNER_GROUP')
                        or cfg.get('owner_group'))
+        machine = (getattr(ns, 'machine', None)
+                   or os.environ.get('AGENT_MEMORY_MACHINE')
+                   or cfg.get('machine')
+                   or _detect_machine())
+        agent_name = (getattr(ns, 'agent_name', None)
+                      or os.environ.get('AGENT_MEMORY_AGENT_NAME')
+                      or cfg.get('agent_name'))
         shared = bool(getattr(ns, 'shared', False))
         if owner is None and not shared:
             log.info("未配置 owner，以无身份运行（仅共享域可见可写）；"
                      "多用户共享库建议在配置文件设置 owner")
-        return db, owner, owner_group, shared
+        return owner, owner_group, machine, agent_name, shared
 
     @staticmethod
-    def _build_mgr(db_name: str | None, owner: str | None, owner_group: str | None) -> MemoryManager:
-        """构造绑定身份的临时 MemoryManager（指向对应 rdb 实例）。"""
+    def _build_mgr(owner: str | None, owner_group: str | None,
+                   machine: str | None = None, agent_name: str | None = None) -> MemoryManager:
+        """构造绑定身份的临时 MemoryManager（rdb 实例名走配置，调用方无需关心）。"""
+        cfg = _load_config()
+        db_name = os.environ.get('AGENT_MEMORY_DB') or cfg.get('rdb_name')
         mgr = MemoryManager()
         mgr.register(MemoryManager.DEFAULT_NAME,
-                     RdbMemoryStore(db_name=db_name, owner=owner, owner_group=owner_group))
+                     RdbMemoryStore(db_name=db_name, owner=owner, owner_group=owner_group,
+                                    machine=machine, agent_name=agent_name))
         return mgr
 
     @staticmethod
     def _common(parser: argparse.ArgumentParser, output: bool = False) -> None:
-        """添加通用参数：--db/--owner/--owner-group/--shared（+ output 时含 --format）。"""
-        parser.add_argument('--db', default=None, help='rdb 实例名（默认: default）')
+        """添加通用参数：--owner/--owner-group/--machine/--agent-name/--shared（+ output 时含 --format）。"""
         parser.add_argument('--owner', default=None, help='当前用户标识（默认: 配置>环境变量）')
         parser.add_argument('--owner-group', default=None, help='当前团队/组（标签）')
+        parser.add_argument('--machine', default=None,
+                            help='当前物理机标识（标签，默认: 配置>环境变量>socket.gethostname()）')
+        parser.add_argument('--agent-name', default=None, dest='agent_name',
+                            help='当前 agent 外壳标识（标签，默认: 配置>环境变量；无自动探测）')
         parser.add_argument('--shared', action='store_true',
                             help='切换为共享角色：仅查看/操作共享数据，忽略 owner')
         if output:
@@ -287,13 +323,13 @@ class AgentMemoryCommand(Command):
         parser = argparse.ArgumentParser(prog='python -m baibao agent_memory init')
         self._common(parser)
         ns = parser.parse_args(args)
-        db, owner, owner_group, shared = self._resolve(ns)
-        mgr = self._build_mgr(db, owner, owner_group)
+        owner, owner_group, machine, agent_name, shared = self._resolve(ns)
+        mgr = self._build_mgr(owner, owner_group, machine, agent_name)
         mgr.init_store()
         n = mgr.count(shared_mode=shared)
         role = '共享角色' if shared else (owner or '无身份')
         ctx.print_delim()
-        print(f"记忆库已就绪（db={db or 'default'}, role={role}），当前 {n} 条可见记忆")
+        print(f"记忆库已就绪（role={role}），当前 {n} 条可见记忆")
         ctx.print_delim()
         return True
 
@@ -314,6 +350,10 @@ class AgentMemoryCommand(Command):
         parser.add_argument('--confidence', type=int, default=80, help='置信度 0~100（默认 80）')
         parser.add_argument('--pinned', type=int, choices=[0, 1], default=0, help='是否置顶（默认 0）')
         parser.add_argument('--force', action='store_true', help='同 scope+title 已存在时仍追加')
+        parser.add_argument('--dedup', choices=['auto', 'machine', 'global'], default='auto',
+                            help='去重维度：auto（默认，按 category 自动）/ machine（按 scope+title+machine，'
+                                 '路径类语义）/ global（按 scope+title 全局，通用知识语义）。'
+                                 'auto 时 file-path 等路径类自动按 machine，其余按 global')
         self._common(parser)
         ns = parser.parse_args(args)
 
@@ -321,14 +361,22 @@ class AgentMemoryCommand(Command):
         content = ns.content if ns.content is not None else _read_text_source(ns.content_file)
         assert content is not None
 
-        db, owner, owner_group, shared = self._resolve(ns)
-        mgr = self._build_mgr(db, owner, owner_group)
-        # 去重：在同角色可见范围内按 scope+title 查
-        dups = mgr.find_by_scope_title(ns.scope, ns.title, shared_mode=shared)
+        owner, owner_group, machine, agent_name, shared = self._resolve(ns)
+        mgr = self._build_mgr(owner, owner_group, machine, agent_name)
+        # 去重维度翻译：--dedup 显式优先；auto 时按 category 是否路径类判定
+        if ns.dedup == 'machine':
+            machine_bound = True
+        elif ns.dedup == 'global':
+            machine_bound = False
+        else:  # auto
+            machine_bound = (ns.category in PATH_LIKE_CATEGORIES) and bool(machine)
+        # 去重：在同角色可见范围内按 scope+title 查（machine_bound 时叠加本机隔离）
+        dups = mgr.find_by_scope_title(ns.scope, ns.title, shared_mode=shared,
+                                       machine_bound=machine_bound)
         if dups and not ns.force:
-            log.warning("发现同 scope+title 的已有记忆 %d 条（id=%s）；"
+            log.warning("发现同 scope+title 的已有记忆 %d 条（id=%s，dedup=%s，machine_bound=%s）；"
                         "如需追加新条目请加 --force，或改用 update 修改",
-                        len(dups), ', '.join(str(d.id) for d in dups))
+                        len(dups), ', '.join(str(d.id) for d in dups), ns.dedup, machine_bound)
             return False
         record = MemoryRecord(
             scope=ns.scope, category=ns.category, title=ns.title, content=content,
@@ -336,8 +384,8 @@ class AgentMemoryCommand(Command):
         )
         rid = mgr.remember(record, shared_mode=shared)
         kind = '共享记忆' if shared else '个人记忆'
-        log.info("已记入%s id=%s (scope=%s, category=%s, owner=%s, group=%s)",
-                 kind, rid, ns.scope, ns.category, owner, owner_group)
+        log.info("已记入%s id=%s (scope=%s, category=%s, owner=%s, group=%s, machine=%s, agent=%s)",
+                 kind, rid, ns.scope, ns.category, owner, owner_group, machine, agent_name)
         return True
 
     def _recall(self, ctx: CliContext, args: list[str]) -> bool:
@@ -351,8 +399,8 @@ class AgentMemoryCommand(Command):
         parser.add_argument('--full', action='store_true', help='不截断，content 返回全文+原样换行')
         self._common(parser, output=True)
         ns = parser.parse_args(args)
-        db, owner, owner_group, shared = self._resolve(ns)
-        mgr = self._build_mgr(db, owner, owner_group)
+        owner, owner_group, machine, agent_name, shared = self._resolve(ns)
+        mgr = self._build_mgr(owner, owner_group, machine, agent_name)
         rows = mgr.recall(' '.join(ns.query), scope=ns.scope, category=ns.category,
                           limit=ns.limit, shared_mode=shared)
         if not ns.full:
@@ -391,8 +439,8 @@ class AgentMemoryCommand(Command):
         if not fields:
             log.error("未指定任何待更新字段")
             return False
-        db, owner, owner_group, shared = self._resolve(ns)
-        mgr = self._build_mgr(db, owner, owner_group)
+        owner, owner_group, machine, agent_name, shared = self._resolve(ns)
+        mgr = self._build_mgr(owner, owner_group, machine, agent_name)
         ok = mgr.update(ns.id, fields, shared_mode=shared)
         log.info("update id=%s -> %s", ns.id, '命中' if ok else '未命中（不存在/已删除/无权限）')
         return ok
@@ -402,8 +450,8 @@ class AgentMemoryCommand(Command):
         parser.add_argument('id', type=int, help='待软删除的记忆 id')
         self._common(parser)
         ns = parser.parse_args(args)
-        db, owner, owner_group, shared = self._resolve(ns)
-        mgr = self._build_mgr(db, owner, owner_group)
+        owner, owner_group, machine, agent_name, shared = self._resolve(ns)
+        mgr = self._build_mgr(owner, owner_group, machine, agent_name)
         ok = mgr.forget(ns.id, shared_mode=shared)
         log.info("forget id=%s -> %s", ns.id, '已软删除' if ok else '未命中（不存在/已删除/无权限）')
         return ok
@@ -413,8 +461,8 @@ class AgentMemoryCommand(Command):
         parser.add_argument('id', type=int, help='记忆 id')
         self._common(parser, output=True)
         ns = parser.parse_args(args)
-        db, owner, owner_group, shared = self._resolve(ns)
-        mgr = self._build_mgr(db, owner, owner_group)
+        owner, owner_group, machine, agent_name, shared = self._resolve(ns)
+        mgr = self._build_mgr(owner, owner_group, machine, agent_name)
         rec = mgr.get(ns.id, shared_mode=shared)
         if rec is None:
             log.info("未找到 id=%s 的记忆（可能不可见）", ns.id)
@@ -432,8 +480,8 @@ class AgentMemoryCommand(Command):
         parser.add_argument('--full', action='store_true', help='不截断，content 返回全文+原样换行')
         self._common(parser, output=True)
         ns = parser.parse_args(args)
-        db, owner, owner_group, shared = self._resolve(ns)
-        mgr = self._build_mgr(db, owner, owner_group)
+        owner, owner_group, machine, agent_name, shared = self._resolve(ns)
+        mgr = self._build_mgr(owner, owner_group, machine, agent_name)
         # 浏览：空查询召回可见范围（按 pinned/最近使用排序），不计命中次数（touch=False）
         rows = mgr.recall('', scope=ns.scope, category=ns.category, limit=ns.limit,
                           touch=False, shared_mode=shared)
@@ -447,8 +495,8 @@ class AgentMemoryCommand(Command):
         parser.add_argument('--all', action='store_true', help='包含软删除项')
         self._common(parser)
         ns = parser.parse_args(args)
-        db, owner, owner_group, shared = self._resolve(ns)
-        mgr = self._build_mgr(db, owner, owner_group)
+        owner, owner_group, machine, agent_name, shared = self._resolve(ns)
+        mgr = self._build_mgr(owner, owner_group, machine, agent_name)
         n = mgr.count(include_deleted=ns.all, shared_mode=shared)
         ctx.print_delim()
         print(f"{n} 条记忆{'（含软删除）' if ns.all else ''}")
