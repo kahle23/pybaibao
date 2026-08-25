@@ -10,6 +10,7 @@ from pykunlun.cli import CommandManager
 from .agent_memory_command import AgentMemoryCommand
 from .help_command import BaibaoHelpCommand
 from .kbase_command import KbaseInitCommand
+from .ocr_command import OcrCommand
 from .path_command import PythonPathSetupCommand
 from .pip_command import PipInstallCommand, PipUpgradeCommand
 from .pypr_command import PyCleanCommand
@@ -31,5 +32,6 @@ command_manager.register(PyCleanCommand())
 command_manager.register(KbaseInitCommand())
 command_manager.register(PythonPathSetupCommand())
 command_manager.register(RdbDumpCommand())
+command_manager.register(OcrCommand())
 command_manager.register(RdbCommand())
 command_manager.register(AgentMemoryCommand())

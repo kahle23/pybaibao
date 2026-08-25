@@ -9,7 +9,7 @@ AI 能力模块。
 
 from . import llm, ocr
 from .llm import ChatMessage, ChatResponse, LlmCfg, LlmService, OpenAiLlm
-from .ocr import EasyOcr, OcrResult, OcrService, PaddleOcr
+from .ocr import EasyOcr, OcrCfg, OcrEngine, OcrResult, PaddleOcr
 
 __all__ = [
     'ChatMessage',
@@ -17,8 +17,9 @@ __all__ = [
     'EasyOcr',
     'LlmCfg',
     'LlmService',
+    'OcrCfg',
+    'OcrEngine',
     'OcrResult',
-    'OcrService',
     'OpenAiLlm',
     'PaddleOcr',
     'llm',

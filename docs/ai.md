@@ -206,54 +206,115 @@ print(text)
 
 | 引擎 | 类名 | 特点 |
 |------|------|------|
-| EasyOCR | `EasyOcr` | 基于 PyTorch，支持 80+ 语言，支持 GPU 加速 |
-| PaddleOCR | `PaddleOcr` | 百度飞桨，高精度，内置角度分类器 |
+| EasyOCR | `EasyOcr` | 基于 PyTorch，支持 80+ 语言，支持 GPU 加速（baibao 命令默认） |
+| PaddleOCR（自动分发） | `PaddleOcr` | 按已装 paddleocr 版本自动委托 `PaddleOcrV2`/`PaddleOcrV3`，中文精度高 |
+| PaddleOCR 2.x | `PaddleOcrV2` | 显式 2.x API（`use_angle_cls` + `.ocr()`） |
+| PaddleOCR 3.x | `PaddleOcrV3` | 显式 3.x API（`use_textline_orientation` + `.predict()`） |
 
 ### 切换 OCR 引擎
 
 ```python
-from baibao.ai.ocr import recognize, set_ocr_service
+from baibao.ai.ocr import recognize, set_ocr_engine
 from baibao.ai.ocr.paddle_ocr import PaddleOcr
+from pykunlun.ai.ocr import OcrCfg
 
 # 切换为 PaddleOCR
-set_ocr_service("paddle", PaddleOcr(lang='ch'))
+set_ocr_engine("paddle", PaddleOcr(OcrCfg(lang='ch')))
 
 # 使用指定引擎
 text = recognize("image.png", ocr_name="paddle")
 ```
 
+### 统一配置构造（OcrCfg + build_ocr_engine）
+
+各引擎构造参数不同（EasyOCR 的 `langs`/`gpu`、PaddleOCR 的 `lang`/`device`/`cpu_threads` 等），
+直接构造需记住每个引擎的差异。`OcrCfg` + `build_ocr_engine` 提供引擎无关的统一入口，
+参数映射在各实现类内部完成：
+
+```python
+from baibao.ai.ocr import OcrCfg, build_ocr_engine
+
+# 统一配置：语言 / GPU / CPU 线程 / 角度分类
+cfg = OcrCfg(lang='en', gpu=False, cpu_threads=8, use_angle_cls=True)
+
+# 按引擎名 + 配置构造（引擎差异由各实现类吸收）：easy / paddle / paddle2 / paddle3
+ocr = build_ocr_engine('paddle', cfg)
+text = ocr.recognize("image.png")
+```
+
+`OcrCfg` 字段（只收敛各引擎通用的）：
+
+| 字段 | 说明 |
+|------|------|
+| `lang` | 语言码：`ch`（中英，默认）、`en`、`japan`、`ko`、`ch_tra` |
+| `gpu` | 启用 GPU（easyocr→`gpu`；paddle→`device='gpu:0'`；需 GPU 版依赖） |
+| `cpu_threads` | CPU 推理线程数（仅 paddle 生效） |
+| `use_angle_cls` | 方向/角度分类（paddle 2.x→`use_angle_cls`，3.x→`use_textline_orientation`；easyocr 忽略） |
+
+> `OcrCfg` 与抽象基类 `OcrEngine`、管理器 `OcrManager` 收敛在 `pykunlun.ai.ocr`，
+> baibao 在此之上提供 EasyOCR / PaddleOCR 的具体实现（带重依赖）并再导出。
+> 不想用统一配置时，也可直接构造各引擎类（`EasyOcr(cfg)` / `PaddleOcr(cfg)` 等），
+> 或用 `set_ocr_engine` 注册具名实例后 `recognize(path, ocr_name=...)`。
+
 ### EasyOCR 配置
 
 ```python
 from baibao.ai.ocr.easy_ocr import EasyOcr
+from pykunlun.ai.ocr import OcrCfg
 
 # 默认配置（中文 + 英文）
-ocr = EasyOcr()
+ocr = EasyOcr(OcrCfg())
 
-# 多语言配置
-ocr = EasyOcr(langs=['ch_sim', 'en', 'ja', 'ko'])
+# 多语言配置（lang 码由 EasyOcr 内部映射为语言列表，如 'japan' -> ['ja','en']）
+ocr = EasyOcr(OcrCfg(lang='japan'))
 
 # 启用 GPU 加速
-ocr = EasyOcr(gpu=True)
-
-# 指定模型存储目录
-ocr = EasyOcr(model_storage_directory="/path/to/models")
+ocr = EasyOcr(OcrCfg(gpu=True))
 ```
 
 ### PaddleOCR 配置
 
+`PaddleOcr` 是**自动分发器**：实例化时按本地已装的 paddleocr 主版本号，自动委托 `PaddleOcrV2`（2.x）或 `PaddleOcrV3`（3.x）。构造参数对两版都兼容——`use_angle_cls` 在 V3 内部映射为 `use_textline_orientation`。
+
 ```python
 from baibao.ai.ocr.paddle_ocr import PaddleOcr
+from pykunlun.ai.ocr import OcrCfg
 
-# 默认配置（中英文）
-ocr = PaddleOcr()
-
-# 禁用角度分类器（更快）
-ocr = PaddleOcr(use_angle_cls=False)
-
-# 英文识别
-ocr = PaddleOcr(lang='en')
+ocr = PaddleOcr(OcrCfg())                      # 自动选 V2/V3，默认中英文
+ocr = PaddleOcr(OcrCfg(use_angle_cls=False))   # 关角度/行方向分类（更快）
+ocr = PaddleOcr(OcrCfg(lang='en'))             # 英文
+print(ocr.impl)                                # 'paddle3' 或 'paddle2'，便于排查
 ```
+
+也可直接指定版本（需对应 paddleocr 已装）：
+
+```python
+from baibao.ai.ocr.paddle_ocr import PaddleOcrV2, PaddleOcrV3
+ocr = PaddleOcrV3(OcrCfg())   # 强制 3.x
+ocr = PaddleOcrV2(OcrCfg())   # 强制 2.x
+```
+
+### PaddleOCR 版本与已知坑（重要）
+
+PaddleOCR 依赖 paddlepaddle（CPU 版 `paddlepaddle`），在新版 Python（3.13）/ Windows 上踩过的坑：
+
+| 现象 | 原因 | 处理 |
+|------|------|------|
+| `import torch` 报 `c10.dll 初始化失败`（WinError 1114） | 缺微软 VC++ 运行库，或 torch wheel 与 Python 不匹配 | 装 **Visual C++ Redistributable 2015-2022 (x64)**；或 `pip install --force-reinstall torch` |
+| 推理报 `ConvertPirateAttribute2RuntimeAttribute not support ...` | paddlepaddle 3.3.x 在 CPU + mkldnn 下的 PIR bug | **baibao 已内置绕过**：`PaddleOcr` / `PaddleOcrV3` 构造时传 `enable_mkldnn=False`（关 mkldnn 走纯 CPU），调用方无感；CPU 慢可用 `--cpu-threads N` 或 `OcrCfg(cpu_threads=N)` 提速 |
+| 模型加载阶段报 `strides` 属性类型不对 | paddlepaddle **3.0.0** 与 PP-OCRv6 不兼容 | paddlepaddle **用 3.3.x，别用 3.0.0** |
+
+> 关闭 mkldnn 后 CPU 推理会比开 mkldnn 慢一些，但功能正常。注意 easy 引擎也依赖 torch——torch 修不好，easy 同样跑不了，届时只能换 Python 3.11/3.12 环境。
+
+**CPU 环境下的良性告警**：paddleocr / paddlex / torch 在无 GPU 时会打印若干 `UserWarning`，属第三方库内部行为，**不影响识别结果**，baibao 不做拦截（也没有可改的开关）：
+
+| 告警 | 含义 | 是否需处理 |
+|------|------|-----------|
+| `'pin_memory' argument is set as true but no accelerator is found` | torch 的 DataLoader 默认开 `pin_memory`（本意加速 CPU→GPU 拷贝），无 GPU 时自动退化为普通内存 | 否，纯 CPU 跑结果完全正常 |
+| `No ccache found. Please be aware that recompilation ...` | paddle 未找到 C/C++ 编译缓存工具 ccache，仅影响即时编译（JIT）源码的编译耗时，**纯推理不触发** | 否 |
+| `Creating model: (...)` / 模型下载进度条 | paddlex 加载子模型（检测 / 识别 / 方向分类）的正常日志 | 否，属正常输出 |
+
+> 若一定要消掉 `pin_memory` 告警，可构造引擎后自行设 `import warnings; warnings.filterwarnings('ignore', message='.*pin_memory.*')`，但更推荐直接忽略。
 
 ### 详细识别结果
 
@@ -307,28 +368,40 @@ text = recognize(img)
 ### OCR 管理函数
 
 ```python
-from baibao.ai.ocr import get_ocr_service, set_ocr_service, remove_ocr_service
+from baibao.ai.ocr import get_ocr_engine, set_ocr_engine, remove_ocr_engine
+from baibao.ai.ocr.paddle_ocr import PaddleOcr
+from pykunlun.ai.ocr import OcrCfg
 
-# 设置服务
-set_ocr_service("my_ocr", PaddleOcr())
+# 设置引擎
+set_ocr_engine("my_ocr", PaddleOcr(OcrCfg()))
 
-# 获取服务
-ocr = get_ocr_service("my_ocr")
+# 获取引擎
+ocr = get_ocr_engine("my_ocr")
 
-# 移除服务
-remove_ocr_service("my_ocr")
+# 移除引擎
+remove_ocr_engine("my_ocr")
 ```
 
-管理函数内部加锁保护，是**线程安全**的，可在多线程环境下并发调用。默认配置（不传 `ocr_name`）在首次访问时会自动创建 `EasyOcr` 实例。
+管理函数背后由一个 `OcrManager` 单例（来自 `pykunlun.ai.ocr`）托管，内部加锁保护，是**线程安全**的，可在多线程环境下并发调用。默认配置（不传 `ocr_name`）在首次访问时会自动创建 `EasyOcr` 实例。
+
+> 需要多管理器实例、或按引擎类型工厂化创建时，可直接使用 `OcrManager`：
+> `register_engine_class(EasyOcr)` 注册实现类后，`register("default", OcrCfg(engine_name='easy'))`
+> 即可按 `cfg.engine_name` 自动 new 实例。详见 `pykunlun.ai.ocr.OcrManager`。
 
 ### 自定义 OCR 引擎
 
-`OcrService` 采用模板方法设计：扩展自定义引擎只需继承并实现核心方法 `_recognize_array`，图片加载、文本清洗与结果绘制均由基类统一负责，对外行为与内置引擎完全一致。
+`OcrEngine` 采用模板方法设计：扩展自定义引擎只需继承并实现核心方法 `_recognize_array`，图片加载、文本清洗与结果绘制均由基类统一负责，对外行为与内置引擎完全一致。
 
 ```python
-from baibao.ai.ocr import OcrService, OcrResult, set_ocr_service, recognize
+from baibao.ai.ocr import OcrEngine, OcrResult, set_ocr_engine, recognize
+from pykunlun.ai.ocr import OcrCfg
 
-class MyOcr(OcrService):
+class MyOcr(OcrEngine):
+    engine_name = 'my'  # 类级常量：标识本引擎类型
+
+    def __init__(self, cfg: OcrCfg):
+        super().__init__(cfg)  # 绑定并校验配置（构造即校验）
+
     def _recognize_array(self, image):
         # image 是已校验的 OpenCV 图像数组（BGR），无需自行读取文件或校验路径
         raw = my_engine.detect(image)
@@ -338,7 +411,7 @@ class MyOcr(OcrService):
         ]
 
 # 注册后即可像内置引擎一样使用
-set_ocr_service("mine", MyOcr())
+set_ocr_engine("mine", MyOcr(OcrCfg()))
 text = recognize("image.png", ocr_name="mine")
 ```
 

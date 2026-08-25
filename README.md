@@ -28,6 +28,22 @@ pip install baibao -i https://pypi.tuna.tsinghua.edu.cn/simple/
 
 <br />
 
+### OCR 引擎（可选）
+
+`baibao.ai.ocr` 默认用 EasyOCR，也可切 PaddleOCR。PaddleOCR 封装会**按已装版本自动选择** `PaddleOcrV2`（2.x API）或 `PaddleOcrV3`（3.x API），无需钉版本。两者依赖较重，按需装其一：
+
+```bash
+# EasyOCR（默认，多语言）—— baibao 命令默认引擎
+python -m pip install easyocr opencv-python numpy -i https://pypi.tuna.tsinghua.edu.cn/simple/
+
+# PaddleOCR（中文精度更高）—— 2.x / 3.x 均可，baibao 自动适配
+python -m pip install paddlepaddle paddleocr opencv-python numpy -i https://pypi.tuna.tsinghua.edu.cn/simple/
+```
+
+> PaddleOCR 在新版 Python（3.13）/ Windows 上有几个坑（torch 的 `c10.dll`、paddlepaddle 的 mkldnn PIR bug、3.0.0 与 PP-OCRv6 不兼容等），其中 mkldnn 的坑 baibao 已内置绕过。详见 [AI 模块文档 — PaddleOCR 版本与已知坑](./docs/ai.md)。
+
+<br />
+
 ### 模块概览
 
 | 分类 | 模块 | 功能 | 文档 |

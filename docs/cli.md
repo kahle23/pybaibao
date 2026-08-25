@@ -10,6 +10,7 @@
 | `pip_upgrade` | 升级 Python 包 | `python -m baibao pip_upgrade <包名> [包名2 ...]` |
 | `py_clean` | 清理构建缓存 | `python -m baibao py_clean [目录路径]` |
 | `kbase_init` | 生成知识库目录骨架 / 新增项目目录（必须 -t 指定模板） | `python -m baibao kbase_init -t <模板> [目录]` |
+| `ocr` | 识别图片中的文字（OCR，支持 easy/paddle 引擎） | `python -m baibao ocr <图片路径> [--engine paddle]` |
 | `help` | 显示帮助信息 | `python -m baibao help [命令名]` |
 
 ## 使用示例
@@ -97,6 +98,55 @@ register_template(KbaseTemplate(
 ```
 
 注册后即可 `python -m baibao kbase_init -t 个人`。同分类多版本只需注册多个不同 `name`（如「公司」「公司v2」）。
+
+### 图片文字识别（OCR）
+
+识别图片中的文字，结果输出到 stdout。默认 EasyOCR，可切 PaddleOCR（按已装版本自动选 V2/V3）。
+
+```bash
+# 默认 easy 引擎
+python -m baibao ocr image.png
+
+# 用 PaddleOCR（中文精度更高，自动按已装版本选 V2/V3）
+python -m baibao ocr image.png --engine paddle
+
+# 指定语言（en 英文、japan 日文、ko 韩文、ch_tra 繁中）
+python -m baibao ocr image.png --engine paddle --lang en
+
+# 多线程 CPU 推理（仅 paddle 生效，加快 CPU 识别）
+python -m baibao ocr image.png --engine paddle --cpu-threads 8
+
+# 启用 GPU（需已装 GPU 版依赖：paddle 需 paddlepaddle-gpu）
+python -m baibao ocr image.png --engine paddle --gpu
+
+# 强制指定版本
+python -m baibao ocr image.png --engine paddle3   # 3.x API
+
+# 输出含坐标与置信度的 JSON 详情
+python -m baibao ocr image.png --engine paddle --details
+
+# 用分隔符包裹结果（防日志混入 stdout，配合 2>$null 最稳）
+python -m baibao ocr image.png --engine paddle --delim __OCR__ 2>$null
+
+# 把识别框画到图上另存
+python -m baibao ocr image.png --engine paddle --draw out.png
+```
+
+选项：
+
+| 选项 | 说明 |
+|------|------|
+| `-e, --engine {easy,paddle,paddle2,paddle3}` | OCR 引擎，默认 `easy`；`paddle` 为自动分发（按已装版本选 V2/V3） |
+| `--lang CODE` | 识别语言，默认 `ch`（中英）；如 `en`、`japan`、`ko`、`ch_tra` |
+| `--gpu` | 启用 GPU（easyocr 需 CUDA 版 torch；paddle 需 `paddlepaddle-gpu`） |
+| `--cpu-threads N` | CPU 推理线程数（仅 paddle 引擎生效）。建议取核数一半以上，否则识别很慢；PowerShell 可用 `([int]([int]$env:NUMBER_OF_PROCESSORS * 0.75))` 自动取 75% |
+| `-d, --details` | 输出 JSON 数组，**每项一行紧凑输出**：`text` / `confidence`(0~1) / `bbox`(四点多边形 `[[x1,y1],...]`) |
+| `--delim STR` | 结果分隔符：设则用其在 stdout 结果前后各占一行包裹，便于在夹杂日志时精准截取 |
+| `--draw PATH` | 将识别框绘制到图片并保存到 PATH |
+
+> 引擎间的参数差异（语言码、gpu/device、cpu_threads）由 `baibao.ai.ocr.build_ocr_engine` 统一映射，CLI 只暴露这套引擎无关的选项；进阶调参可用 Python API（`OcrCfg` + `build_ocr_engine`，或直接构造各引擎类）。
+
+> 识别文字走 **stdout**，日志/下载进度走 **stderr**，两路分离。想要干净输出（只留文字），命令末尾加 `2>$null` 丢弃 stderr；若担心 OCR 框架偶发把日志写到 stdout，加 `--delim <STR>` 把结果包裹起来，取两个分隔符行之间的内容即可万无一失。失败时 stdout 会输出 `(OCR 失败：…)` 标记，去掉 `2>$null` 即可看 stderr 详细报错。Windows 下 stdout 已强制 UTF-8，不会因生僻字/符号（如 `☐`）打印报错。首次运行会自动下载引擎依赖与模型（一次性）。PaddleOCR 在 Python 3.13 / Windows 上的版本兼容与已知坑见 [AI 模块文档](./ai.md#paddleocr-版本与已知坑重要)。
 
 ### 查看帮助
 

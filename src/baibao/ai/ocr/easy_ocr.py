@@ -2,21 +2,39 @@
 EasyOCR 策略实现模块。
 
 基于 EasyOCR 库提供本地 OCR 能力，支持 80+ 种语言。
-图片加载、文本清洗与结果绘制等通用流程由 :class:`OcrService` 基类统一处理，
+图片加载、文本清洗与结果绘制等通用流程由 :class:`OcrEngine` 基类统一处理，
 本模块仅负责调用引擎并将结果映射为 :class:`OcrResult`。
 """
 
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING
+
+from pykunlun.ai.ocr import OcrCfg, OcrEngine, OcrResult
+from pykunlun.system import pip
 
 if TYPE_CHECKING:
     import numpy as np
 
-from pykunlun import pip
+# baibao 统一语言码 → EasyOCR 语言列表的映射。
+# 供 EasyOcr 在构造时做"引擎无关 lang → EasyOCR langs"的转换。
+_EASY_LANG_MAP: dict[str, list[str]] = {
+    'ch': ['ch_sim', 'en'],       # 简体中文 + 英文
+    'en': ['en'],
+    'japan': ['ja', 'en'],
+    'ko': ['ko', 'en'],
+    'ch_tra': ['ch_tra', 'en'],   # 繁体中文
+}
 
-from ._ocr import OcrResult, OcrService
+
+def langs_from_code(lang: str) -> list[str]:
+    """
+    把 baibao 统一语言码（如 ``'ch'``、``'en'``）映射为 EasyOCR 的语言列表。
+
+    未知代码原样作为单元素列表返回，交给 EasyOCR 自行校验。
+    """
+    return _EASY_LANG_MAP.get(lang, [lang])
 
 
-class EasyOcr(OcrService):
+class EasyOcr(OcrEngine):
     """
     基于 EasyOCR 库的本地 OCR 策略实现。
 
@@ -35,34 +53,33 @@ class EasyOcr(OcrService):
 
     示例::
 
-        from baibao.ai.ocr.easy_ocr import EasyOcr
+        from baibao.ai.ocr import EasyOcr
+        from pykunlun.ai.ocr import OcrCfg
 
         # 默认配置（中文 + 英文）
-        ocr = EasyOcr()
+        ocr = EasyOcr(OcrCfg())
 
         # 多语言 + GPU 加速
-        ocr = EasyOcr(langs=['ch_sim', 'en', 'ja'], gpu=True)
+        ocr = EasyOcr(OcrCfg(lang='japan', gpu=True))
     """
 
-    def __init__(
-        self,
-        langs: Optional[List[str]] = None,
-        gpu: bool = False,
-        model_storage_directory: Optional[str] = None,
-    ) -> None:
+    engine_type = 'easy'
+
+    def __init__(self, cfg: OcrCfg) -> None:
         """
         初始化 EasyOCR 策略。
 
+        先调基类构造（绑定并校验 cfg），再做引擎特定的重依赖加载。
+
         Args:
-            langs: 识别语言列表，默认为 ``['ch_sim', 'en']``（简体中文和英文）。
-                   支持的语言代码参考 EasyOCR 官方文档，如 ``'ja'``（日语）、``'ko'``（韩语）。
-            gpu: 是否启用 GPU 加速，需要安装 CUDA 和 cuDNN 环境。
-            model_storage_directory: 模型文件存储目录，默认在用户主目录下的 ``.EasyOCR`` 文件夹。
-                                     可指定自定义路径避免重复下载。
+            cfg: OCR 配置。``lang`` 经 :func:`langs_from_code` 映射为 EasyOCR 语言列表
+                （如 ``'ch'`` → ``['ch_sim', 'en']``）；``gpu`` 决定是否启用 GPU。
 
         Raises:
             ImportError: 当 easyocr 库未安装且自动安装失败时抛出。
         """
+        super().__init__(cfg)
+
         try:
             import easyocr
         except ImportError:
@@ -74,16 +91,15 @@ class EasyOcr(OcrService):
                 )
             import easyocr
 
-        self._langs: List[str] = langs if langs else ['ch_sim', 'en']
-        self._gpu: bool = gpu
+        self._langs: list[str] = langs_from_code(cfg.lang)
+        self._gpu: bool = cfg.gpu
         self._reader = easyocr.Reader(
             lang_list=self._langs,
             gpu=self._gpu,
-            model_storage_directory=model_storage_directory,
         )
 
     @property
-    def langs(self) -> List[str]:
+    def langs(self) -> list[str]:
         """获取当前配置的语言代码列表，如 ``['ch_sim', 'en']``。"""
         return self._langs
 
@@ -92,7 +108,7 @@ class EasyOcr(OcrService):
         """获取是否启用 GPU 加速。``True`` 表示启用，``False`` 表示使用 CPU。"""
         return self._gpu
 
-    def _recognize_array(self, image: 'np.ndarray') -> List[OcrResult]:
+    def _recognize_array(self, image: 'np.ndarray') -> list[OcrResult]:
         """
         调用 EasyOCR 识别图像数组。
 
@@ -109,7 +125,7 @@ class EasyOcr(OcrService):
         return [
             OcrResult(
                 text=text,
-                bbox=bbox,
+                bbox=[(int(p[0]), int(p[1])) for p in bbox],
                 confidence=float(confidence),
             )
             for bbox, text, confidence in result
