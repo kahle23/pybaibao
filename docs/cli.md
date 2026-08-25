@@ -11,6 +11,7 @@
 | `py_clean` | 清理构建缓存 | `python -m baibao py_clean [目录路径]` |
 | `kbase_init` | 生成知识库目录骨架 / 新增项目目录（必须 -t 指定模板） | `python -m baibao kbase_init -t <模板> [目录]` |
 | `ocr` | 识别图片中的文字（OCR，支持 easy/paddle 引擎） | `python -m baibao ocr <图片路径> [--engine paddle]` |
+| `agent_task` (`at`) | AI 长任务操作（建任务/拆步骤/认领/收口/断点续跑） | `python -m baibao at <子命令> [选项]` |
 | `help` | 显示帮助信息 | `python -m baibao help [命令名]` |
 
 ## 使用示例

@@ -1,0 +1,850 @@
+"""
+长任务服务的 MySQL 实现（基于 baibao 的 rdb_mgr）。
+
+实现 :class:`pykunlun.ai_agent.long_task.LongTaskService` 抽象，核心要点：
+
+  - **仅支持 MySQL**（本期唯一方言）：首次使用时探测目标实例的 ``db_type``，
+    非 ``mysql`` 直接抛 ``NotImplementedError``；占位符固定 ``%s``；
+  - **幂等初始化**——:meth:`MySqlLongTaskService.setup` 用 ``CREATE TABLE IF NOT
+    EXISTS`` 建 ``ai_task_*`` 六张表（列定义见 :mod:`.schema` 单一信息源）；
+    首版无老库，不做补列迁移；
+  - **事务化复合操作**——claim_next_step / finish_run / fail_run / sweep / cancel /
+    add_steps 等经 ``rdb_mgr.get_connection()`` 裸连接 + 显式 ``commit/rollback``
+    在同一事务内完成；单语句走 ``rdb_mgr.query/execute``；
+  - **INSERT 回填 id**——走裸连接读 ``cursor.lastrowid``；
+  - **JSON 列**（params / default_params / step_blueprint）以 ``ensure_ascii=False``
+    序列化写入，读取侧容错反序列化；时间统一 ``datetime.now()`` 落 DATETIME。
+"""
+
+import json
+from collections.abc import Iterator
+from contextlib import contextmanager
+from datetime import datetime, timedelta
+from typing import Any
+
+from pykunlun.ai_agent.long_task import (
+    UPDATABLE_TASK_FIELDS,
+    VALID_ART_TYPES,
+    VALID_EVENT_LEVELS,
+    VALID_EVENT_TYPES,
+    VALID_STEP_TYPES,
+    AgentRun,
+    LongTaskManager,
+    LongTaskService,
+    TaskInstance,
+    TaskStep,
+    TaskTemplate,
+    step_disposition_on_fail,
+)
+from pykunlun.util import logutil
+
+from baibao.db.rdb import rdb_mgr
+
+from .schema import TABLES, ddl
+
+log = logutil.getLogger(__name__)
+
+
+def _jdump(obj: Any) -> str | None:
+    """对象 → JSON 字符串（ensure_ascii=False；None 直通），供 JSON 列落库。
+
+    ``default=str``：input_snapshot 存续跑上下文包原文，其中 task/step 行含
+    DATETIME 列还原出的 datetime 对象，自动转字符串（其余字段均为可序列化类型）。
+    """
+    if obj is None:
+        return None
+    return json.dumps(obj, ensure_ascii=False, default=str)
+
+
+def _jload(text: Any) -> Any:
+    """JSON 字符串 → 对象，容错：非字符串/解析失败返回 None（列值可能被人工改过）。"""
+    if text is None or text == '':
+        return None
+    if isinstance(text, (dict, list)):
+        return text
+    try:
+        return json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        log.warning("JSON 列解析失败，按 None 处理: %.100s", text)
+        return None
+
+
+class MySqlLongTaskService(LongTaskService):
+    """
+    基于 rdb_mgr 的长任务服务实现（仅 MySQL）。
+
+    通过指定 rdb 实例名（``db_name``）复用 baibao 已注册的数据库连接；省略时使用
+    rdb 的默认实例（``default``）。建议为长任务单独注册一个别名实例（如
+    ``agent_task``），与业务库、记忆库隔离。
+
+    Args:
+        db_name: rdb 实例名；None 用 rdb 默认实例。
+        table_prefix: 表名前缀（默认空）。表名固定 ``ai_task_*``，前缀用于同一库内
+            隔离多套任务表。
+    """
+
+    service_type = 'mysql'
+
+    def __init__(self, db_name: str | None = None, table_prefix: str = '') -> None:
+        self._db_name = db_name
+        self._prefix = table_prefix or ''
+        self._db_type: str | None = None  # 懒加载并缓存
+
+    @property
+    def db_name(self) -> str | None:
+        return self._db_name
+
+    def _t(self, base: str) -> str:
+        """基名 → 实际表名（拼接前缀）。"""
+        return f'{self._prefix}{base}'
+
+    # region ======== 方言守卫与连接 ========
+    def _get_db_type(self) -> str:
+        """探测并缓存目标实例的数据库类型标识。"""
+        if self._db_type is None:
+            self._db_type = rdb_mgr.get_client(self._db_name).db_type
+        return self._db_type
+
+    def _require_mysql(self) -> None:
+        """方言守卫：本期长任务仅支持 MySQL，其余方言直接拒绝。"""
+        db_type = self._get_db_type()
+        if db_type != 'mysql':
+            raise NotImplementedError(f"本期长任务仅支持 MySQL，目标实例为 {db_type}")
+
+    def _query(self, sql: str, params: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
+        """单语句读（rdb_mgr.query，参数化 %s）。"""
+        self._require_mysql()
+        return rdb_mgr.query(sql, tuple(params), name=self._db_name)
+
+    def _execute(self, sql: str, params: tuple[Any, ...] = ()) -> int:
+        """单语句写（rdb_mgr.execute，参数化 %s），返回受影响行数。"""
+        self._require_mysql()
+        return rdb_mgr.execute(sql, tuple(params), name=self._db_name)
+
+    @contextmanager
+    def _tx(self) -> Iterator[tuple[Any, Any]]:
+        """
+        事务：从 rdb 实例借裸连接并建游标，正常退出 commit，异常回滚后重抛。
+
+        池化连接的 ``close()`` 是归还连接池而非真关闭，故复合操作内多次执行共享
+        同一事务。yield ``(conn, cur)``。
+        """
+        self._require_mysql()
+        conn = rdb_mgr.get_connection(self._db_name)
+        cur = None
+        try:
+            cur = conn.cursor()
+            yield conn, cur
+            conn.commit()
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                log.warning("事务回滚失败", exc_info=True)
+            raise
+        finally:
+            if cur:
+                cur.close()
+            conn.close()
+
+    @staticmethod
+    def _rows(cur: Any) -> list[dict[str, Any]]:
+        """裸游标结果 → 行字典列表（依 ``cur.description``，驱动无关）。"""
+        if cur.description is None:
+            return []
+        cols = [d[0] for d in cur.description]
+        return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+    @staticmethod
+    def _lastrowid(cur: Any) -> int:
+        """取 INSERT 回填的主键；lastrowid 为 None 属非预期，直接抛错。"""
+        if cur.lastrowid is None:
+            raise RuntimeError("INSERT 未返回 lastrowid（非预期，请检查表结构）")
+        return int(cur.lastrowid)
+
+    def _event(
+        self,
+        cur: Any,
+        task_id: int,
+        event_type: str,
+        message: str,
+        level: str = 'info',
+        step_id: int | None = None,
+        run_id: int | None = None,
+    ) -> None:
+        """事务内追加事件（append-only 留痕）。"""
+        cur.execute(
+            f'INSERT INTO {self._t("ai_task_event")} '
+            f'(task_id, step_id, run_id, event_type, level, message, created_at) '
+            f'VALUES (%s,%s,%s,%s,%s,%s,%s)',
+            (task_id, step_id, run_id, event_type, level, message, datetime.now()),
+        )
+
+    def _execute_event(self, task_id: int, event_type: str, message: str) -> None:
+        """独立事务追加事件（供单语句状态流转后留痕）。"""
+        with self._tx() as (_conn, cur):
+            self._event(cur, task_id, event_type, message)
+    # endregion
+
+    # region ======== 行转换 ========
+    def _task_row(self, row: dict[str, Any]) -> dict[str, Any]:
+        row = dict(row)
+        row['params'] = _jload(row.get('params'))
+        return row
+
+    def _template_row(self, row: dict[str, Any]) -> dict[str, Any]:
+        row = dict(row)
+        row['default_params'] = _jload(row.get('default_params'))
+        row['step_blueprint'] = _jload(row.get('step_blueprint'))
+        return row
+
+    def _fetch_task(self, cur: Any, task_id: int) -> dict[str, Any] | None:
+        cur.execute(f'SELECT * FROM {self._t("ai_task_instance")} WHERE id = %s', (task_id,))
+        rows = self._rows(cur)
+        return rows[0] if rows else None
+
+    def _touch_heartbeat(self, cur: Any, task_id: int) -> None:
+        """刷新任务心跳（活动即心跳）。"""
+        cur.execute(
+            f'UPDATE {self._t("ai_task_instance")} '
+            f'SET heartbeat_at = %s, updated_at = %s WHERE id = %s',
+            (datetime.now(), datetime.now(), task_id))
+    # endregion
+
+    # region ======== 初始化 ========
+    def setup(self) -> None:
+        """幂等建 ``ai_task_*`` 六张表（utf8mb4 + 列/表注释内联；首版无老库，不迁移）。"""
+        for base in TABLES:
+            self._execute(ddl(base, self._t(base)))
+        log.info("MySqlLongTaskService 已初始化 6 张 ai_task_* 表 (db_name=%s)", self._db_name)
+    # endregion
+
+    # region ======== 任务 ========
+    def create_task(self, inst: TaskInstance) -> int:
+        now = datetime.now()
+        with self._tx() as (_conn, cur):
+            cur.execute(
+                f'INSERT INTO {self._t("ai_task_instance")} '
+                f'(template_id, parent_task_id, title, goal, status, params, max_retries, '
+                f'heartbeat_timeout_sec, timeout_sec, created_by, created_at, updated_at) '
+                f'VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',
+                (inst.template_id, inst.parent_task_id, inst.title, inst.goal, 'pending',
+                 _jdump(inst.params), inst.max_retries, inst.heartbeat_timeout_sec,
+                 inst.timeout_sec, inst.created_by, now, now))
+            task_id = self._lastrowid(cur)
+            self._event(cur, task_id, 'note', f'任务创建: {inst.title}')
+        inst.id = task_id
+        return task_id
+
+    def get_task(self, id: int) -> TaskInstance | None:
+        rows = self._query(f'SELECT * FROM {self._t("ai_task_instance")} WHERE id = %s', (id,))
+        return TaskInstance.from_dict(self._task_row(rows[0])) if rows else None
+
+    def list_tasks(
+        self,
+        status: str | None = None,
+        created_by: str | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        where: list[str] = []
+        params: list[Any] = []
+        if status is not None:
+            where.append('t.status = %s')
+            params.append(status)
+        if created_by is not None:
+            where.append('t.created_by = %s')
+            params.append(created_by)
+        where_clause = f'WHERE {" AND ".join(where)}' if where else ''
+        s = self._t('ai_task_step')
+        sql = (f'SELECT t.*, '
+               f'(SELECT COUNT(*) FROM {s} WHERE {s}.task_id = t.id) AS total, '
+               f'(SELECT COUNT(*) FROM {s} WHERE {s}.task_id = t.id AND {s}.status = %s) AS done '
+               f'FROM {self._t("ai_task_instance")} t {where_clause} '
+               f'ORDER BY t.id DESC LIMIT %s')
+        # 子查询的 done 状态参数在最前，其后是 WHERE 参数，最后 LIMIT
+        all_params = tuple(['succeeded'] + params + [limit])
+        return [self._task_row(r) for r in self._query(sql, all_params)]
+
+    def update_task(self, id: int, fields: dict[str, Any]) -> bool:
+        allowed = {k: v for k, v in fields.items() if k in UPDATABLE_TASK_FIELDS}
+        if not allowed:
+            return False
+        allowed = {k: _jdump(v) if k == 'params' else v for k, v in allowed.items()}
+        set_parts = [f'{k} = %s' for k in allowed]
+        params: list[Any] = list(allowed.values())
+        set_parts.append('updated_at = %s')
+        params.append(datetime.now())
+        params.append(id)
+        sql = f'UPDATE {self._t("ai_task_instance")} SET {", ".join(set_parts)} WHERE id = %s'
+        return self._execute(sql, tuple(params)) > 0
+
+    def heartbeat(self, id: int) -> None:
+        self._execute(
+            f'UPDATE {self._t("ai_task_instance")} '
+            f'SET heartbeat_at = %s, updated_at = %s WHERE id = %s',
+            (datetime.now(), datetime.now(), id))
+
+    def pause(self, id: int) -> bool:
+        now = datetime.now()
+        affected = self._execute(
+            f'UPDATE {self._t("ai_task_instance")} '
+            f'SET status = %s, heartbeat_at = %s, updated_at = %s '
+            f'WHERE id = %s AND status = %s',
+            ('paused', now, now, id, 'running'))
+        if affected:
+            self._execute_event(id, 'state_change', 'task: running → paused')
+        return affected > 0
+
+    def resume(self, id: int) -> bool:
+        now = datetime.now()
+        affected = self._execute(
+            f'UPDATE {self._t("ai_task_instance")} '
+            f'SET status = %s, heartbeat_at = %s, updated_at = %s '
+            f'WHERE id = %s AND status = %s',
+            ('running', now, now, id, 'paused'))
+        if affected:
+            self._execute_event(id, 'state_change', 'task: paused → running')
+        return affected > 0
+
+    def cancel(self, id: int, reason: str = '') -> bool:
+        now = datetime.now()
+        with self._tx() as (_conn, cur):
+            task = self._fetch_task(cur, id)
+            if task is None:
+                log.warning("cancel 未找到任务 id=%s", id)
+                return False
+            if task['status'] in ('completed', 'failed', 'cancelled'):
+                log.info("任务 id=%s 已终态(%s)，无需取消", id, task['status'])
+                return False
+            # 连带处理：running 步骤置 failed（注明取消）、running run 置 cancelled
+            cur.execute(
+                f'SELECT * FROM {self._t("ai_task_step")} '
+                f'WHERE task_id = %s AND status = %s', (id, 'running'))
+            steps = self._rows(cur)
+            cur.execute(
+                f'UPDATE {self._t("ai_task_run")} '
+                f'SET status = %s, finished_at = %s WHERE task_id = %s AND status = %s',
+                ('cancelled', now, id, 'running'))
+            for s in steps:
+                cur.execute(
+                    f'UPDATE {self._t("ai_task_step")} '
+                    f'SET status = %s, finished_at = %s, updated_at = %s '
+                    f'WHERE id = %s AND status = %s',
+                    ('failed', now, now, s['id'], 'running'))
+                self._event(cur, id, 'state_change',
+                            f"step {s['id']}: running → failed (cancelled)", step_id=s['id'])
+            cur.execute(
+                f'UPDATE {self._t("ai_task_instance")} '
+                f'SET status = %s, finished_at = %s, updated_at = %s WHERE id = %s',
+                ('cancelled', now, now, id))
+            msg = 'task: → cancelled' + (f' ({reason})' if reason else '')
+            self._event(cur, id, 'state_change', msg)
+        return True
+    # endregion
+
+    # region ======== 步骤 ========
+    def _validate_step(self, step: TaskStep) -> None:
+        if not step.name or not step.name.strip():
+            raise ValueError("步骤 name 不能为空")
+        if not step.instruction or not step.instruction.strip():
+            raise ValueError(f"步骤 {step.name!r} 的 instruction 不能为空")
+        if step.step_type not in VALID_STEP_TYPES:
+            raise ValueError(
+                f"非法的 step_type: {step.step_type!r}（合法值: {sorted(VALID_STEP_TYPES)}）")
+
+    def _resolve_step_defaults(self, cur: Any, step: TaskStep) -> tuple[int, int]:
+        """补全 seq（缺省 max+1）与 max_retries（缺省继承任务），返回 (seq, max_retries)。"""
+        cur.execute(f'SELECT MAX(seq) AS mx FROM {self._t("ai_task_step")} '
+                    f'WHERE task_id = %s', (step.task_id,))
+        rows = self._rows(cur)
+        base = int(rows[0]['mx']) if rows and rows[0]['mx'] is not None else 0
+        seq = step.seq if step.seq is not None else base + 1
+        if seq <= base:
+            raise ValueError(f"步骤 seq={seq} 与已有步骤冲突（当前最大 seq={base}）")
+        if step.max_retries is not None:
+            mr = step.max_retries
+        else:
+            task = self._fetch_task(cur, step.task_id)
+            if task is None:
+                raise ValueError(f"任务不存在: id={step.task_id}")
+            mr = int(task['max_retries'])
+        return seq, mr
+
+    def _insert_step(self, cur: Any, step: TaskStep, seq: int, max_retries: int) -> int:
+        now = datetime.now()
+        cur.execute(
+            f'INSERT INTO {self._t("ai_task_step")} '
+            f'(task_id, seq, name, step_type, instruction, status, retry_count, max_retries, '
+            f'timeout_sec, created_at, updated_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',
+            (step.task_id, seq, step.name, step.step_type, step.instruction, 'pending',
+             step.retry_count, max_retries, step.timeout_sec, now, now))
+        return self._lastrowid(cur)
+
+    def add_step(self, step: TaskStep) -> int:
+        self._validate_step(step)
+        with self._tx() as (_conn, cur):
+            seq, mr = self._resolve_step_defaults(cur, step)
+            step_id = self._insert_step(cur, step, seq, mr)
+            self._event(cur, step.task_id, 'note',
+                        f'step added: seq={seq} {step.name} (step_id={step_id})')
+        step.seq = seq
+        step.max_retries = mr
+        step.id = step_id
+        return step_id
+
+    def add_steps(self, steps: list[TaskStep]) -> int:
+        if not steps:
+            raise ValueError("steps 不能为空")
+        task_ids = {s.task_id for s in steps}
+        if len(task_ids) > 1:
+            raise ValueError(f"批量导入的步骤须属于同一任务（发现 {sorted(task_ids)}）")
+        for s in steps:
+            self._validate_step(s)
+        with self._tx() as (_conn, cur):
+            # 先整体校验（任务存在性 + seq 取号），全部通过才插入
+            resolved: list[tuple[TaskStep, int, int]] = []
+            base = 0
+            for s in steps:
+                seq = s.seq if s.seq is not None else base + 1
+                if seq <= base:
+                    raise ValueError(f"步骤 {s.name!r} 的 seq={seq} 与前序冲突（当前最大 {base}）")
+                base = seq
+                mr = s.max_retries
+                if mr is None:
+                    task = self._fetch_task(cur, s.task_id)
+                    if task is None:
+                        raise ValueError(f"任务不存在: id={s.task_id}")
+                    mr = int(task['max_retries'])
+                resolved.append((s, seq, mr))
+            for s, seq, mr in resolved:
+                sid = self._insert_step(cur, s, seq, mr)
+                s.id, s.seq, s.max_retries = sid, seq, mr
+            self._event(cur, steps[0].task_id, 'note', f'批量导入 {len(steps)} 个步骤')
+        return len(resolved)
+
+    def get_step(self, id: int) -> TaskStep | None:
+        rows = self._query(f'SELECT * FROM {self._t("ai_task_step")} WHERE id = %s', (id,))
+        return TaskStep.from_dict(rows[0]) if rows else None
+
+    def list_steps(self, task_id: int) -> list[dict[str, Any]]:
+        return self._query(
+            f'SELECT * FROM {self._t("ai_task_step")} WHERE task_id = %s ORDER BY seq', (task_id,))
+
+    def skip_step(self, id: int, reason: str = '') -> bool:
+        now = datetime.now()
+        with self._tx() as (_conn, cur):
+            cur.execute(f'SELECT * FROM {self._t("ai_task_step")} WHERE id = %s', (id,))
+            rows = self._rows(cur)
+            if not rows:
+                log.warning("skip 未找到步骤 id=%s", id)
+                return False
+            cur.execute(
+                f'UPDATE {self._t("ai_task_step")} '
+                f'SET status = %s, finished_at = %s, updated_at = %s '
+                f'WHERE id = %s AND status = %s',
+                ('skipped', now, now, id, 'pending'))
+            if not cur.rowcount:
+                log.warning("步骤 id=%s 非 pending（%s），不可 skip", id, rows[0]['status'])
+                return False
+            msg = f"step {id}: pending → skipped" + (f' ({reason})' if reason else '')
+            self._event(cur, rows[0]['task_id'], 'state_change', msg, step_id=id)
+        return True
+
+    def retry_step(self, id: int) -> bool:
+        now = datetime.now()
+        with self._tx() as (_conn, cur):
+            cur.execute(f'SELECT * FROM {self._t("ai_task_step")} WHERE id = %s', (id,))
+            rows = self._rows(cur)
+            if not rows:
+                log.warning("retry 未找到步骤 id=%s", id)
+                return False
+            step = rows[0]
+            if step['status'] not in ('failed', 'skipped'):
+                log.warning("步骤 id=%s 状态为 %s，仅 failed/skipped 可 retry", id, step['status'])
+                return False
+            cur.execute(
+                f'UPDATE {self._t("ai_task_step")} '
+                f'SET status = %s, max_retries = max_retries + 1, updated_at = %s WHERE id = %s',
+                ('pending', now, id))
+            self._event(cur, step['task_id'], 'state_change',
+                        f'step {id}: {step["status"]} → pending (manual retry, budget+1)',
+                        step_id=id)
+            # 任务因该步骤失败时，一并复活为 running，等下次 claim 继续
+            task = self._fetch_task(cur, step['task_id'])
+            if task is not None and task['status'] == 'failed':
+                cur.execute(
+                    f'UPDATE {self._t("ai_task_instance")} '
+                    f'SET status = %s, finished_at = NULL, heartbeat_at = %s, updated_at = %s '
+                    f'WHERE id = %s AND status = %s',
+                    ('running', now, now, task['id'], 'failed'))
+                self._event(cur, task['id'], 'state_change',
+                            'task: failed → running (manual retry revive)')
+        return True
+    # endregion
+
+    # region ======== 执行 ========
+    def claim_next_step(
+        self,
+        task_id: int,
+        session_id: str | None = None,
+        agent_name: str | None = None,
+    ) -> dict[str, Any] | None:
+        t_task = self._t('ai_task_instance')
+        t_step = self._t('ai_task_step')
+        now = datetime.now()
+        with self._tx() as (_conn, cur):
+            task = self._fetch_task(cur, task_id)
+            if task is None:
+                raise ValueError(f"任务不存在: id={task_id}")
+            if task['status'] not in ('pending', 'running'):
+                log.info("任务 id=%s 状态为 %s，无步骤可认领", task_id, task['status'])
+                return None
+            # 乐观锁循环：条件 UPDATE 抢占失败（被并发抢走/状态已变）则重选候选
+            for _ in range(3):
+                cur.execute(
+                    f'SELECT * FROM {t_step} WHERE task_id = %s AND status = %s '
+                    f'ORDER BY seq LIMIT 1', (task_id, 'pending'))
+                cands = self._rows(cur)
+                if not cands:
+                    return None
+                cand = cands[0]
+                cur.execute(
+                    f'UPDATE {t_step} SET status = %s, started_at = COALESCE(started_at, %s), '
+                    f'updated_at = %s WHERE id = %s AND status = %s',
+                    ('running', now, now, cand['id'], 'pending'))
+                if not cur.rowcount:
+                    continue
+                # 任务首次 claim：pending → running；否则仅刷心跳
+                if task['status'] == 'pending':
+                    cur.execute(
+                        f'UPDATE {t_task} SET status = %s, started_at = COALESCE(started_at, %s), '
+                        f'heartbeat_at = %s, updated_at = %s WHERE id = %s AND status = %s',
+                        ('running', now, now, now, task_id, 'pending'))
+                    self._event(cur, task_id, 'state_change',
+                                'task: pending → running (first claim)')
+                else:
+                    self._touch_heartbeat(cur, task_id)
+                # 续跑上下文包：任务 + 步骤 + run_id + 前序成功步骤摘要
+                cur.execute(
+                    f'SELECT seq, name, result_summary FROM {t_step} '
+                    f'WHERE task_id = %s AND status = %s ORDER BY seq',
+                    (task_id, 'succeeded'))
+                ctx = self._rows(cur)
+                cur.execute(f'SELECT * FROM {t_task} WHERE id = %s', (task_id,))
+                trow = self._task_row(self._rows(cur)[0])
+                cur.execute(f'SELECT * FROM {t_step} WHERE id = %s', (cand['id'],))
+                srow = self._rows(cur)[0]
+                package: dict[str, Any] = {'task': trow, 'step': dict(srow), 'context': ctx}
+                cur.execute(
+                    f'INSERT INTO {self._t("ai_task_run")} '
+                    f'(task_id, step_id, session_id, agent_name, status, input_snapshot, '
+                    f'started_at) VALUES (%s,%s,%s,%s,%s,%s,%s)',
+                    (task_id, cand['id'], session_id, agent_name, 'running',
+                     _jdump(package), now))
+                run_id = self._lastrowid(cur)
+                self._event(
+                    cur, task_id, 'state_change',
+                    f"step {cand['id']}: pending → running "
+                    f"(claim by {session_id or 'anonymous'})",
+                    step_id=cand['id'], run_id=run_id)
+                package['run_id'] = run_id
+                return package
+        log.warning("claim 连续 3 次抢占失败（task=%s），放弃本次认领", task_id)
+        return None
+
+    def finish_run(self, run_id: int, output: str = '', summary: str | None = None) -> bool:
+        t_task = self._t('ai_task_instance')
+        t_step = self._t('ai_task_step')
+        t_run = self._t('ai_task_run')
+        now = datetime.now()
+        with self._tx() as (_conn, cur):
+            cur.execute(f'SELECT * FROM {t_run} WHERE id = %s', (run_id,))
+            runs = self._rows(cur)
+            if not runs:
+                log.warning("finish 未找到 run id=%s", run_id)
+                return False
+            run = runs[0]
+            if run['status'] != 'running':
+                log.warning("run id=%s 已终态(%s)，忽略 finish", run_id, run['status'])
+                return False
+            if summary is None:
+                summary = output[:2000] if output else ''
+            cur.execute(
+                f'UPDATE {t_run} SET status = %s, output = %s, finished_at = %s '
+                f'WHERE id = %s AND status = %s',
+                ('succeeded', output, now, run_id, 'running'))
+            cur.execute(
+                f'UPDATE {t_step} SET status = %s, result_summary = %s, finished_at = %s, '
+                f'updated_at = %s WHERE id = %s AND status = %s',
+                ('succeeded', summary, now, now, run['step_id'], 'running'))
+            self._event(cur, run['task_id'], 'state_change',
+                        f'run {run_id}: running → succeeded', step_id=run['step_id'],
+                        run_id=run_id)
+            self._event(cur, run['task_id'], 'state_change',
+                        f"step {run['step_id']}: running → succeeded", step_id=run['step_id'])
+            # 收口判定：无 pending/running 且无 failed → 任务完成
+            cur.execute(
+                f'SELECT status, COUNT(*) AS n FROM {t_step} '
+                f'WHERE task_id = %s AND status IN (%s,%s,%s) GROUP BY status',
+                (run['task_id'], 'pending', 'running', 'failed'))
+            counts = {r['status']: r['n'] for r in self._rows(cur)}
+            if not counts.get('pending') and not counts.get('running') and not counts.get('failed'):
+                cur.execute(
+                    f'UPDATE {t_task} SET status = %s, finished_at = %s, heartbeat_at = %s, '
+                    f'updated_at = %s WHERE id = %s AND status = %s',
+                    ('completed', now, now, now, run['task_id'], 'running'))
+                self._event(cur, run['task_id'], 'state_change', 'task: running → completed')
+            else:
+                self._touch_heartbeat(cur, run['task_id'])
+        return True
+
+    def fail_run(self, run_id: int, error: str) -> str:
+        t_task = self._t('ai_task_instance')
+        t_step = self._t('ai_task_step')
+        t_run = self._t('ai_task_run')
+        now = datetime.now()
+        with self._tx() as (_conn, cur):
+            cur.execute(f'SELECT * FROM {t_run} WHERE id = %s', (run_id,))
+            runs = self._rows(cur)
+            if not runs:
+                log.warning("fail 未找到 run id=%s", run_id)
+                return ''
+            run = runs[0]
+            if run['status'] != 'running':
+                log.warning("run id=%s 已终态(%s)，忽略 fail", run_id, run['status'])
+                return ''
+            cur.execute(
+                f'UPDATE {t_run} SET status = %s, error_msg = %s, finished_at = %s WHERE id = %s',
+                ('failed', error, now, run_id))
+            self._event(cur, run['task_id'], 'error',
+                        f'run {run_id} 失败: {error[:500]}', level='warn',
+                        step_id=run['step_id'], run_id=run_id)
+            self._event(cur, run['task_id'], 'state_change',
+                        f'run {run_id}: running → failed', step_id=run['step_id'],
+                        run_id=run_id)
+            cur.execute(f'SELECT * FROM {t_step} WHERE id = %s', (run['step_id'],))
+            step = self._rows(cur)[0]
+            mr = int(step['max_retries']) if step['max_retries'] is not None else 0
+            disposition = step_disposition_on_fail(int(step['retry_count']), mr)
+            if disposition == 'pending':
+                # 预算未耗尽：步骤回 pending（retry_count+1），任务不变，刷心跳
+                cur.execute(
+                    f'UPDATE {t_step} SET status = %s, retry_count = retry_count + 1, '
+                    f'updated_at = %s WHERE id = %s AND status = %s',
+                    ('pending', now, step['id'], 'running'))
+                self._event(cur, run['task_id'], 'state_change',
+                            f"step {step['id']}: running → pending "
+                            f"(retry {step['retry_count'] + 1}/{mr})", step_id=step['id'])
+                self._touch_heartbeat(cur, run['task_id'])
+            else:
+                # 预算耗尽：步骤终败，任务连带失败
+                cur.execute(
+                    f'UPDATE {t_step} SET status = %s, finished_at = %s, updated_at = %s '
+                    f'WHERE id = %s AND status = %s',
+                    ('failed', now, now, step['id'], 'running'))
+                self._event(cur, run['task_id'], 'state_change',
+                            f"step {step['id']}: running → failed (预算耗尽)",
+                            step_id=step['id'])
+                cur.execute(
+                    f'UPDATE {t_task} SET status = %s, finished_at = %s, updated_at = %s '
+                    f'WHERE id = %s AND status = %s',
+                    ('failed', now, now, run['task_id'], 'running'))
+                self._event(cur, run['task_id'], 'state_change',
+                            'task: running → failed (步骤预算耗尽)')
+            return 'retried' if disposition == 'pending' else 'step_failed'
+
+    def get_run(self, run_id: int) -> AgentRun | None:
+        rows = self._query(f'SELECT * FROM {self._t("ai_task_run")} WHERE id = %s', (run_id,))
+        return AgentRun.from_dict(rows[0]) if rows else None
+
+    def list_runs(self, step_id: int) -> list[dict[str, Any]]:
+        return self._query(
+            f'SELECT * FROM {self._t("ai_task_run")} WHERE step_id = %s ORDER BY id', (step_id,))
+
+    # ---- 恢复（sweep）----
+
+    def _reap_step(self, cur: Any, step: dict[str, Any], reason: str,
+                   now: datetime) -> list[dict[str, Any]]:
+        """僵尸步骤处理：其 running run 置 timeout，步骤按重试预算回 pending 或终败。
+
+        返回被恢复对象的摘要列表（task 级与 step 级 sweep 共用）。
+        """
+        t_task = self._t('ai_task_instance')
+        t_step = self._t('ai_task_step')
+        t_run = self._t('ai_task_run')
+        out: list[dict[str, Any]] = []
+        cur.execute(f'SELECT * FROM {t_run} WHERE step_id = %s AND status = %s',
+                    (step['id'], 'running'))
+        runs = self._rows(cur)
+        for r in runs:
+            cur.execute(
+                f'UPDATE {t_run} SET status = %s, error_msg = %s, finished_at = %s '
+                f'WHERE id = %s AND status = %s',
+                ('timeout', reason, now, r['id'], 'running'))
+            out.append({'task_id': r['task_id'], 'step_id': step['id'], 'run_id': r['id'],
+                        'action': 'run_timeout', 'detail': reason})
+            self._event(cur, r['task_id'], 'state_change',
+                        f"run {r['id']}: running → timeout ({reason})",
+                        step_id=step['id'], run_id=r['id'])
+        mr = int(step['max_retries']) if step['max_retries'] is not None else 0
+        disposition = step_disposition_on_fail(int(step['retry_count']), mr)
+        if disposition == 'pending':
+            cur.execute(
+                f'UPDATE {t_step} SET status = %s, retry_count = retry_count + 1, updated_at = %s '
+                f'WHERE id = %s AND status = %s',
+                ('pending', now, step['id'], 'running'))
+            out.append({'task_id': step['task_id'], 'step_id': step['id'], 'run_id': None,
+                        'action': 'step_retry', 'detail': f'retry {step["retry_count"] + 1}/{mr}'})
+            self._event(cur, step['task_id'], 'state_change',
+                        f"step {step['id']}: running → pending (sweep retry)", step_id=step['id'])
+        else:
+            cur.execute(
+                f'UPDATE {t_step} SET status = %s, finished_at = %s, updated_at = %s '
+                f'WHERE id = %s AND status = %s',
+                ('failed', now, now, step['id'], 'running'))
+            out.append({'task_id': step['task_id'], 'step_id': step['id'], 'run_id': None,
+                        'action': 'step_failed', 'detail': reason})
+            self._event(cur, step['task_id'], 'state_change',
+                        f"step {step['id']}: running → failed (sweep, 预算耗尽)",
+                        step_id=step['id'])
+            cur.execute(
+                f'UPDATE {t_task} SET status = %s, finished_at = %s, updated_at = %s '
+                f'WHERE id = %s AND status = %s',
+                ('failed', now, now, step['task_id'], 'running'))
+            self._event(cur, step['task_id'], 'state_change',
+                        'task: running → failed (sweep, 步骤预算耗尽)')
+        return out
+
+    def sweep(self, heartbeat_timeout_sec: int | None = None) -> list[dict[str, Any]]:
+        t_task = self._t('ai_task_instance')
+        t_step = self._t('ai_task_step')
+        t_run = self._t('ai_task_run')
+        results: list[dict[str, Any]] = []
+        now = datetime.now()
+        with self._tx() as (_conn, cur):
+            # ① 任务级：心跳超时的 running 任务，其 running 步骤按僵尸处理。
+            # 阈值比较放在 Python 侧（heartbeat_at 由驱动还原为 datetime），
+            # 以兼容 heartbeat_timeout_sec 全局覆盖参数。
+            cur.execute(f'SELECT * FROM {t_task} WHERE status = %s', ('running',))
+            running_tasks = self._rows(cur)
+            for t in running_tasks:
+                if not t['heartbeat_at']:
+                    continue
+                timeout = (heartbeat_timeout_sec if heartbeat_timeout_sec is not None
+                           else int(t['heartbeat_timeout_sec'])
+                           if t['heartbeat_timeout_sec'] is not None else 1800)
+                if t['heartbeat_at'] >= now - timedelta(seconds=timeout):
+                    continue
+                cur.execute(
+                    f'SELECT * FROM {t_step} WHERE task_id = %s AND status = %s',
+                    (t['id'], 'running'))
+                zombie_steps = self._rows(cur)
+                for s in zombie_steps:
+                    results.extend(self._reap_step(cur, s, 'heartbeat timeout', now))
+            # ② 步骤级：任务心跳正常，但 run.started_at 超过 step.timeout_sec（单步卡死）
+            cur.execute(
+                f'SELECT s.* FROM {t_step} s JOIN {t_run} r ON r.step_id = s.id '
+                f'WHERE r.status = %s AND s.timeout_sec IS NOT NULL AND s.status = %s',
+                ('running', 'running'))
+            candidates = self._rows(cur)
+            for s in candidates:
+                threshold = now - timedelta(seconds=int(s['timeout_sec']))
+                cur.execute(
+                    f'SELECT * FROM {t_run} WHERE step_id = %s AND status = %s '
+                    f'AND started_at IS NOT NULL AND started_at < %s',
+                    (s['id'], 'running', threshold))
+                if self._rows(cur):
+                    results.extend(self._reap_step(cur, s, 'step timeout', now))
+            if results:
+                log.info("sweep 恢复了 %d 个对象", len(results))
+        return results
+    # endregion
+
+    # region ======== 产物 / 事件 ========
+    def add_artifact(
+        self,
+        task_id: int,
+        art_type: str,
+        path: str,
+        step_id: int | None = None,
+        note: str | None = None,
+    ) -> int:
+        if art_type not in VALID_ART_TYPES:
+            raise ValueError(f"非法的 art_type: {art_type!r}（合法值: {sorted(VALID_ART_TYPES)}）")
+        with self._tx() as (_conn, cur):
+            cur.execute(
+                f'INSERT INTO {self._t("ai_task_artifact")} '
+                f'(task_id, step_id, art_type, path, note, created_at) VALUES (%s,%s,%s,%s,%s,%s)',
+                (task_id, step_id, art_type, path, note, datetime.now()))
+            art_id = self._lastrowid(cur)
+            self._event(cur, task_id, 'artifact', f'产物登记: {path} ({art_type})',
+                        step_id=step_id)
+        return art_id
+
+    def list_artifacts(self, task_id: int) -> list[dict[str, Any]]:
+        return self._query(
+            f'SELECT * FROM {self._t("ai_task_artifact")} WHERE task_id = %s ORDER BY id',
+            (task_id,))
+
+    def add_event(
+        self,
+        task_id: int,
+        event_type: str,
+        message: str,
+        level: str = 'info',
+        step_id: int | None = None,
+        run_id: int | None = None,
+    ) -> int:
+        if event_type not in VALID_EVENT_TYPES:
+            raise ValueError(
+                f"非法的 event_type: {event_type!r}（合法值: {sorted(VALID_EVENT_TYPES)}）")
+        if level not in VALID_EVENT_LEVELS:
+            raise ValueError(f"非法的 level: {level!r}（合法值: {sorted(VALID_EVENT_LEVELS)}）")
+        with self._tx() as (_conn, cur):
+            cur.execute(
+                f'INSERT INTO {self._t("ai_task_event")} '
+                f'(task_id, step_id, run_id, event_type, level, message, created_at) '
+                f'VALUES (%s,%s,%s,%s,%s,%s,%s)',
+                (task_id, step_id, run_id, event_type, level, message, datetime.now()))
+            return self._lastrowid(cur)
+
+    def list_events(self, task_id: int, limit: int = 100) -> list[dict[str, Any]]:
+        return self._query(
+            f'SELECT * FROM {self._t("ai_task_event")} WHERE task_id = %s '
+            f'ORDER BY id DESC LIMIT %s', (task_id, limit))
+    # endregion
+
+    # region ======== 模板 ========
+    def create_template(self, t: TaskTemplate) -> int:
+        now = datetime.now()
+        with self._tx() as (_conn, cur):
+            cur.execute(f'SELECT id FROM {self._t("ai_task_template")} WHERE name = %s',
+                        (t.name,))
+            if self._rows(cur):
+                raise ValueError(f"模板名已存在: {t.name!r}")
+            cur.execute(
+                f'INSERT INTO {self._t("ai_task_template")} '
+                f'(name, skill_ref, description, default_params, step_blueprint, '
+                f'created_at, updated_at) VALUES (%s,%s,%s,%s,%s,%s,%s)',
+                (t.name, t.skill_ref, t.description, _jdump(t.default_params),
+                 _jdump(t.step_blueprint), now, now))
+            t.id = self._lastrowid(cur)
+            return t.id
+
+    def get_template_by_name(self, template_name: str) -> TaskTemplate | None:
+        rows = self._query(
+            f'SELECT * FROM {self._t("ai_task_template")} WHERE name = %s', (template_name,))
+        return TaskTemplate.from_dict(self._template_row(rows[0])) if rows else None
+
+    def list_templates(self, limit: int = 50) -> list[dict[str, Any]]:
+        rows = self._query(
+            f'SELECT * FROM {self._t("ai_task_template")} ORDER BY id DESC LIMIT %s', (limit,))
+        return [self._template_row(r) for r in rows]
+
+
+#: 模块级默认管理器实例：注册一个指向 rdb 默认实例的 MySqlLongTaskService
+task_mgr: LongTaskManager = LongTaskManager()
+task_mgr.register(LongTaskManager.DEFAULT_NAME, MySqlLongTaskService())
+
+__all__ = ['MySqlLongTaskService', 'task_mgr']
+    # endregion
