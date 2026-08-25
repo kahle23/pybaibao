@@ -119,13 +119,75 @@ class BasePage:
         }"""))
 
     def _select_wrapper(self, form_item_label: str) -> Locator:
-        """定位 el-select 的 .el-select__wrapper（弹窗内优先）。"""
-        dialog = self.page.locator(".el-dialog").first
-        base = dialog if dialog.is_visible() else self.page
-        return base.locator(".el-form-item", has_text=form_item_label).first \
-            .locator(".el-select__wrapper").first
+        """定位 el-select 的 .el-select__wrapper（弹窗内优先，label 精确匹配优先）。
 
-    def el_select(self, form_item_label: str, option_text: str) -> None:
+        匹配顺序：弹窗内精确 → 全页精确 → 弹窗内 contains → 全页 contains。
+        contains 必须排在精确之后：搜索栏表单项没有 label，但它的 placeholder
+        文本会出现在 form-item 的 has_text 里（如 label「资产类型」contains 命中
+        「请选择资产类型」），错选后还会静默返回成功（目标字段没填、提交被必填
+        校验拦截，页面上毫无报错线索）。
+        """
+        exact_sel = (
+            f'.el-form-item:has(.el-form-item__label:text-is("{form_item_label}")) '
+            f'.el-select__wrapper'
+        )
+        in_dialog = self.page.locator(f".el-dialog:visible {exact_sel}")
+        if in_dialog.count():
+            return in_dialog.first
+        exact_any = self.page.locator(exact_sel)
+        if exact_any.count():
+            return exact_any.first
+        fuzzy_sel = (
+            f'.el-form-item:has-text("{form_item_label}") .el-select__wrapper'
+        )
+        in_dialog_fuzzy = self.page.locator(f".el-dialog:visible {fuzzy_sel}")
+        if in_dialog_fuzzy.count():
+            return in_dialog_fuzzy.first
+        fuzzy_any = self.page.locator(fuzzy_sel)
+        if fuzzy_any.count():
+            return fuzzy_any.first
+        raise RuntimeError(f"找不到「{form_item_label}」的 el-select wrapper")
+
+    def _visible_dropdown_option_center(self, option_text: str, exact: bool = True) -> dict | None:
+        """在【所有】可见下拉面板中找选项中心坐标。
+
+        下拉面板 teleport 到 body 且可能同时存在多个（上一个 select 的面板
+        尚未收起时再展开下一个），只查第一个面板会漏掉真正目标面板里的选项。
+        """
+        return cast("dict | None", self.page.evaluate(
+            """([opt, exact]) => {
+                const dds = Array.from(document.querySelectorAll('.el-select-dropdown'))
+                    .filter(d => d.offsetParent !== null);
+                for (const dd of dds) {
+                    const items = Array.from(dd.querySelectorAll('.el-select-dropdown__item'));
+                    const item = exact
+                        ? items.find(i => i.textContent.trim() === opt)
+                        : items.find(i => i.textContent.trim().includes(opt));
+                    if (item) {
+                        const r = item.getBoundingClientRect();
+                        return {x: r.x + r.width/2, y: r.y + r.height/2};
+                    }
+                }
+                return null;
+            }""", [option_text, exact]))
+
+    def collapse_dropdowns(self) -> None:
+        """收起所有残留下拉面板（CDP 点击视口左上角空白）。
+
+        残留面板会遮挡后续点击目标、并把下一个 select 的选项藏进第二层面板。
+        不要用 Escape 收：焦点不在下拉上时 Esc 会冒泡关闭 el-dialog
+        （close-on-press-escape 默认开启），弹窗会莫名消失。
+        """
+        try:
+            self._cdp_click(2, 2)
+        except Exception:
+            pass
+        self.page.wait_for_timeout(200)
+
+    def el_select(
+        self, form_item_label: str, option_text: str, *,
+        expand_retries: int = 3, poll_times: int = 5, poll_interval_ms: int = 400,
+    ) -> None:
         """操作 Element Plus 的 el-select 下拉选择。
 
         使用 CDP ``Input.dispatchMouseEvent`` 发送真实鼠标事件。
@@ -138,37 +200,45 @@ class BasePage:
         Args:
             form_item_label: 表单项标签文本，如「资产类型」「状态」
             option_text: 选项文本，如「IT设备」「在库」
+            expand_retries: 选项未找到时重新展开重试的轮数。字典/选项异步
+                渲染慢（弹窗刚开、远程字典）时单轮轮询可能不够——2026-08-28
+                IMP 实坑：弹窗内字典下拉首展开未渲染完即报「找不到选项」。
+            poll_times: 每轮展开后轮询选项渲染的次数。
+            poll_interval_ms: 轮询间隔毫秒。
         """
         wrapper = self._select_wrapper(form_item_label)
+        last_err: RuntimeError | None = None
+        try:
+            for _attempt in range(expand_retries):
+                # CDP 点击 wrapper 展开下拉（每轮重取位置，弹窗动画中坐标会漂移）
+                wrapper_box = wrapper.bounding_box()
+                if not wrapper_box:
+                    raise RuntimeError(f"找不到 {form_item_label} 的 el-select wrapper")
+                self._cdp_click(
+                    wrapper_box["x"] + wrapper_box["width"] / 2,
+                    wrapper_box["y"] + wrapper_box["height"] / 2,
+                )
+                self.page.wait_for_timeout(400)
 
-        # CDP 点击 wrapper 展开下拉
-        wrapper_box = wrapper.bounding_box()
-        if not wrapper_box:
-            raise RuntimeError(f"找不到 {form_item_label} 的 el-select wrapper")
-        self._cdp_click(
-            wrapper_box["x"] + wrapper_box["width"] / 2,
-            wrapper_box["y"] + wrapper_box["height"] / 2,
-        )
-        self.page.wait_for_timeout(400)
+                # 在可见的下拉面板中找到目标选项，CDP 点击（下拉面板 teleport 到
+                # body；字典/选项可能是异步渲染，轮询而非直接判死）
+                opt_center = None
+                for _ in range(poll_times):
+                    opt_center = self._visible_dropdown_option_center(option_text, exact=True)
+                    if opt_center:
+                        break
+                    self.page.wait_for_timeout(poll_interval_ms)
+                if opt_center:
+                    self._cdp_click(opt_center["x"], opt_center["y"])
+                    self.page.wait_for_timeout(300)
+                    return
 
-        # 在可见的下拉面板中找到目标选项，CDP 点击（下拉面板 teleport 到 body）
-        opt_center = self.page.evaluate(
-            f"""() => {{
-                const dropdowns = Array.from(document.querySelectorAll('.el-select-dropdown'))
-                    .filter(d => d.offsetParent !== null);
-                if (!dropdowns.length) return null;
-                const dd = dropdowns[0];
-                const item = Array.from(dd.querySelectorAll('.el-select-dropdown__item'))
-                    .find(i => i.textContent.trim() === {option_text!r});
-                if (!item) return null;
-                const r = item.getBoundingClientRect();
-                return {{x: r.x + r.width/2, y: r.y + r.height/2}};
-            }}"""
-        )
-        if not opt_center:
-            raise RuntimeError(f"下拉面板中找不到选项「{option_text}」")
-        self._cdp_click(opt_center["x"], opt_center["y"])
-        self.page.wait_for_timeout(300)
+                last_err = RuntimeError(f"下拉面板中找不到选项「{option_text}」")
+                self.collapse_dropdowns()
+                self.page.wait_for_timeout(400)
+            raise last_err  # type: ignore[misc]
+        finally:
+            self.collapse_dropdowns()
 
     def el_dict_select(self, form_item_label: str, option_text: str) -> None:
         """操作字典下拉选择（ma-dict-select，本质也是 el-select 变体）。
@@ -194,32 +264,27 @@ class BasePage:
         box = wrapper.bounding_box()
         if not box:
             raise RuntimeError(f"找不到 {form_item_label} 的 el-select wrapper")
-        self._cdp_click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
-        self.page.wait_for_timeout(400)
+        try:
+            self._cdp_click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+            self.page.wait_for_timeout(400)
 
-        # 在展开的搜索框中输入关键词
-        combobox = wrapper.locator('input[role="combobox"]').first
-        combobox.fill(keyword)
-        self.page.wait_for_timeout(800)  # 等待远程数据加载
+            # 在展开的搜索框中输入关键词
+            combobox = wrapper.locator('input[role="combobox"]').first
+            combobox.fill(keyword)
 
-        # CDP 点击匹配选项
-        opt_center = self.page.evaluate(
-            f"""() => {{
-                const dropdowns = Array.from(document.querySelectorAll('.el-select-dropdown'))
-                    .filter(d => d.offsetParent !== null);
-                if (!dropdowns.length) return null;
-                const dd = dropdowns[0];
-                const item = Array.from(dd.querySelectorAll('.el-select-dropdown__item'))
-                    .find(i => i.textContent.trim().includes({option_text!r}));
-                if (!item) return null;
-                const r = item.getBoundingClientRect();
-                return {{x: r.x + r.width/2, y: r.y + r.height/2}};
-            }}"""
-        )
-        if not opt_center:
-            raise RuntimeError(f"远程下拉中找不到选项「{option_text}」")
-        self._cdp_click(opt_center["x"], opt_center["y"])
-        self.page.wait_for_timeout(300)
+            # 远程数据加载耗时不确定，轮询等选项出现（上限 ~4s）再点击
+            opt_center = None
+            for _ in range(8):
+                self.page.wait_for_timeout(500)
+                opt_center = self._visible_dropdown_option_center(option_text, exact=False)
+                if opt_center:
+                    break
+            if not opt_center:
+                raise RuntimeError(f"远程下拉中找不到选项「{option_text}」")
+            self._cdp_click(opt_center["x"], opt_center["y"])
+            self.page.wait_for_timeout(300)
+        finally:
+            self.collapse_dropdowns()
 
     def el_date_picker(self, form_item_label: str, date_str: str) -> None:
         """操作 Element Plus 日期选择器。
@@ -234,6 +299,102 @@ class BasePage:
         date_input.fill(date_str)
         date_input.press("Enter")
         self.page.wait_for_timeout(200)
+
+    def expect_row_cell(
+        self, row_keyword: str, column_header: str, expected: str, timeout: int = 8000,
+    ) -> None:
+        """轮询断言某行某列格刷新到期望值。
+
+        提交成功后列表 refresh 是异步请求，提交返回后立即读列格存在竞态
+        （读到旧值），必须轮询等待。
+        """
+        deadline = time.time() + timeout / 1000
+        last = ""
+        while time.time() < deadline:
+            last = self.get_row_cell(row_keyword, column_header)
+            if last == expected:
+                return
+            self.page.wait_for_timeout(400)
+        raise AssertionError(
+            f"行[{row_keyword}]列[{column_header}]未刷新为 {expected!r}，最后值={last!r}")
+
+    def expect_input_value(self, selector: str, expected: str, timeout: int = 8000) -> None:
+        """轮询断言输入框值到达期望（表单异步回显的等待）。"""
+        deadline = time.time() + timeout / 1000
+        loc = self.page.locator(selector).first
+        while time.time() < deadline:
+            if loc.count() and loc.input_value() == expected:
+                return
+            self.page.wait_for_timeout(400)
+        actual = loc.input_value() if loc.count() else "<元素不存在>"
+        raise AssertionError(f"{selector} 值未到达 {expected!r}，当前={actual!r}")
+
+    def wait_no_loading_mask(self, timeout: int = 5000) -> None:
+        """等待 Element Plus v-loading 遮罩全部消失。
+
+        遮罩消失可能略晚于数据回显：遮罩还盖着时 CDP 点击会打在遮罩上
+        （无展开/点击效果），回显后要操作弹窗表单前必须等它消失。
+        """
+        deadline = time.time() + timeout / 1000
+        while time.time() < deadline:
+            if self.page.locator(".el-loading-mask:visible").count() == 0:
+                return
+            self.page.wait_for_timeout(300)
+        raise AssertionError("loading 遮罩等待超时未消失")
+
+    def overlay(self) -> Locator:
+        """当前打开的弹窗或抽屉（优先弹窗，多层弹窗取最后打开的）。
+
+        ⚠️ 不要用 ``.el-drawer:visible`` 定位抽屉：页面常驻隐藏抽屉（如 IMP
+        的「布局设置」，rtl 方向被 transform 移出视口）时 Playwright 仍判其
+        visible，会定位到错误容器导致元素找不到（2026-08-28 IMP 实坑）。
+        Element Plus 打开中的抽屉带 ``open`` 类，用它判定。
+        """
+        dlg = self.page.locator(".el-dialog:visible")
+        if dlg.count():
+            return dlg.last
+        return self.page.locator(".el-drawer.open").first
+
+    def close_all_dialogs(self) -> None:
+        """关闭所有残留弹窗与确认框。
+
+        残留弹窗的遮罩会挡住行操作按钮，导致后续用例连锁点击超时；
+        ElMessageBox（二次确认框）不是 .el-dialog，需一并处理。
+        """
+        for _ in range(4):
+            has_dialog = self.page.locator(".el-dialog:visible").count()
+            has_box = self.page.locator(".el-message-box:visible").count()
+            if not has_dialog and not has_box:
+                return
+            self.page.keyboard.press("Escape")  # MessageBox 默认 Esc=取消；下拉面板优先收起
+            self.page.wait_for_timeout(400)
+            if self.page.locator(".el-dialog:visible").count():
+                try:
+                    self.close_dialog()
+                except Exception:
+                    pass
+                self.page.wait_for_timeout(400)
+
+    def read_select_options(self, form_item_label: str) -> list[str]:
+        """展开指定表单项的下拉，读取全部选项文本后收起（用于可选集断言）。"""
+        wrapper = self._select_wrapper(form_item_label)
+        box = wrapper.bounding_box()
+        if not box:
+            raise RuntimeError(f"找不到 {form_item_label} 的 el-select wrapper")
+        try:
+            self._cdp_click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+            self.page.wait_for_timeout(600)
+            texts: list[str] = []
+            for _ in range(3):  # 字典异步渲染时选项可能未就绪，轮询
+                items = self.page.locator(
+                    ".el-select-dropdown:visible .el-select-dropdown__item")
+                texts = [items.nth(i).inner_text().strip() for i in range(items.count())]
+                if texts:
+                    break
+                self.page.wait_for_timeout(400)
+            return texts
+        finally:
+            self.collapse_dropdowns()
 
     # ------------------------------------------------------------------
     # 对话框/消息提示

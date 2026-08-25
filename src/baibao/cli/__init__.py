@@ -7,11 +7,17 @@ CLI 命令模块，实现命令模式架构。
 
 from pykunlun.cli import CommandManager
 
+from .agent_image_command import AgentImageCommand
 from .agent_memory_command import AgentMemoryCommand
+from .agent_prompt_command import AgentPromptCommand
 from .agent_task_command import AgentTaskCommand
+from .autotest_command import AutotestCommand
 from .help_command import BaibaoHelpCommand
 from .kbase_command import KbaseInitCommand
+from .mojibake_command import MojibakeCommand
+from .move_java_command import MoveJavaCommand
 from .ocr_command import OcrCommand
+from .ocr_server_command import OcrServerCommand
 from .path_command import PythonPathSetupCommand
 from .pip_command import PipInstallCommand, PipUpgradeCommand
 from .pypr_command import PyCleanCommand
@@ -34,6 +40,12 @@ command_manager.register(KbaseInitCommand())
 command_manager.register(PythonPathSetupCommand())
 command_manager.register(RdbDumpCommand())
 command_manager.register(OcrCommand())
+command_manager.register(OcrServerCommand())
+command_manager.register(AgentImageCommand())
 command_manager.register(RdbCommand())
 command_manager.register(AgentMemoryCommand())
+command_manager.register(AgentPromptCommand())
 command_manager.register(AgentTaskCommand())
+command_manager.register(MojibakeCommand())
+command_manager.register(MoveJavaCommand())
+command_manager.register(AutotestCommand())

@@ -3,10 +3,11 @@ OCR 模块，提供多种 OCR 策略实现。
 
 采用策略模式（结合模板方法）设计：基类 :class:`OcrEngine`（来自 :mod:`pykunlun.ai.ocr`）
 统一负责图片加载、文本清洗与结果绘制，子类只需实现核心识别方法，专注于引擎适配。
-支持 EasyOCR、PaddleOCR 2.x/3.x。
+支持 EasyOCR、PaddleOCR 2.x/3.x、以及转发给 ``baibao ocr_server`` 的 server 引擎。
 
 引擎无关配置 :class:`OcrCfg` 与抽象基类 :class:`OcrEngine` / 管理器 :class:`OcrManager`
-收敛在 :mod:`pykunlun.ai.ocr`；本包提供 EasyOCR / PaddleOCR 的具体实现（带重依赖）。
+收敛在 :mod:`pykunlun.ai.ocr`；本包提供 EasyOCR / PaddleOCR / ServerOcr 的具体实现
+（EasyOCR / PaddleOCR 带重依赖，ServerOcr 仅依赖 Python 标准库）。
 
 两种使用风格：
 
@@ -33,6 +34,7 @@ from pykunlun.ai.ocr import OcrCfg, OcrEngine, OcrManager, OcrResult
 
 from .easy_ocr import EasyOcr, langs_from_code
 from .paddle_ocr import PaddleOcr, PaddleOcrV2, PaddleOcrV3, get_paddleocr_version
+from .server_ocr import ServerOcr
 
 # region ======== 引擎类型 → 实现类 工厂 ========
 
@@ -43,12 +45,17 @@ _ENGINE_CLASSES: dict[str, type[OcrEngine]] = {
     'paddle': PaddleOcr,
     'paddle2': PaddleOcrV2,
     'paddle3': PaddleOcrV3,
+    'server': ServerOcr,
 }
 
 
 def build_ocr_engine(
     engine_type: str,
     cfg: OcrCfg,
+    *,
+    server_url: str | None = None,
+    server_engine: str | None = None,
+    server_timeout: float | None = None,
 ) -> OcrEngine:
     """
     按引擎类型 + 统一配置构造 :class:`OcrEngine` 实例。
@@ -57,10 +64,17 @@ def build_ocr_engine(
     按 ``cfg`` 自行解释，调用方（CLI / 技能 / 业务代码）只需提供引擎无关的 :class:`OcrCfg`，
     无需关心 EasyOCR / PaddleOCR 2.x / 3.x 各自的构造参数。
 
+    ``server`` 引擎的专属连接参数（地址 / 要求服务端使用的引擎 / 超时）不放入通用
+    :class:`OcrCfg`，而由本函数的关键字参数透传给 :class:`ServerOcr`；非 server 引擎忽略之。
+
     Args:
-        engine_type: 引擎类型：``easy`` / ``paddle`` / ``paddle2`` / ``paddle3``。
-            ``paddle`` 为自动分发器，按已装 paddleocr 版本选 V2/V3。
+        engine_type: 引擎类型：``easy`` / ``paddle`` / ``paddle2`` / ``paddle3`` / ``server``。
+            ``paddle`` 为自动分发器，按已装 paddleocr 版本选 V2/V3；
+            ``server`` 不加载本地模型，而是转发给运行中的 ``baibao ocr_server``。
         cfg: 引擎无关配置（``engine_type`` 字段无需设置，由所构造的实现类推导）。
+        server_url: 仅 ``server`` 引擎生效：``ocr_server`` 根地址（缺省走环境变量 / 默认）。
+        server_engine: 仅 ``server`` 引擎生效：要求服务端使用的引擎名（缺省用服务端默认）。
+        server_timeout: 仅 ``server`` 引擎生效：HTTP 请求超时秒数（缺省用默认）。
 
     Raises:
         ValueError: 未知引擎类型。
@@ -69,6 +83,13 @@ def build_ocr_engine(
     if cls is None:
         raise ValueError(
             f"未知 OCR 引擎: {engine_type}（可选: {', '.join(_ENGINE_CLASSES)}）"
+        )
+    if cls is ServerOcr:
+        return ServerOcr(
+            cfg,
+            server_url=server_url,
+            server_engine=server_engine,
+            timeout=server_timeout,
         )
     return cls(cfg)
 
@@ -200,6 +221,7 @@ __all__ = [
     'PaddleOcr',
     'PaddleOcrV2',
     'PaddleOcrV3',
+    'ServerOcr',
     'build_ocr_engine',
     'get_ocr_engine',
     'get_paddleocr_version',

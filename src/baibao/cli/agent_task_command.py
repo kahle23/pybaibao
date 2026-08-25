@@ -11,7 +11,8 @@ AI/用户的高层子命令。数据库是唯一真相源，AI 会话只是可�
   - plan        批量导入步骤（JSON 数组，stdin/文件，instruction 支持 @文件 引用）
   - step add    单条加步骤
   - claim       原子认领下一步骤，输出续跑上下文包（新会话接手所需的全部信息）
-  - finish      成功收口一次执行（--output-file 支持 "-" 读 stdin；建议必带 --summary）
+  - finish      成功收口一次执行（--output-file/--summary-file 支持 "-" 读 stdin；
+                建议必带 --summary；成功后 stdout 回显更新后的步骤状态）
   - fail        失败上报（自动按重试预算决定回 pending 重试或终败）
   - heartbeat   刷任务心跳
   - status      任务总览（任务+步骤+进度+产物计数）
@@ -163,8 +164,11 @@ class AgentTaskCommand(Command):
             "  plan    <task_id> --steps-file FILE         批量导入步骤（JSON 数组，'-' 读 stdin；\n"
             "                                              instruction 支持 @文件路径 引用）\n"
             "  step add <task_id> --name --instruction/--instruction-file  单条加步骤\n"
-            "  claim   <task_id> [--session-id --agent-name]  原子认领下一步骤，输出续跑上下文包\n"
-            "  finish  <run_id> [--output/--output-file --summary]  成功收口（建议必带 --summary）\n"
+            "  claim   <task_id> [--session-id --agent-name --format]  原子认领下一步骤，输出续跑上下文包\n"
+            "                                              （--format: jsonl 单行默认 | json 缩进多行）\n"
+            "  finish  <run_id> [--output/--output-file --summary/--summary-file]  成功收口\n"
+            "                                              （建议必带 --summary；--token-usage 可选回填；\n"
+            "                                               成功后 stdout 回显步骤状态）\n"
             "  fail    <run_id> --error/--error-file       失败上报（按预算自动重试/终败）\n"
             "  heartbeat <task_id>                         刷心跳\n"
             "  status  <task_id> [--full]                  任务总览（任务+步骤+进度+产物计数）\n"
@@ -172,11 +176,12 @@ class AgentTaskCommand(Command):
             "  pause / resume / cancel <task_id>           生命周期控制（cancel 带 --reason）\n"
             "  retry   <step_id>                           手动重置失败步骤回 pending（预算+1）\n"
             "  skip    <step_id> [--reason]                跳过 pending 步骤\n"
-            "  sweep   [--heartbeat-timeout-sec N]         僵尸检测与恢复（幂等）\n"
+            "  sweep   [--heartbeat-timeout-sec N]         僵尸检测与恢复（幂等；任务总超时/\n"
+            "                                              心跳超时/单步超时三类）\n"
             "  artifact add <task_id> --path [--type --step --note]  产物登记\n"
             "  artifact list <task_id>                     产物查询\n"
             "  event list <task_id> [--limit]              事件流水查询\n"
-            "  template save <task_id> --name [--description]  把任务步骤存为模板\n"
+            "  template save <task_id> --name [--description --skill-ref]  把任务步骤存为模板\n"
             "  template list [--limit]                     列模板\n"
             "\n"
             "配置: .baibao/agent_task.config（rdb_name/owner/session_id/agent_name）\n"
@@ -285,9 +290,16 @@ class AgentTaskCommand(Command):
         ctx.print_delim()
 
     def _emit_one(self, ctx: CliContext, row: dict, fmt: str) -> None:
-        """输出单个对象（非列表，如续跑上下文包）为一段 JSON。"""
+        """输出单个对象（非列表，如续跑上下文包）为一段 JSON。
+
+        ``fmt='jsonl'`` 单行（省 token，可整体 ``json.loads`` 解析）；
+        ``'json'`` 缩进多行（人读友好）。两种格式都不可逐行 ``json.loads`` 多行对象的某一行。
+        """
         ctx.print_delim()
-        print(json.dumps(row, ensure_ascii=False, indent=2, cls=_CustomEncoder))
+        if fmt == 'jsonl':
+            print(json.dumps(row, ensure_ascii=False, cls=_CustomEncoder))
+        else:
+            print(json.dumps(row, ensure_ascii=False, indent=2, cls=_CustomEncoder))
         ctx.print_delim()
 
     def _format_result(self, rows: list[dict], fmt: str) -> None:
@@ -511,6 +523,8 @@ class AgentTaskCommand(Command):
                             help='执行会话标识（默认: 环境变量 AGENT_TASK_SESSION_ID > 配置）')
         parser.add_argument('--agent-name', default=None, dest='agent_name',
                             help='agent 外壳标识（默认: 环境变量 AGENT_TASK_AGENT_NAME > 配置）')
+        parser.add_argument('--format', dest='format', choices=['json', 'jsonl'], default='jsonl',
+                            help='续跑上下文包输出格式（默认: jsonl 单行省 token；json 为缩进多行）')
         ns = parser.parse_args(args)
 
         session_id, agent_name = self._resolve_session(ns)
@@ -522,7 +536,7 @@ class AgentTaskCommand(Command):
             return True
         log.info("已认领 step %s (run_id=%s)，续跑上下文包如下（前序 %d 步摘要）",
                  package['step']['id'], package['run_id'], len(package['context']))
-        self._emit_one(ctx, package, 'json')
+        self._emit_one(ctx, package, ns.format)
         return True
 
     def _finish(self, ctx: CliContext, args: list[str]) -> bool:
@@ -532,21 +546,42 @@ class AgentTaskCommand(Command):
         output_group.add_argument('--output', default=None, help='执行输出原文')
         output_group.add_argument('--output-file', dest='output_file', default=None,
                                   help='从 UTF-8 文件读取执行输出；"-" 读 stdin')
-        parser.add_argument('--summary', default=None,
-                            help='一句话结果摘要（强烈建议必带：它是后续步骤的上下文来源）')
+        summary_group = parser.add_mutually_exclusive_group(required=False)
+        summary_group.add_argument('--summary', default=None,
+                                   help='一句话结果摘要（强烈建议必带：它是后续步骤的上下文来源）')
+        summary_group.add_argument('--summary-file', dest='summary_file', default=None,
+                                   help='从 UTF-8 文件读取结果摘要；"-" 读 stdin'
+                                        '（长中文摘要绕开 shell argv 引号/编码问题）')
+        parser.add_argument('--format', dest='format', choices=['json', 'jsonl'], default='jsonl',
+                            help='成功回显步骤状态的输出格式（默认: jsonl）')
+        parser.add_argument('--token-usage', dest='token_usage', type=int, default=None,
+                            help='本次执行 token 消耗（可选回填，仅记录到 run 行）')
         ns = parser.parse_args(args)
 
         output = ns.output if ns.output is not None else (_read_text_source(ns.output_file)
                                                           or '')
-        if ns.summary is None:
-            log.warning("未提供 --summary，将截取 output 前 2000 字作为摘要；"
+        summary = ns.summary if ns.summary is not None else _read_text_source(ns.summary_file)
+        if summary is None:
+            log.warning("未提供 --summary/--summary-file，将截取 output 前 2000 字作为摘要；"
                         "后续步骤的续跑上下文质量会下降，建议必带")
-        ok = self._build_mgr().finish_run(ns.run_id, output=output, summary=ns.summary)
-        if ok:
-            log.info("run %s 已成功收口", ns.run_id)
-        else:
+        mgr = self._build_mgr()
+        ok = mgr.finish_run(ns.run_id, output=output, summary=summary,
+                            token_usage=ns.token_usage)
+        if not ok:
             log.warning("run %s 收口失败（不存在或已终态，不重复流转）", ns.run_id)
-        return ok
+            return False
+        log.info("run %s 已成功收口", ns.run_id)
+        run = mgr.get_run(ns.run_id)
+        if run is not None:
+            step_row = next((s for s in mgr.list_steps(run.task_id)
+                             if s.get('id') == run.step_id), None)
+            if step_row is not None:
+                ack = {'run_id': ns.run_id, 'step_id': run.step_id, 'task_id': run.task_id}
+                ack.update({k: step_row.get(k) for k in
+                            ('seq', 'name', 'status', 'result_summary', 'finished_at')})
+                self._emit_one(ctx, self._apply_snippet([ack], 300,
+                                                        fields=('result_summary',))[0], ns.format)
+        return True
 
     def _fail(self, ctx: CliContext, args: list[str]) -> bool:
         parser = argparse.ArgumentParser(prog='python -m baibao agent_task fail')
@@ -791,6 +826,8 @@ class AgentTaskCommand(Command):
         parser.add_argument('task_id', type=int, help='来源任务 id（其步骤被抽成蓝图）')
         parser.add_argument('--name', required=True, help='模板名（唯一）')
         parser.add_argument('--description', default=None, help='模板说明')
+        parser.add_argument('--skill-ref', dest='skill_ref', default=None,
+                            help='关联的技能标识（如 agent-long-task；仅标签，便于溯源）')
         ns = parser.parse_args(args)
 
         mgr = self._build_mgr()
@@ -805,7 +842,7 @@ class AgentTaskCommand(Command):
         blueprint = [{'name': s['name'], 'instruction': s['instruction'],
                       'step_type': s['step_type'], 'timeout_sec': s['timeout_sec'],
                       'max_retries': s['max_retries']} for s in steps]
-        tpl = TaskTemplate(name=ns.name, description=ns.description,
+        tpl = TaskTemplate(name=ns.name, description=ns.description, skill_ref=ns.skill_ref,
                            default_params=task.params, step_blueprint=blueprint)
         try:
             tpl_id = mgr.create_template(tpl)

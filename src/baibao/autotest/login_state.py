@@ -15,6 +15,7 @@ login_state.py — 登录配置与登录态缓存。
 
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -117,15 +118,45 @@ def auth_state_path(auth_dir: Path, role: str) -> Path:
     return auth_dir / f"{role}.json"
 
 
-def is_auth_valid(path: Path, max_age_hours: int = 12) -> bool:
-    """登录态缓存是否有效（文件存在且未超 TTL）。
+def _read_auth_meta(path: Path) -> dict | None:
+    """读登录态旁写元数据（``<role>.meta.json``）。不存在/损坏返回 None。"""
+    try:
+        return json.loads(path.with_suffix(".meta.json").read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def is_auth_valid(
+    path: Path,
+    max_age_hours: int = 12,
+    username: str | None = None,
+    base_url: str | None = None,
+) -> bool:
+    """登录态缓存是否有效（文件存在、未超 TTL、且身份匹配）。
+
+    身份校验：:func:`save_storage_state` 保存登录态时会旁写
+    ``<role>.meta.json``（username/base_url）。调用方传入 ``username``/
+    ``base_url`` 时与 meta 比对，不一致（或 meta 缺失、无法证明同一身份）
+    判无效——否则同一 role 缓存会跨账号串用（典型坑：probe 换
+    ADMIN_USERNAME 后仍拿旧账号登录态，探出错误视角的页面结论，
+    2026-08-28 IMP 实坑）。不传时保持旧行为（仅年龄判断，兼容旧调用方）。
 
     Args:
         path: 缓存文件路径。
         max_age_hours: 最大有效时长（小时），默认 12。
+        username: 期望的登录用户名；传了才做身份比对。
+        base_url: 期望的被测系统地址；传了才做比对。
     """
     if not path.exists():
         return False
+    if username is not None or base_url is not None:
+        meta = _read_auth_meta(path)
+        if not meta:
+            return False
+        if username is not None and meta.get("username") != username:
+            return False
+        if base_url is not None and meta.get("base_url") != base_url.rstrip("/"):
+            return False
     age = time.time() - path.stat().st_mtime
     return age < max_age_hours * 3600
 
@@ -167,5 +198,15 @@ def save_storage_state(
         context.storage_state(path=str(state_file))
     finally:
         context.close()
+
+    # 旁写身份元数据：is_auth_valid 传 username/base_url 时用于跨账号串用防护
+    state_file.with_suffix(".meta.json").write_text(
+        json.dumps({
+            "username": username,
+            "base_url": base_url.rstrip("/"),
+            "saved_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        }, ensure_ascii=False),
+        encoding="utf-8",
+    )
 
     return str(state_file)

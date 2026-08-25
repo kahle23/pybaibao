@@ -363,12 +363,22 @@ class AgentMemoryCommand(Command):
 
         owner, owner_group, machine, agent_name, shared = self._resolve(ns)
         mgr = self._build_mgr(owner, owner_group, machine, agent_name)
-        # 去重维度翻译：--dedup 显式优先；auto 时按 category 是否路径类判定
+        # 去重维度翻译：--dedup 显式优先；auto 时按 category 是否路径类判定。
+        # machine_bound 要求 machine 已绑定；显式 machine+无 machine 是违反意图，报错拒绝；
+        # auto+路径类+无 machine 自动降级 global 并提示。
         if ns.dedup == 'machine':
+            if not machine:
+                log.error("--dedup machine 要求本机隔离判重，但未解析到 machine；"
+                          "请用 --machine 指定、设环境变量 AGENT_MEMORY_MACHINE、"
+                          "在配置文件配置 machine，或改用 --dedup global")
+                return False
             machine_bound = True
         elif ns.dedup == 'global':
             machine_bound = False
         else:  # auto
+            if ns.category in PATH_LIKE_CATEGORIES and not machine:
+                log.info("路径类 category=%s 但未配置 machine，按全局判重；"
+                         "建议配置 machine 以启用本机隔离", ns.category)
             machine_bound = (ns.category in PATH_LIKE_CATEGORIES) and bool(machine)
         # 去重：在同角色可见范围内按 scope+title 查（machine_bound 时叠加本机隔离）
         dups = mgr.find_by_scope_title(ns.scope, ns.title, shared_mode=shared,

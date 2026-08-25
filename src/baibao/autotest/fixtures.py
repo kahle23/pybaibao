@@ -89,23 +89,26 @@ def playwright():
 def browser(playwright, is_headless, slow_mo):
     """session 级启动浏览器。
 
-    通过环境变量 ``USE_BUILTIN_CHROMIUM`` 切换：
+    环境变量 ``USE_BUILTIN_CHROMIUM`` 三态：
 
-      - ``true``  → 走 Playwright 内置 Chromium（需先 ``playwright install chromium``）
-      - ``false`` → 走本地已安装的 Google Chrome（默认，自动探测路径）
+      - 未设置（默认）→ 自动模式：内置 Chromium 优先，缺失自动下载
+        （镜像优先、官方回退），下载失败回退本地 Chrome → Edge
+      - ``true``  → 强制内置 Chromium（缺失自动下载，失败抛错）
+      - ``false`` → 跳过内置，直接本地浏览器（``CHROME_PATH`` 显式路径优先）
     """
-    from baibao.autotest.browser import detect_chrome_path, launch_browser
+    from baibao.autotest.browser import launch_browser
 
-    use_builtin = _cfg("USE_BUILTIN_CHROMIUM", "false").lower() == "true"
-    chrome_path = None if use_builtin else detect_chrome_path(
-        _cfg("CHROME_PATH") or None,
-    )
+    raw = _cfg("USE_BUILTIN_CHROMIUM")
+    if raw == "":
+        use_builtin = None
+    else:
+        use_builtin = raw.lower() == "true"
     browser = launch_browser(
         playwright,
         headless=is_headless,
         slow_mo=slow_mo,
         use_builtin_chromium=use_builtin,
-        chrome_path=chrome_path,
+        chrome_path=_cfg("CHROME_PATH") or None,
     )
     yield browser
     browser.close()

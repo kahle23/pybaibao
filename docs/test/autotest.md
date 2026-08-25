@@ -13,11 +13,19 @@
 # 安装 baibao 与 autotest 可选依赖（playwright / python-dotenv / faker 等）
 python -m pip install "baibao[autotest]" -i https://pypi.tuna.tsinghua.edu.cn/simple/
 
-# 安装 Playwright 浏览器内核（首次必装）
+# 可选：安装 Playwright 内置浏览器内核（本地已有 Chrome 或 Edge 可跳过）
 python -m playwright install chromium
 ```
 
 > `faker` 在国内默认 PyPI 源可能装不上，务必用清华源。
+>
+> 浏览器选择链（全自动，一般无需预装）：**Playwright 内置 Chromium 优先**
+> （自动化事件兼容性最好）——未安装时自动下载（有头装完整内核，无头仅装
+> 轻量 headless-shell 约 90MB；npmmirror 镜像优先、官方源回退）；下载失败
+> 回退本地 Chrome → Edge（CDP 点击仅 Chromium 系支持，Firefox/WebKit 不适用）。
+> `USE_BUILTIN_CHROMIUM` 三态：未设置=自动 / `true`=强制内置 / `false`=仅本地；
+> `BAIBAO_BROWSER_AUTO_INSTALL=false` 关闭自动下载；`PLAYWRIGHT_DOWNLOAD_HOST`
+> 指定下载源。
 
 <br />
 
@@ -29,6 +37,7 @@ python -m playwright install chromium
 | `baibao.autotest.browser` | `detect_chrome_path` / `launch_browser` | 本地 Chrome 路径探测与浏览器启动 |
 | `baibao.autotest.login_state` | `LoginCfg` / `do_login` / `save_storage_state` / `is_auth_valid` | 数据驱动登录流程 + 登录态缓存（TTL） |
 | `baibao.autotest.api` | `ApiBase` | 后端接口基类：复用浏览器登录态 cookie + 防御式 JSON 解析 |
+| `baibao.autotest.dom_summary` | `run_probe` / `extract_summary` | DOM 摘要探针：页面压缩成 KB 级 markdown（CLI `autotest probe`） |
 | `baibao.autotest.fixtures` | `browser` / `base_url` / `faker` 等 | opt-in pytest fixture（`pytest_plugins` 启用） |
 | `baibao.autotest.conftest_template` | — | 角色级 fixture 参考样板（复制改造） |
 
@@ -117,6 +126,49 @@ CHROME_PATH=                    # 可选，显式指定 Chrome 路径
 **原因**：Element Plus 的 `el-select` 放在 `el-dialog` 内时，pytest-playwright 托管 context
 下 Playwright 的合成 `click()` 事件无法触发 Vue 的 `pointerdown` 处理链，下拉面板展不开。
 自管理 context + CDP 真实点击才能解决。
+
+<br />
+
+## DOM 摘要探针（`autotest probe`）
+
+把一个**已登录**页面压缩成 KB 级 markdown 结构摘要（表单项/表格/按钮/弹窗/
+消息/下拉实际选项），供 AI 在不读整页 HTML 的前提下了解页面结构——是"AI 写代码
+驱动浏览器、省 token"工作流的关键工具。源码能回答的问题读源码，探针只补**运行时
+状态**（下拉实际有哪些选项、表格实际有什么数据、弹窗里有哪些字段）。
+
+```bash
+# 基本用法（登录态缓存 .auth/admin.json 有效时直接用；失效且给了账号密码则自动重登）
+# Git Bash 下推荐纯路由写法（不带开头 # 或 /），免疫 MSYS 参数路径转换
+python -m baibao autotest probe it-asset --role admin
+
+# 展开指定下拉后再提取（拿实际选项；无 el-select 时按文本点按钮）
+python -m baibao autotest probe purchase/stock --click-label 供应商
+
+# 超简略模式：只留骨架（表单项 label/类型/必填、列头、按钮），去掉值/首行/分页
+python -m baibao autotest probe it-asset --brief
+
+# 自定义提取 JS：返回指定数据的紧凑 JSON（应对大数据量页面，如整列抽取）
+python -m baibao autotest probe it-asset --js \
+  '(() => [...document.querySelectorAll(".el-table__row")].length)()'
+# 含引号/超长的 JS 走文件（传 - 读 stdin）
+python -m baibao autotest probe it-asset --js-file extract.js
+
+# 摘要写入文件 + 无头模式（默认有头，用户不强调一律有头）
+python -m baibao autotest probe "#/oa/asset" --out summary.md --headless
+```
+
+> PowerShell/CMD 下 `"#/oa/asset"` 写法可用；Git Bash 下该写法会被转换成
+> `#C:/Program Files/Git/...` 导致 404，探针会直接报错提示改写法。
+
+环境变量（当前目录 `.env` 自动加载）：`BASE_URL` / `ADMIN_USERNAME` /
+`ADMIN_PASSWORD` / `CAPTCHA_VALUE`；浏览器选择沿用 `USE_BUILTIN_CHROMIUM` /
+`CHROME_PATH`（三态见上文）。探针默认**有头**运行（`--headless` 切无头）。
+
+输出约定：摘要 markdown 走 stdout（`--delim` 可包裹），日志走 stderr；
+单页摘要硬上限 6000 字符（超出截断并标注）。
+
+程序内调用：`from baibao.autotest.dom_summary import run_probe, extract_summary`——
+前者完整流程（含登录态管理），后者在已打开的 `Page` 上直接提取。
 
 <br />
 

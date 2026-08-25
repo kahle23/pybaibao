@@ -11,6 +11,7 @@ autotest — Playwright E2E 测试基础设施。
   - :func:`save_storage_state` / :func:`is_auth_valid` — 登录态缓存（TTL）
   - :class:`ApiBase` — 复用浏览器登录态的后端接口基类
   - :func:`detect_chrome_path` / :func:`launch_browser` — 本地 Chrome 探测与启动
+  - :func:`run_probe` / :func:`extract_summary` — DOM 摘要探针（页面压缩成 KB 级 markdown）
   - :mod:`fixtures` — opt-in pytest fixture（``pytest_plugins`` 启用）
 
 按需从子模块导入，例如::
@@ -23,9 +24,10 @@ autotest — Playwright E2E 测试基础设施。
 安装：``pip install "baibao[autotest]"``。
 """
 
-from . import api, browser, login_state, page
+from . import api, browser, dom_summary, login_state, page
 from .api import ApiBase
 from .browser import detect_chrome_path, launch_browser
+from .dom_summary import extract_summary, format_summary, run_probe
 from .login_state import (
     LoginCfg,
     auth_state_path,
@@ -44,9 +46,13 @@ __all__ = [
     "browser",
     "detect_chrome_path",
     "do_login",
+    "dom_summary",
+    "extract_summary",
+    "format_summary",
     "is_auth_valid",
     "launch_browser",
     "login_state",
     "page",
+    "run_probe",
     "save_storage_state",
 ]

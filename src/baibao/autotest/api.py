@@ -32,11 +32,17 @@ class ApiBase:
     Args:
         request: Playwright ``APIRequestContext``，通常来自 ``context.request``。
         base_url: API 基础地址，末尾斜杠会被去除。
+        headers: 附加默认请求头（如 token 型项目 ``{"Authorization": token}``），
+            随每个请求发送；cookie 鉴权项目不传即可。
     """
 
-    def __init__(self, request: APIRequestContext, base_url: str):
+    def __init__(
+        self, request: APIRequestContext, base_url: str,
+        headers: dict[str, str] | None = None,
+    ):
         self.request = request
         self.base_url = base_url.rstrip("/")
+        self.headers: dict[str, str] = dict(headers or {})
 
     # ------------------------------------------------------------------
     # 内部辅助
@@ -49,7 +55,7 @@ class ApiBase:
         resp = self.request.post(
             f"{self.base_url}{path}",
             data=json.dumps(data) if data else "{}",
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", **self.headers},
         )
         return resp
 
@@ -57,7 +63,9 @@ class ApiBase:
         self, path: str, params: dict | None = None,
     ) -> APIResponse:
         """发起 GET 请求并返回响应对象。"""
-        return self.request.get(f"{self.base_url}{path}", params=params or {})
+        return self.request.get(
+            f"{self.base_url}{path}", params=params or {}, headers=dict(self.headers),
+        )
 
     def _parse_json(self, resp: APIResponse) -> dict:
         """解析响应 JSON。防御式：解析失败时返回原始文本与状态码。"""

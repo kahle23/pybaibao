@@ -431,15 +431,17 @@ class MySqlLongTaskService(LongTaskService):
             f'SELECT * FROM {self._t("ai_task_step")} WHERE task_id = %s ORDER BY seq', (task_id,))
 
     def skip_step(self, id: int, reason: str = '') -> bool:
+        t_task = self._t('ai_task_instance')
+        t_step = self._t('ai_task_step')
         now = datetime.now()
         with self._tx() as (_conn, cur):
-            cur.execute(f'SELECT * FROM {self._t("ai_task_step")} WHERE id = %s', (id,))
+            cur.execute(f'SELECT * FROM {t_step} WHERE id = %s', (id,))
             rows = self._rows(cur)
             if not rows:
                 log.warning("skip 未找到步骤 id=%s", id)
                 return False
             cur.execute(
-                f'UPDATE {self._t("ai_task_step")} '
+                f'UPDATE {t_step} '
                 f'SET status = %s, finished_at = %s, updated_at = %s '
                 f'WHERE id = %s AND status = %s',
                 ('skipped', now, now, id, 'pending'))
@@ -448,6 +450,20 @@ class MySqlLongTaskService(LongTaskService):
                 return False
             msg = f"step {id}: pending → skipped" + (f' ({reason})' if reason else '')
             self._event(cur, rows[0]['task_id'], 'state_change', msg, step_id=id)
+            # 收口判定与 finish_run 一致：skip 视同有意完成，跳过最后剩余步骤时
+            # 任务应收口（仅 running 任务；pending 任务跳完全部步骤保持 pending）。
+            cur.execute(
+                f'SELECT status, COUNT(*) AS n FROM {t_step} '
+                f'WHERE task_id = %s AND status IN (%s,%s,%s) GROUP BY status',
+                (rows[0]['task_id'], 'pending', 'running', 'failed'))
+            counts = {r['status']: r['n'] for r in self._rows(cur)}
+            if not counts.get('pending') and not counts.get('running') and not counts.get('failed'):
+                cur.execute(
+                    f'UPDATE {t_task} SET status = %s, finished_at = %s, heartbeat_at = %s, '
+                    f'updated_at = %s WHERE id = %s AND status = %s',
+                    ('completed', now, now, now, rows[0]['task_id'], 'running'))
+                self._event(cur, rows[0]['task_id'], 'state_change',
+                            'task: running → completed (剩余步骤全部跳过)')
         return True
 
     def retry_step(self, id: int) -> bool:
@@ -552,7 +568,8 @@ class MySqlLongTaskService(LongTaskService):
         log.warning("claim 连续 3 次抢占失败（task=%s），放弃本次认领", task_id)
         return None
 
-    def finish_run(self, run_id: int, output: str = '', summary: str | None = None) -> bool:
+    def finish_run(self, run_id: int, output: str = '', summary: str | None = None,
+                   token_usage: int | None = None) -> bool:
         t_task = self._t('ai_task_instance')
         t_step = self._t('ai_task_step')
         t_run = self._t('ai_task_run')
@@ -570,9 +587,9 @@ class MySqlLongTaskService(LongTaskService):
             if summary is None:
                 summary = output[:2000] if output else ''
             cur.execute(
-                f'UPDATE {t_run} SET status = %s, output = %s, finished_at = %s '
-                f'WHERE id = %s AND status = %s',
-                ('succeeded', output, now, run_id, 'running'))
+                f'UPDATE {t_run} SET status = %s, output = %s, token_usage = %s, '
+                f'finished_at = %s WHERE id = %s AND status = %s',
+                ('succeeded', output, token_usage, now, run_id, 'running'))
             cur.execute(
                 f'UPDATE {t_step} SET status = %s, result_summary = %s, finished_at = %s, '
                 f'updated_at = %s WHERE id = %s AND status = %s',
@@ -715,6 +732,52 @@ class MySqlLongTaskService(LongTaskService):
                         'task: running → failed (sweep, 步骤预算耗尽)')
         return out
 
+    def _reap_task_timeout(self, cur: Any, task: dict[str, Any],
+                           now: datetime) -> list[dict[str, Any]]:
+        """任务总超时终态化：running run 置 timeout、running 步骤置 failed、任务置 failed。
+
+        不走重试预算裁决——任务整体时间预算已尽，重试无意义；
+        可用 retry_step 手动复活（预算 +1 且任务回 running）。
+        """
+        t_task = self._t('ai_task_instance')
+        t_step = self._t('ai_task_step')
+        t_run = self._t('ai_task_run')
+        out: list[dict[str, Any]] = []
+        reason = 'task total timeout'
+        cur.execute(f'SELECT * FROM {t_step} WHERE task_id = %s AND status = %s',
+                    (task['id'], 'running'))
+        steps = self._rows(cur)
+        for s in steps:
+            cur.execute(f'SELECT * FROM {t_run} WHERE step_id = %s AND status = %s',
+                        (s['id'], 'running'))
+            for r in self._rows(cur):
+                cur.execute(
+                    f'UPDATE {t_run} SET status = %s, error_msg = %s, finished_at = %s '
+                    f'WHERE id = %s AND status = %s',
+                    ('timeout', reason, now, r['id'], 'running'))
+                out.append({'task_id': task['id'], 'step_id': s['id'], 'run_id': r['id'],
+                            'action': 'task_timeout', 'detail': reason})
+                self._event(cur, task['id'], 'state_change',
+                            f"run {r['id']}: running → timeout ({reason})",
+                            step_id=s['id'], run_id=r['id'])
+            cur.execute(
+                f'UPDATE {t_step} SET status = %s, finished_at = %s, updated_at = %s '
+                f'WHERE id = %s AND status = %s',
+                ('failed', now, now, s['id'], 'running'))
+            out.append({'task_id': task['id'], 'step_id': s['id'], 'run_id': None,
+                        'action': 'step_failed', 'detail': reason})
+            self._event(cur, task['id'], 'state_change',
+                        f"step {s['id']}: running → failed ({reason})", step_id=s['id'])
+        cur.execute(
+            f'UPDATE {t_task} SET status = %s, finished_at = %s, updated_at = %s '
+            f'WHERE id = %s AND status = %s',
+            ('failed', now, now, task['id'], 'running'))
+        out.append({'task_id': task['id'], 'step_id': None, 'run_id': None,
+                    'action': 'task_failed', 'detail': reason})
+        self._event(cur, task['id'], 'state_change',
+                    f"task {task['id']}: running → failed (任务总超时)")
+        return out
+
     def sweep(self, heartbeat_timeout_sec: int | None = None) -> list[dict[str, Any]]:
         t_task = self._t('ai_task_instance')
         t_step = self._t('ai_task_step')
@@ -722,6 +785,17 @@ class MySqlLongTaskService(LongTaskService):
         results: list[dict[str, Any]] = []
         now = datetime.now()
         with self._tx() as (_conn, cur):
+            # ⓪ 任务级：总超时（timeout_sec 非空且 started_at 距今超过它）——任务连同
+            # running 步骤直接终败，不走预算裁决。须先于心跳检测执行。
+            cur.execute(
+                f'SELECT * FROM {t_task} WHERE status = %s AND timeout_sec IS NOT NULL',
+                ('running',))
+            for t in self._rows(cur):
+                if not t['started_at']:
+                    continue
+                if t['started_at'] >= now - timedelta(seconds=int(t['timeout_sec'])):
+                    continue
+                results.extend(self._reap_task_timeout(cur, t, now))
             # ① 任务级：心跳超时的 running 任务，其 running 步骤按僵尸处理。
             # 阈值比较放在 Python 侧（heartbeat_at 由驱动还原为 datetime），
             # 以兼容 heartbeat_timeout_sec 全局覆盖参数。
