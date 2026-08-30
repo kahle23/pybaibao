@@ -396,6 +396,41 @@ class BasePage:
         finally:
             self.collapse_dropdowns()
 
+    def upload_file(self, file, nth: int = 0, scope: "Locator | None" = None):
+        """向弹窗内第 nth 个 el-upload 上传位传文件（同名文件防 change 丢失）。
+
+        2026-08-28 WMS E2E 12 轮实跑实证的坑：``set_input_files`` 对**同名文件二次
+        设置不触发 change**（input.value 不变，浏览器安全模型下值是 fakepath 文件名）。
+        弹窗/组件复用场景（如 KeepAlive 缓存页再次打开建单弹窗）图片会**静默丢失**——
+        提交被"请上传 xx 图"必填校验拦截，页面上无任何报错线索，且首次打开能成功，
+        极难排查。本方法每次调用把文件复制为带自增序号的新文件名再传，保证 value 必变。
+
+        上传 input（``.el-upload__input``）是 hidden 元素，Playwright 常规 click 会
+        超时——这里用 ``state="attached"`` 后直接 ``set_input_files``。
+
+        Args:
+            file: 源文件路径（str/Path）。
+            nth: 上传位序号（同一弹窗有多个上传位时：0=第一个，如全景图；1=第二个）。
+            scope: 上传区的定位容器；默认当前打开的弹窗/抽屉（``overlay()``）。
+
+        Returns:
+            Path: 实际上传的临时文件路径（与源同目录、带序号后缀，供调用方清理）。
+        """
+        import shutil
+        from pathlib import Path as _P
+
+        src = _P(file)
+        if not src.is_file():
+            raise FileNotFoundError(f"上传源文件不存在: {src}")
+        area = scope if scope is not None else self.overlay()
+        BasePage._upload_seq = getattr(BasePage, "_upload_seq", 0) + 1
+        dst = src.with_name(f"{src.stem}-{BasePage._upload_seq}{src.suffix}")
+        shutil.copyfile(src, dst)
+        loc = area.locator(".el-upload__input").nth(nth)
+        loc.wait_for(state="attached", timeout=8000)
+        loc.set_input_files(str(dst))
+        return dst
+
     # ------------------------------------------------------------------
     # 对话框/消息提示
     # ------------------------------------------------------------------

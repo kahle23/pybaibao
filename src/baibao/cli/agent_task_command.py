@@ -165,19 +165,26 @@ class AgentTaskCommand(Command):
             "                                              instruction 支持 @文件路径 引用）\n"
             "  step add <task_id> --name --instruction/--instruction-file  单条加步骤\n"
             "  claim   <task_id> [--session-id --agent-name --format]  原子认领下一步骤，输出续跑上下文包\n"
-            "                                              （--format: jsonl 单行默认 | json 缩进多行）\n"
+            "                                              （依赖感知：声明了 depends_on 的任务只认领依赖就绪者；\n"
+            "                                               --ignore-deps 无视依赖按 seq 最小；--format: jsonl|json）\n"
             "  finish  <run_id> [--output/--output-file --summary/--summary-file]  成功收口\n"
             "                                              （建议必带 --summary；--token-usage 可选回填；\n"
             "                                               成功后 stdout 回显步骤状态）\n"
             "  fail    <run_id> --error/--error-file       失败上报（按预算自动重试/终败）\n"
+            "  release <run_id> [--reason]                 释放认领（run→cancelled、步骤回 pending，\n"
+            "                                              不消耗重试预算；会话结束/派发放弃用）\n"
             "  heartbeat <task_id>                         刷心跳\n"
             "  status  <task_id> [--full]                  任务总览（任务+步骤+进度+产物计数）\n"
             "  list    [--status --created-by --limit]     任务列表\n"
             "  pause / resume / cancel <task_id>           生命周期控制（cancel 带 --reason）\n"
-            "  retry   <step_id>                           手动重置失败步骤回 pending（预算+1）\n"
+            "  retry   <step_id> [--force]                 手动重置失败步骤回 pending（预算+1）；\n"
+            "                                              --force 加放 succeeded（清假摘要、completed\n"
+            "                                              任务一并复活）——管理修复用\n"
             "  skip    <step_id> [--reason]                跳过 pending 步骤\n"
             "  sweep   [--heartbeat-timeout-sec N]         僵尸检测与恢复（幂等；任务总超时/\n"
             "                                              心跳超时/单步超时三类）\n"
+            "  verify  <task_id> [--fix]                   一致性对账（按事件流水/run 核对步骤状态，\n"
+            "                                              识别绕过状态机的直接改库；--fix 就地修复）\n"
             "  artifact add <task_id> --path [--type --step --note]  产物登记\n"
             "  artifact list <task_id>                     产物查询\n"
             "  event list <task_id> [--limit]              事件流水查询\n"
@@ -215,6 +222,8 @@ class AgentTaskCommand(Command):
                 return self._finish(ctx, rest)
             if sub == 'fail':
                 return self._fail(ctx, rest)
+            if sub == 'release':
+                return self._release(ctx, rest)
             if sub == 'heartbeat':
                 return self._heartbeat(ctx, rest)
             if sub == 'status':
@@ -233,6 +242,8 @@ class AgentTaskCommand(Command):
                 return self._skip(ctx, rest)
             if sub == 'sweep':
                 return self._sweep(ctx, rest)
+            if sub == 'verify':
+                return self._verify(ctx, rest)
             if sub == 'artifact':
                 return self._artifact(ctx, rest)
             if sub == 'event':
@@ -436,8 +447,9 @@ class AgentTaskCommand(Command):
         parser.add_argument('task_id', type=int, help='目标任务 id')
         parser.add_argument('--steps-file', required=True, dest='steps_file',
                             help='步骤 JSON 数组文件（"-" 读 stdin）；元素 '
-                                 '{name, instruction, step_type, timeout_sec, max_retries}，'
-                                 'instruction 支持 @文件路径 引用')
+                                 '{name, instruction, step_type, timeout_sec, max_retries, '
+                                 'depends_on}，instruction 支持 @文件路径 引用；'
+                                 'depends_on 为依赖步骤的 seq 数组（claim 依赖感知依据）')
         parser.add_argument('--format', dest='format',
                             choices=['json', 'jsonl', 'csv', 'table'], default='jsonl',
                             help='输出格式（默认: jsonl）')
@@ -465,6 +477,7 @@ class AgentTaskCommand(Command):
                 step_type=str(item.get('step_type') or 'agent'),
                 timeout_sec=item.get('timeout_sec'),
                 max_retries=item.get('max_retries'),
+                depends_on=item.get('depends_on'),
             ))
         n = self._build_mgr().add_steps(steps)
         log.info("已导入 %d 个步骤（task=%s，seq %d..%d）", n, ns.task_id,
@@ -499,14 +512,24 @@ class AgentTaskCommand(Command):
                             help='单步超时秒（默认不限）')
         parser.add_argument('--max-retries', type=int, default=None, dest='max_retries',
                             help='最大重试次数（默认继承任务级）')
+        parser.add_argument('--depends-on', default=None, dest='depends_on',
+                            help='依赖步骤的 seq，逗号分隔（如 "1,3"）；'
+                                 'claim 依赖感知模式下依赖未就绪不会被认领')
         ns = parser.parse_args(args)
 
         instruction = (ns.instruction if ns.instruction is not None
                        else _read_text_source(ns.instruction_file))
         assert instruction is not None
+        depends_on: list[int] | None = None
+        if ns.depends_on:
+            try:
+                depends_on = [int(x) for x in str(ns.depends_on).split(',') if x.strip()]
+            except ValueError:
+                log.error("--depends-on 须为逗号分隔的整数 seq（如 \"1,3\"）")
+                return False
         step = TaskStep(task_id=ns.task_id, name=ns.name, instruction=instruction,
                         step_type=ns.step_type, timeout_sec=ns.timeout_sec,
-                        max_retries=ns.max_retries)
+                        max_retries=ns.max_retries, depends_on=depends_on)
         step_id = self._build_mgr().add_step(step)
         log.info("步骤已添加 id=%s (task=%s, seq=%s, name=%s)",
                  step_id, ns.task_id, step.seq, ns.name)
@@ -525,13 +548,16 @@ class AgentTaskCommand(Command):
                             help='agent 外壳标识（默认: 环境变量 AGENT_TASK_AGENT_NAME > 配置）')
         parser.add_argument('--format', dest='format', choices=['json', 'jsonl'], default='jsonl',
                             help='续跑上下文包输出格式（默认: jsonl 单行省 token；json 为缩进多行）')
+        parser.add_argument('--ignore-deps', action='store_true', dest='ignore_deps',
+                            help='无视 depends_on 依赖声明，按旧行为认领 seq 最小 pending（逃生开关）')
         ns = parser.parse_args(args)
 
         session_id, agent_name = self._resolve_session(ns)
         package = self._build_mgr().claim_next_step(ns.task_id, session_id=session_id,
-                                                    agent_name=agent_name)
+                                                    agent_name=agent_name,
+                                                    ignore_deps=ns.ignore_deps)
         if package is None:
-            log.info("任务 %s 已无 pending 步骤（或非 pending/running 状态）；"
+            log.info("任务 %s 已无可认领步骤（无 pending / 依赖均未就绪 / 非 pending-running 状态）；"
                      "用 status %s 看终态", ns.task_id, ns.task_id)
             return True
         log.info("已认领 step %s (run_id=%s)，续跑上下文包如下（前序 %d 步摘要）",
@@ -716,11 +742,13 @@ class AgentTaskCommand(Command):
     def _retry(self, ctx: CliContext, args: list[str]) -> bool:
         parser = argparse.ArgumentParser(prog='python -m baibao agent_task retry')
         parser.add_argument('step_id', type=int, help='目标步骤 id')
+        parser.add_argument('--force', action='store_true',
+                            help='管理强制：额外放行 succeeded（清假摘要，completed 任务一并复活）')
         ns = parser.parse_args(args)
-        ok = self._build_mgr().retry_step(ns.step_id)
+        ok = self._build_mgr().retry_step(ns.step_id, force=ns.force)
         log.info("retry %s -> %s", ns.step_id,
-                 '已回 pending（预算+1；任务若因它 failed 已复活 running）'
-                 if ok else '未命中（步骤非 failed/skipped）')
+                 '已回 pending（预算+1；任务若 failed/completed 已复活 running）'
+                 if ok else '未命中（步骤非 failed/skipped；succeeded 需 --force）')
         return ok
 
     def _skip(self, ctx: CliContext, args: list[str]) -> bool:
@@ -748,6 +776,38 @@ class AgentTaskCommand(Command):
             return True
         log.info("sweep 恢复了 %d 个对象（被恢复步骤等下次 claim 续跑）", len(results))
         self._emit(ctx, results, ns.format)
+        return True
+
+    def _release(self, ctx: CliContext, args: list[str]) -> bool:
+        parser = argparse.ArgumentParser(prog='python -m baibao agent_task release')
+        parser.add_argument('run_id', type=int, help='执行 id（claim 输出的 run_id）')
+        parser.add_argument('--reason', default='', help='释放原因（记入事件），如会话结束/上游未就绪')
+        ns = parser.parse_args(args)
+        result = self._build_mgr().release_run(ns.run_id, reason=ns.reason)
+        if result != 'released':
+            log.warning("run %s 未流转（不存在或已终态）", ns.run_id)
+            return False
+        log.info("run %s 已释放：步骤回 pending（重试预算不变），等下次 claim 续跑", ns.run_id)
+        return True
+
+    def _verify(self, ctx: CliContext, args: list[str]) -> bool:
+        parser = argparse.ArgumentParser(prog='python -m baibao agent_task verify')
+        parser.add_argument('task_id', type=int, help='目标任务 id')
+        parser.add_argument('--fix', action='store_true',
+                            help='就地修复（全部修复同一事务执行，并追加 warn 级汇总事件留痕）')
+        parser.add_argument('--format', dest='format',
+                            choices=['json', 'jsonl', 'csv', 'table'], default='jsonl',
+                            help='输出格式（默认: jsonl）')
+        ns = parser.parse_args(args)
+
+        findings = self._build_mgr().verify_task(ns.task_id, fix=ns.fix)
+        n_fixed = sum(1 for f in findings if f.get('fixed'))
+        if not findings:
+            log.info("verify task=%s：事件流水与状态一致，未发现异常", ns.task_id)
+            return True
+        log.info("verify task=%s：发现 %d 处异常%s", ns.task_id, len(findings),
+                 f"，已修复 {n_fixed} 处" if ns.fix else "（加 --fix 就地修复）")
+        self._emit(ctx, findings, ns.format)
         return True
 
     # endregion

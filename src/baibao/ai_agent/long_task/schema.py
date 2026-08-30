@@ -50,6 +50,7 @@ _COLUMNS_STEP: list[tuple[str, str, str]] = [
     ('retry_count',    'INT NOT NULL DEFAULT 0',                '已重试次数'),
     ('max_retries',    'INT NOT NULL DEFAULT 1',                '最大重试次数（含首次共 max_retries+1 次机会）'),
     ('timeout_sec',    'INT DEFAULT NULL',                      '单步超时秒；NULL=不限'),
+    ('depends_on',     'TEXT DEFAULT NULL',                     '依赖的同任务更早步骤 seq 列表（JSON 数组）；NULL=无显式依赖，claim 依赖感知模式依据'),
     ('result_summary', 'TEXT DEFAULT NULL',                     '执行结果摘要（续跑会话的上下文来源）'),
     ('started_at',     'DATETIME DEFAULT NULL',                 '首次 claim 时间'),
     ('finished_at',    'DATETIME DEFAULT NULL',                 '终态时间'),
