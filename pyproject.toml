@@ -24,7 +24,7 @@ all = ["easyocr>=1.7.0", "paddleocr>=2.7.0", "opencv-python>=4.8.0", "numpy>=1.2
 dev = ["pytest", "ruff", "mypy"]
 easyocr = ["easyocr>=1.7.0", "opencv-python>=4.8.0", "numpy>=1.24.0"]
 paddleocr = ["paddleocr>=2.7.0", "opencv-python>=4.8.0", "numpy>=1.24.0"]
-autotest = ["playwright>=1.40", "pytest-playwright>=0.4.3", "python-dotenv>=1.0", "faker"]
+autotest = ["playwright>=1.40", "python-dotenv>=1.0", "faker"]
 
 [tool.mypy]
 python_version = "3.10"
