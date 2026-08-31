@@ -537,6 +537,105 @@ class BasePage:
 
         expect(self.get_table_row(keyword)).to_have_count(0, timeout=timeout)
 
+    def filter_row(
+        self, keyword: str, *, filter_selector: str | None = None, query_button: str = "查询",
+        wait_after_query_ms: int = 1500, timeout: int = 12000,
+    ) -> Locator:
+        """列表先按关键词筛选再定位目标行（防『早建单被推下第一页』）。
+
+        列表通常按创建时间倒序，先建的数据会被后建数据推下第一页，裸 ``get_table_row``
+        只查当前页会永远找不到 → 行内按钮点击超时（2026-08-31 报价管理 E2E 连锁根因）。
+        正解：刷新到列表 → 填筛选框圈定 → 点查询 → 再等目标行。
+
+        Args:
+            keyword: 行定位关键词（业务键，如系列名/单号，既作筛选值也作行定位）。
+            filter_selector: 筛选输入框定位（CSS）。默认取页面第一个 ``input``
+                （列表页第一个文本输入通常是主筛选框）；定位不到时尝试按
+                ``placeholder`` 含关键词所在列名的兜底由调用方传入。
+            query_button: 查询按钮文本，默认「查询」。
+            wait_after_query_ms: 点查询后固定等待毫秒（列表异步加载）。
+            timeout: 等目标行出现的总超时毫秒。
+
+        Returns:
+            目标行 ``tr`` Locator（含 keyword 的表格行）。
+        """
+        page = self.page
+        if filter_selector:
+            inp = page.locator(filter_selector).first
+        else:
+            inp = page.locator("input").first
+        try:
+            inp.fill(keyword)
+        except Exception:
+            # placeholder 定位兜底（如搜索栏无 label 时）
+            page.locator("input[placeholder*='系列名称'], input[placeholder*='名称'], input[placeholder*='单号']").first.fill(keyword)
+        page.wait_for_timeout(300)
+        page.locator(f"button:has-text('{query_button}')").first.click()
+        page.wait_for_timeout(wait_after_query_ms)
+        # 轮询等目标行（列表接口异步）
+        deadline = time.time() + timeout / 1000
+        row = page.locator(f"tr:has-text('{keyword}')").first
+        while time.time() < deadline:
+            if row.count():
+                return row
+            page.wait_for_timeout(400)
+        return row
+
+    def fill_row_by_cells(self, row: Locator, col_map: dict[int, str]) -> None:
+        """按列序号填充可编辑表格行（新增/编辑行的单元格输入框）。
+
+        ⚠️ 可编辑行的首个 ``input`` 往往是 enabled 复选框/开关（value='on'），
+        不是首个数据字段——若用 ``row.locator('input').nth(n)`` 会把第 0 项填到
+        开关上、后续字段全错位（保存后 DB 查不到）。须按单元格定位。
+
+        Args:
+            row: 可编辑行的 ``tr`` Locator。
+            col_map: ``{列序号: 值}``，如 ``{2: '品名', 4: '款号', 6: '100'}``
+                （列序号需先用探针确认，见 browser-e2e-runner 技能）。
+        """
+        for col_idx, value in sorted(col_map.items()):
+            cell_input = row.locator("td").nth(col_idx).locator("input").first
+            if cell_input.count():
+                cell_input.fill(str(value))
+
+    def select_table_select(
+        self, container: "Locator", *, nth: int = 0, row_idx: int = 0,
+        collapse: bool = True,
+    ) -> str:
+        """操作 ma-element-table-select（表格型多选下拉）选中一项。
+
+        该组件展开后是**表格**（非简单选项列表），且选中后 popper 不自动收起——
+        若不收起，popper 会遮挡弹窗 footer 的「确定」按钮导致点击超时
+        （2026-08-31 报价管理匹配款式库 E2E 实证）。
+
+        Args:
+            container: 所在弹窗/抽屉 Locator（如 ``overlay()``）。
+            nth: 下拉序号（同一容器有多个 ma-element-table-select 时）。
+            row_idx: 目标行在展开表格中的序号（默认第一行）。
+            collapse: 选中后是否收起 popper（True 才可点 footer 确定）。
+
+        Returns:
+            选中行的文本片段（供断言）。
+        """
+        page = self.page
+        sel = container.locator(".ma-element-table-select, .el-select").nth(nth)
+        sel.click()
+        page.wait_for_timeout(1200)
+        popper = page.locator(".el-popper:visible").last
+        row0 = popper.locator(".el-table__row").nth(row_idx)
+        if not row0.count():
+            raise RuntimeError("ma-element-table-select 下拉无可用行")
+        text = row0.inner_text().strip()[:40]
+        row0.locator(".el-checkbox").first.click()
+        page.wait_for_timeout(600)
+        if collapse:
+            try:
+                container.locator(".el-dialog__title, .el-drawer__header").first.click(force=True)
+            except Exception:
+                page.keyboard.press("Escape")
+            page.wait_for_timeout(500)
+        return text
+
     # ------------------------------------------------------------------
     # 工具
     # ------------------------------------------------------------------
