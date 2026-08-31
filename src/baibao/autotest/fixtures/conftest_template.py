@@ -1,12 +1,14 @@
 """
-conftest_template.py — 角色级 fixture 参考样板。
+conftest_template — 角色级 fixture 参考样板（**复制用模板，勿 import**）。
 
 **本文件不是可直接生效的 conftest**，而是参考样板。请**复制本文件内容**
 到你的项目根目录命名为 ``conftest.py``，然后按你的被测系统与角色改造。
+（历史上本文件被误 import 时会在 import 处创建 ``.auth`` 目录，现已去除
+全部模块级副作用，但复制改造仍是唯一正确用法。）
 
-展示了如何基于 :mod:`baibao.autotest` 的基础设施（``fixtures.py`` 提供的
-``browser``/``base_url`` 等 + ``login_state`` 的 ``LoginCfg``/``save_storage_state``）
-组装角色级 fixture：
+展示了如何基于 :mod:`baibao.autotest` 的基础设施（``fixtures`` 提供的
+``browser``/``base_url`` 等 + ``core.login_state`` 的 ``LoginCfg``/
+``save_storage_state``）组装角色级 fixture：
 
   - ``admin_storage_state`` (session) — 管理员登录态缓存
   - ``admin_page`` (function) — 每个用例独立 context + page（带登录态）
@@ -21,11 +23,12 @@ conftest_template.py — 角色级 fixture 参考样板。
 
 # ↓↓↓ 复制以下内容到项目根 conftest.py 后改造 ↓↓↓
 
+import os
 from pathlib import Path
 
 import pytest
 
-from baibao.autotest.login_state import (
+from baibao.autotest.core.login_state import (
     LoginCfg,
     is_auth_valid,
     save_storage_state,
@@ -45,11 +48,8 @@ LOGIN_CFG = LoginCfg(
     # viewport={"width": 1920, "height": 1080},
 )
 
+# 登录态缓存目录（无需预先创建：save_storage_state 会自动 mkdir）
 AUTH_DIR = Path(__file__).resolve().parent / ".auth"
-AUTH_DIR.mkdir(exist_ok=True)
-
-# 登录凭据从环境变量读（.env 提供：ADMIN_USERNAME / ADMIN_PASSWORD / CAPTCHA_VALUE）
-import os
 
 
 def _cfg(key: str, default: str = "") -> str:
@@ -63,7 +63,7 @@ def _cfg(key: str, default: str = "") -> str:
 @pytest.fixture(scope="session")
 def admin_storage_state(browser, base_url):
     """管理员登录态。首次登录后缓存到 ``.auth/admin.json``，12 小时内免登录。"""
-    from baibao.autotest.login_state import auth_state_path
+    from baibao.autotest.core.login_state import auth_state_path
 
     state_file = auth_state_path(AUTH_DIR, "admin")
     if is_auth_valid(state_file):

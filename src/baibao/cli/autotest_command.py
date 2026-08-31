@@ -18,6 +18,8 @@ from typing import Any
 from pykunlun.cli import CliContext, Command
 from pykunlun.util import logutil
 
+from baibao.autotest.core.envutil import load_dotenv_if_present, normalize_base_url
+
 log = logutil.getLogger(__name__)
 
 
@@ -39,17 +41,6 @@ def _read_text_source(path: str | None) -> str | None:
         return sys.stdin.read()
     with open(path, encoding="utf-8-sig") as f:
         return f.read()
-
-
-def _load_dotenv_if_present() -> None:
-    """可选加载当前目录 ``.env``（与 fixtures.py 行为一致，未装 python-dotenv 则跳过）。"""
-    try:
-        from dotenv import load_dotenv
-    except ImportError:
-        return
-    env_file = Path.cwd() / ".env"
-    if env_file.exists():
-        load_dotenv(env_file)
 
 
 class AutotestCommand(Command):
@@ -211,9 +202,9 @@ class AutotestCommand(Command):
         except SystemExit:
             return False
 
-        _load_dotenv_if_present()
+        load_dotenv_if_present()
 
-        base_url = (ns.base_url or os.getenv("BASE_URL", "")).rstrip("/")
+        base_url = normalize_base_url(ns.base_url or os.getenv("BASE_URL", ""))
         if not base_url:
             log.error("缺少被测系统地址：传 --base-url 或在 .env/环境变量配置 BASE_URL")
             return False
@@ -224,7 +215,7 @@ class AutotestCommand(Command):
             log.error('探针依赖 playwright，请先安装：pip install "baibao[autotest]"')
             return False
 
-        from baibao.autotest.dom_summary import run_probe
+        from baibao.autotest.probe import run_probe
 
         try:
             summary = run_probe(

@@ -1,5 +1,5 @@
 """
-api.py — 后端接口基类。
+base — 后端接口基类 ApiBase。
 
 封装 HTTP API 调用的通用骨架：发起请求、防御式 JSON 解析。
 所有具体业务接口类继承 :class:`ApiBase`，按端点补充专属方法。
@@ -16,6 +16,8 @@ api.py — 后端接口基类。
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
+
+from ..core.envutil import normalize_base_url
 
 if TYPE_CHECKING:
     from playwright.sync_api import APIRequestContext, APIResponse
@@ -41,7 +43,7 @@ class ApiBase:
         headers: dict[str, str] | None = None,
     ):
         self.request = request
-        self.base_url = base_url.rstrip("/")
+        self.base_url = normalize_base_url(base_url)
         self.headers: dict[str, str] = dict(headers or {})
 
     # ------------------------------------------------------------------

@@ -1,5 +1,5 @@
 """
-fixtures.py — 可选启用的 pytest fixture（自管理 Playwright 模式）。
+fixtures — 可选启用的 pytest fixture（自管理 Playwright 模式）。
 
 启用方式：在项目根 ``conftest.py`` 加一行::
 
@@ -13,8 +13,8 @@ fixtures.py — 可选启用的 pytest fixture（自管理 Playwright 模式）�
 
 **不**提供角色级 fixture（``storage_state`` / ``page`` / ``api_context``），
 它们与具体角色和登录流程相关，请在项目 conftest 中基于
-:mod:`baibao.autotest.login_state` 自行实例化，参考
-:mod:`baibao.autotest.conftest_template`。
+:mod:`baibao.autotest.core.login_state` 自行实例化，参考
+:mod:`baibao.autotest.fixtures.conftest_template`。
 
 刻意**不**使用 pytest-playwright 的 ``context`` / ``page`` fixture，
 以避免 Element Plus el-select 在弹窗内的事件兼容问题
@@ -28,18 +28,13 @@ from __future__ import annotations
 import os
 import time
 from datetime import date
-from pathlib import Path
 
 import pytest
 
+from ..core.envutil import load_dotenv_if_present, normalize_base_url
+
 # 可选加载项目根 .env（python-dotenv 未安装则跳过，直接读 os.environ）
-try:
-    from dotenv import load_dotenv
-    _env_file = Path.cwd() / ".env"
-    if _env_file.exists():
-        load_dotenv(_env_file)
-except ImportError:
-    pass
+load_dotenv_if_present()
 
 
 def _cfg(key: str, default: str = "") -> str:
@@ -54,7 +49,7 @@ def _cfg(key: str, default: str = "") -> str:
 @pytest.fixture(scope="session")
 def base_url() -> str:
     """被测系统基础地址（环境变量 ``BASE_URL``）。"""
-    return _cfg("BASE_URL", "http://localhost:8080").rstrip("/")
+    return normalize_base_url(_cfg("BASE_URL", "http://localhost:8080"))
 
 
 @pytest.fixture(scope="session")
@@ -96,7 +91,7 @@ def browser(playwright, is_headless, slow_mo):
       - ``true``  → 强制内置 Chromium（缺失自动下载，失败抛错）
       - ``false`` → 跳过内置，直接本地浏览器（``CHROME_PATH`` 显式路径优先）
     """
-    from baibao.autotest.browser import launch_browser
+    from ..core.browser import launch_browser
 
     raw = _cfg("USE_BUILTIN_CHROMIUM")
     if raw == "":

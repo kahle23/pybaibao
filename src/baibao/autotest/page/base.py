@@ -1,5 +1,5 @@
 """
-page.py — 页面对象基类。
+base — 页面对象基类 BasePage。
 
 封装所有页面共享的通用操作：导航、点击、填充、断言辅助、Element Plus 组件操作。
 所有具体页面对象继承 :class:`BasePage`，按业务页面补充专属方法。
@@ -7,8 +7,9 @@ page.py — 页面对象基类。
 核心特性：
 
   - **Element Plus 组件操作**：el-select / el-date-picker / 远程搜索下拉 / 消息提示 / 表单校验 / 表格行列
-  - **CDP 真实点击**：用 ``Input.dispatchMouseEvent`` 解决 el-select 在 el-dialog 内
-    Playwright 合成事件无法触发展开/选中的硬骨头（Vue 3 + Element Plus 已知兼容问题）
+  - **真实输入**：经 :func:`baibao.autotest.core.devtools.real_click` 发送浏览器
+    底层真实鼠标事件，解决 el-select 在 el-dialog 内 Playwright 合成事件无法
+    触发展开/选中的硬骨头（Vue 3 + Element Plus 已知兼容问题）
   - **对话框作用域**：弹窗打开时自动把选择器限定到 ``.el-dialog`` 内部，
     避免误命中搜索栏等同名表单项
 
@@ -17,11 +18,23 @@ page.py — 页面对象基类。
 
 from __future__ import annotations
 
-import time
+import os
+import shutil
+from pathlib import Path
 from typing import TYPE_CHECKING, cast
+
+from ..core.devtools import real_click
+from ..core.polling import poll_until
 
 if TYPE_CHECKING:
     from playwright.sync_api import Locator, Page
+
+
+def _pw_expect():
+    """惰性取 playwright 的 ``expect`` 断言函数（保持顶层不导入 playwright）。"""
+    from playwright.sync_api import expect
+
+    return expect
 
 
 class BasePage:
@@ -35,6 +48,8 @@ class BasePage:
     def __init__(self, page: Page, screenshot_dir: str = "screenshots") -> None:
         self.page = page
         self.screenshot_dir = screenshot_dir
+        # 同名文件防 change 丢失的自增序号（见 upload_file）
+        self._upload_seq = 0
 
     # ------------------------------------------------------------------
     # 导航
@@ -84,32 +99,14 @@ class BasePage:
         return self.page.locator(".el-form-item", has_text=form_item_label).first
 
     def _cdp_click(self, x: float, y: float) -> None:
-        """用 CDP ``Input.dispatchMouseEvent`` 发送真实鼠标点击。
+        """用浏览器底层真实事件点击坐标 ``(x, y)``。
 
-        解决 Element Plus el-select 在弹窗内时，Playwright ``locator.click()``
-        合成事件无法触发展开/选中的问题。CDP 方式发送的是浏览器底层输入事件，
-        能正确触发 Vue 的 pointerdown/mousedown 处理链。
-
-        完整事件序列：mouseMoved → mousePressed → mouseReleased。
+        委托 :func:`baibao.autotest.core.devtools.real_click`：Chromium 系走
+        CDP ``Input.dispatchMouseEvent``（完整 mouseMoved→mousePressed→
+        mouseReleased 序列），Firefox/WebKit 走 ``page.mouse`` 等价原生序列。
+        这是 el-select 在弹窗内唯一可靠的展开/选中方式。
         """
-        context = self.page.context
-        cdp = context.new_cdp_session(self.page)
-        try:
-            cdp.send("Input.dispatchMouseEvent", {
-                "type": "mouseMoved", "x": x, "y": y,
-            })
-            time.sleep(0.05)
-            cdp.send("Input.dispatchMouseEvent", {
-                "type": "mousePressed", "x": x, "y": y,
-                "button": "left", "clickCount": 1,
-            })
-            time.sleep(0.03)
-            cdp.send("Input.dispatchMouseEvent", {
-                "type": "mouseReleased", "x": x, "y": y,
-                "button": "left", "clickCount": 1,
-            })
-        finally:
-            cdp.detach()
+        real_click(self.page, x, y)
 
     def _get_element_center(self, selector: str) -> dict:
         """获取元素中心坐标。"""
@@ -147,6 +144,23 @@ class BasePage:
         if fuzzy_any.count():
             return fuzzy_any.first
         raise RuntimeError(f"找不到「{form_item_label}」的 el-select wrapper")
+
+    def _expand_select(self, form_item_label: str, *, settle_ms: int = 400) -> Locator:
+        """定位 el-select wrapper 并真实点击展开（select 系方法的公共前置）。
+
+        每轮重取位置：弹窗动画中坐标会漂移，不能复用旧的 bounding_box。
+        展开后等 ``settle_ms`` 毫秒再返回（默认 400，读选项类操作可加大）。
+
+        Returns:
+            展开后的 wrapper Locator（供继续定位 combobox 输入框等）。
+        """
+        wrapper = self._select_wrapper(form_item_label)
+        box = wrapper.bounding_box()
+        if not box:
+            raise RuntimeError(f"找不到 {form_item_label} 的 el-select wrapper")
+        self._cdp_click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+        self.page.wait_for_timeout(settle_ms)
+        return wrapper
 
     def _visible_dropdown_option_center(self, option_text: str, exact: bool = True) -> dict | None:
         """在【所有】可见下拉面板中找选项中心坐标。
@@ -206,28 +220,20 @@ class BasePage:
             poll_times: 每轮展开后轮询选项渲染的次数。
             poll_interval_ms: 轮询间隔毫秒。
         """
-        wrapper = self._select_wrapper(form_item_label)
         last_err: RuntimeError | None = None
         try:
             for _attempt in range(expand_retries):
-                # CDP 点击 wrapper 展开下拉（每轮重取位置，弹窗动画中坐标会漂移）
-                wrapper_box = wrapper.bounding_box()
-                if not wrapper_box:
-                    raise RuntimeError(f"找不到 {form_item_label} 的 el-select wrapper")
-                self._cdp_click(
-                    wrapper_box["x"] + wrapper_box["width"] / 2,
-                    wrapper_box["y"] + wrapper_box["height"] / 2,
-                )
-                self.page.wait_for_timeout(400)
+                # 每轮重展开（重取 wrapper 位置，弹窗动画中坐标会漂移）
+                self._expand_select(form_item_label)
 
-                # 在可见的下拉面板中找到目标选项，CDP 点击（下拉面板 teleport 到
+                # 在可见的下拉面板中找到目标选项，真实点击（下拉面板 teleport 到
                 # body；字典/选项可能是异步渲染，轮询而非直接判死）
-                opt_center = None
-                for _ in range(poll_times):
-                    opt_center = self._visible_dropdown_option_center(option_text, exact=True)
-                    if opt_center:
-                        break
-                    self.page.wait_for_timeout(poll_interval_ms)
+                opt_center = poll_until(
+                    lambda: self._visible_dropdown_option_center(option_text, exact=True),
+                    timeout_ms=poll_times * poll_interval_ms,
+                    interval_ms=poll_interval_ms,
+                    sleep_ms=self.page.wait_for_timeout,
+                )
                 if opt_center:
                     self._cdp_click(opt_center["x"], opt_center["y"])
                     self.page.wait_for_timeout(300)
@@ -258,27 +264,20 @@ class BasePage:
             option_text: 选项文本（默认用 keyword）
         """
         option_text = option_text or keyword
-        wrapper = self._select_wrapper(form_item_label)
-
-        # CDP 点击展开
-        box = wrapper.bounding_box()
-        if not box:
-            raise RuntimeError(f"找不到 {form_item_label} 的 el-select wrapper")
         try:
-            self._cdp_click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
-            self.page.wait_for_timeout(400)
+            wrapper = self._expand_select(form_item_label)
 
             # 在展开的搜索框中输入关键词
             combobox = wrapper.locator('input[role="combobox"]').first
             combobox.fill(keyword)
 
             # 远程数据加载耗时不确定，轮询等选项出现（上限 ~4s）再点击
-            opt_center = None
-            for _ in range(8):
-                self.page.wait_for_timeout(500)
-                opt_center = self._visible_dropdown_option_center(option_text, exact=False)
-                if opt_center:
-                    break
+            opt_center = poll_until(
+                lambda: self._visible_dropdown_option_center(option_text, exact=False),
+                timeout_ms=4000,
+                interval_ms=500,
+                sleep_ms=self.page.wait_for_timeout,
+            )
             if not opt_center:
                 raise RuntimeError(f"远程下拉中找不到选项「{option_text}」")
             self._cdp_click(opt_center["x"], opt_center["y"])
@@ -308,39 +307,46 @@ class BasePage:
         提交成功后列表 refresh 是异步请求，提交返回后立即读列格存在竞态
         （读到旧值），必须轮询等待。
         """
-        deadline = time.time() + timeout / 1000
-        last = ""
-        while time.time() < deadline:
+        def _reached() -> bool:
+            return self.get_row_cell(row_keyword, column_header) == expected
+
+        ok = poll_until(
+            _reached, timeout_ms=timeout, interval_ms=400,
+            sleep_ms=self.page.wait_for_timeout,
+        )
+        if not ok:
             last = self.get_row_cell(row_keyword, column_header)
-            if last == expected:
-                return
-            self.page.wait_for_timeout(400)
-        raise AssertionError(
-            f"行[{row_keyword}]列[{column_header}]未刷新为 {expected!r}，最后值={last!r}")
+            raise AssertionError(
+                f"行[{row_keyword}]列[{column_header}]未刷新为 {expected!r}，最后值={last!r}")
 
     def expect_input_value(self, selector: str, expected: str, timeout: int = 8000) -> None:
         """轮询断言输入框值到达期望（表单异步回显的等待）。"""
-        deadline = time.time() + timeout / 1000
         loc = self.page.locator(selector).first
-        while time.time() < deadline:
-            if loc.count() and loc.input_value() == expected:
-                return
-            self.page.wait_for_timeout(400)
-        actual = loc.input_value() if loc.count() else "<元素不存在>"
-        raise AssertionError(f"{selector} 值未到达 {expected!r}，当前={actual!r}")
+
+        def _reached() -> bool:
+            return bool(loc.count()) and loc.input_value() == expected
+
+        ok = poll_until(
+            _reached, timeout_ms=timeout, interval_ms=400,
+            sleep_ms=self.page.wait_for_timeout,
+        )
+        if not ok:
+            actual = loc.input_value() if loc.count() else "<元素不存在>"
+            raise AssertionError(f"{selector} 值未到达 {expected!r}，当前={actual!r}")
 
     def wait_no_loading_mask(self, timeout: int = 5000) -> None:
         """等待 Element Plus v-loading 遮罩全部消失。
 
-        遮罩消失可能略晚于数据回显：遮罩还盖着时 CDP 点击会打在遮罩上
+        遮罩消失可能略晚于数据回显：遮罩还盖着时真实点击会打在遮罩上
         （无展开/点击效果），回显后要操作弹窗表单前必须等它消失。
         """
-        deadline = time.time() + timeout / 1000
-        while time.time() < deadline:
-            if self.page.locator(".el-loading-mask:visible").count() == 0:
-                return
-            self.page.wait_for_timeout(300)
-        raise AssertionError("loading 遮罩等待超时未消失")
+        gone = poll_until(
+            lambda: self.page.locator(".el-loading-mask:visible").count() == 0,
+            timeout_ms=timeout, interval_ms=300,
+            sleep_ms=self.page.wait_for_timeout,
+        )
+        if not gone:
+            raise AssertionError("loading 遮罩等待超时未消失")
 
     def overlay(self) -> Locator:
         """当前打开的弹窗或抽屉（优先弹窗，多层弹窗取最后打开的）。
@@ -377,26 +383,23 @@ class BasePage:
 
     def read_select_options(self, form_item_label: str) -> list[str]:
         """展开指定表单项的下拉，读取全部选项文本后收起（用于可选集断言）。"""
-        wrapper = self._select_wrapper(form_item_label)
-        box = wrapper.bounding_box()
-        if not box:
-            raise RuntimeError(f"找不到 {form_item_label} 的 el-select wrapper")
         try:
-            self._cdp_click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
-            self.page.wait_for_timeout(600)
-            texts: list[str] = []
-            for _ in range(3):  # 字典异步渲染时选项可能未就绪，轮询
+            self._expand_select(form_item_label, settle_ms=600)
+
+            def _read() -> list[str]:
                 items = self.page.locator(
                     ".el-select-dropdown:visible .el-select-dropdown__item")
-                texts = [items.nth(i).inner_text().strip() for i in range(items.count())]
-                if texts:
-                    break
-                self.page.wait_for_timeout(400)
-            return texts
+                return [items.nth(i).inner_text().strip() for i in range(items.count())]
+
+            # 字典异步渲染时选项可能未就绪，轮询
+            return poll_until(
+                _read, timeout_ms=1200, interval_ms=400,
+                sleep_ms=self.page.wait_for_timeout,
+            ) or []
         finally:
             self.collapse_dropdowns()
 
-    def upload_file(self, file, nth: int = 0, scope: "Locator | None" = None):
+    def upload_file(self, file, nth: int = 0, scope: Locator | None = None):
         """向弹窗内第 nth 个 el-upload 上传位传文件（同名文件防 change 丢失）。
 
         2026-08-28 WMS E2E 12 轮实跑实证的坑：``set_input_files`` 对**同名文件二次
@@ -416,15 +419,12 @@ class BasePage:
         Returns:
             Path: 实际上传的临时文件路径（与源同目录、带序号后缀，供调用方清理）。
         """
-        import shutil
-        from pathlib import Path as _P
-
-        src = _P(file)
+        src = Path(file)
         if not src.is_file():
             raise FileNotFoundError(f"上传源文件不存在: {src}")
         area = scope if scope is not None else self.overlay()
-        BasePage._upload_seq = getattr(BasePage, "_upload_seq", 0) + 1
-        dst = src.with_name(f"{src.stem}-{BasePage._upload_seq}{src.suffix}")
+        self._upload_seq += 1
+        dst = src.with_name(f"{src.stem}-{self._upload_seq}{src.suffix}")
         shutil.copyfile(src, dst)
         loc = area.locator(".el-upload__input").nth(nth)
         loc.wait_for(state="attached", timeout=8000)
@@ -437,7 +437,7 @@ class BasePage:
 
     def expect_toast(self, text: str, timeout: int = 5000) -> None:
         """断言出现包含指定文本的消息提示（el-message，浮层位于 body 下）。"""
-        from playwright.sync_api import expect
+        expect = _pw_expect()
 
         expect(
             self.page.locator(".el-message", has_text=text).first,
@@ -445,7 +445,7 @@ class BasePage:
 
     def expect_toast_success(self, text: str = "成功", timeout: int = 8000) -> None:
         """断言成功消息。兼容多种 Element Plus 消息样式。"""
-        from playwright.sync_api import expect
+        expect = _pw_expect()
 
         try:
             expect(
@@ -463,7 +463,7 @@ class BasePage:
         Args:
             text: 校验错误文案，如「请选择资产类型」
         """
-        from playwright.sync_api import expect
+        expect = _pw_expect()
 
         expect(
             self.page.locator(".el-form-item__error", has_text=text).first,
@@ -527,13 +527,13 @@ class BasePage:
 
     def expect_row_exists(self, keyword: str, timeout: int = 5000) -> None:
         """断言表格中存在包含关键词的行。"""
-        from playwright.sync_api import expect
+        expect = _pw_expect()
 
         expect(self.get_table_row(keyword)).to_be_visible(timeout=timeout)
 
     def expect_row_not_exists(self, keyword: str, timeout: int = 5000) -> None:
         """断言表格中不存在包含关键词的行。"""
-        from playwright.sync_api import expect
+        expect = _pw_expect()
 
         expect(self.get_table_row(keyword)).to_have_count(0, timeout=timeout)
 
@@ -545,7 +545,7 @@ class BasePage:
 
         **适用场景 / 解决什么问题**：业务列表通常按创建时间倒序，先建的数据
         （如早建的订单）会被后续新建的数据推下第一页。此时裸用
-        ``get_table_row`` / ``wait_row`` 只查**当前页**永远找不到目标行 →
+        ``get_table_row`` 直接定位只查**当前页**永远找不到目标行 →
         行内「编辑/款号管理/删除」等按钮点击超时，且是**连环失败**（前置用例建
         的数据一旦被推下页，后续所有依赖它的用例全挂）。本方法先填筛选框圈定、
         点查询、再等目标行，把「跨页找不到」变成「首页即命中」。
@@ -580,14 +580,16 @@ class BasePage:
         page.wait_for_timeout(300)
         page.locator(f"button:has-text('{query_button}')").first.click()
         page.wait_for_timeout(wait_after_query_ms)
-        # 轮询等目标行（列表接口异步）
-        deadline = time.time() + timeout / 1000
+        # 轮询等目标行（列表接口异步）；超时也返回 row（与原行为一致，由调用方断言）
         row = page.locator(f"tr:has-text('{keyword}')").first
-        while time.time() < deadline:
-            if row.count():
-                return row
-            page.wait_for_timeout(400)
-        return row
+
+        def _found():
+            return row if row.count() else None
+
+        return poll_until(
+            _found, timeout_ms=timeout, interval_ms=400,
+            sleep_ms=page.wait_for_timeout,
+        ) or row
 
     def fill_row_by_cells(self, row: Locator, col_map: dict[int, str]) -> None:
         """按列序号填充可编辑表格行（新增/编辑行的单元格输入框）。
@@ -614,7 +616,7 @@ class BasePage:
                 cell_input.fill(str(value))
 
     def select_table_select(
-        self, container: "Locator", *, nth: int = 0, row_idx: int = 0,
+        self, container: Locator, *, nth: int = 0, row_idx: int = 0,
         collapse: bool = True,
     ) -> str:
         """操作 ma-element-table-select（表格型多选下拉）选中一项。
@@ -668,8 +670,6 @@ class BasePage:
 
     def take_screenshot(self, name: str) -> None:
         """截图到 ``screenshot_dir/<name>.png``（全页面）。"""
-        import os
-
         os.makedirs(self.screenshot_dir, exist_ok=True)
         self.page.screenshot(
             path=f"{self.screenshot_dir}/{name}.png", full_page=True,
