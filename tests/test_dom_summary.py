@@ -1,13 +1,9 @@
-"""dom_summary 的单元测试：format_summary 纯函数（渲染/截断/空页面兜底）。"""
+"""probe 渲染与 URL 规范化的单元测试（format_summary 纯函数：渲染/截断/空页面兜底）。"""
 
 import unittest
 
-from baibao.autotest.dom_summary import (
-    MAX_OUTPUT_CHARS,
-    _format_custom,
-    build_target_url,
-    format_summary,
-)
+from baibao.autotest.probe import MAX_OUTPUT_CHARS, build_target_url, format_summary
+from baibao.autotest.probe.render import _format_custom
 
 
 def _sample_data(**overrides) -> dict:
