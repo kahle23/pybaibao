@@ -57,7 +57,7 @@ python -m pip install paddlepaddle paddleocr opencv-python numpy -i https://pypi
 | **数据库** | `baibao.db` | MySQL/PostgreSQL 连接池与查询 | [文档](https://github.com/kahle23/pybaibao/blob/master/docs/data/db.md) |
 | **消息** | `baibao.message` | 邮件发送（文本/HTML/附件） | [文档](https://github.com/kahle23/pybaibao/blob/master/docs/output/message.md) |
 | **命令行** | `baibao.cli` | CLI 命令行工具（包管理、项目清理、数据库、OCR 等） | [文档](https://github.com/kahle23/pybaibao/blob/master/docs/cli.md) |
-| **自动化测试** | `baibao.autotest` | Playwright E2E 测试基础设施（BasePage/CDP 点击/登录态缓存） | [文档](https://github.com/kahle23/pybaibao/blob/master/docs/test/autotest.md) |
+| **自动化测试** | `baibao.autotest` | Playwright E2E 测试基础设施（BasePage/真实输入/登录态缓存/DOM 探针） | [文档](https://github.com/kahle23/pybaibao/blob/master/docs/test/autotest.md) |
 
 <br />
 

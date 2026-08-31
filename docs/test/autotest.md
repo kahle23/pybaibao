@@ -22,10 +22,37 @@ python -m playwright install chromium
 > 浏览器选择链（全自动，一般无需预装）：**Playwright 内置 Chromium 优先**
 > （自动化事件兼容性最好）——未安装时自动下载（有头装完整内核，无头仅装
 > 轻量 headless-shell 约 90MB；npmmirror 镜像优先、官方源回退）；下载失败
-> 回退本地 Chrome → Edge（CDP 点击仅 Chromium 系支持，Firefox/WebKit 不适用）。
+> 回退本地 Chrome → Edge。启动器只启 Chromium 系；Firefox/WebKit 内核的
+> Page 亦可使用本包其余设施（真实输入由 `core.devtools` 按内核分流）。
 > `USE_BUILTIN_CHROMIUM` 三态：未设置=自动 / `true`=强制内置 / `false`=仅本地；
 > `BAIBAO_BROWSER_AUTO_INSTALL=false` 关闭自动下载；`PLAYWRIGHT_DOWNLOAD_HOST`
 > 指定下载源。
+
+<br />
+
+## 分包结构
+
+```
+baibao.autotest
+├── core/       基础设施层（只被上层依赖）
+│   ├── browser.py      浏览器启动（内置 Chromium 优先 + 本地 Chrome/Edge 兜底）
+│   ├── login_state.py  登录流程 LoginCfg + 登录态缓存（TTL + 身份绑定）
+│   ├── devtools.py     浏览器开发工具协议薄封装：real_click 真实输入按内核分流
+│   │                   （Chromium 走 CDP；Firefox/WebKit 走 page.mouse 等价序列）
+│   ├── polling.py      通用轮询 poll_until（异步刷新/异步渲染等待统一用它）
+│   └── envutil.py      .env 加载 + base_url 规范化
+├── page/       页面对象层：base.py 的 BasePage（Element Plus 组件操作）
+├── api/        接口层：base.py 的 ApiBase（复用登录态 cookie 的 HTTP 骨架）
+├── probe/      DOM 摘要探针：runner(编排) + extract_js(提取脚本) + render(渲染) + url(地址规范化)
+└── fixtures/   opt-in pytest fixture + conftest_template 角色级样板
+
+依赖方向：core ← page / api / probe / fixtures ← 包门面 __init__，无循环。
+```
+
+**旧路径兼容**：`baibao.autotest.{page, api, fixtures}` 三条旧路径由同名子包
+原生接管（导入写法不变）；`browser` / `login_state` / `dom_summary` 三条由根
+目录 shim 继续保底（标注 deprecated，后续请切换到 `core.browser` /
+`core.login_state` / `probe`）。
 
 <br />
 
@@ -33,13 +60,15 @@ python -m playwright install chromium
 
 | 模块 | 关键符号 | 用途 |
 |------|----------|------|
-| `baibao.autotest.page` | `BasePage` | 页面对象基类：Element Plus 组件操作 + CDP 真实点击 + 对话框作用域 + 表格行列助手 |
-| `baibao.autotest.browser` | `detect_chrome_path` / `launch_browser` | 本地 Chrome 路径探测与浏览器启动 |
-| `baibao.autotest.login_state` | `LoginCfg` / `do_login` / `save_storage_state` / `is_auth_valid` | 数据驱动登录流程 + 登录态缓存（TTL） |
+| `baibao.autotest.page` | `BasePage` | 页面对象基类：Element Plus 组件操作 + 真实输入 + 对话框作用域 + 表格行列助手 |
+| `baibao.autotest.core.browser` | `detect_chrome_path` / `launch_browser` | 本地 Chrome 路径探测与浏览器启动 |
+| `baibao.autotest.core.login_state` | `LoginCfg` / `do_login` / `save_storage_state` / `is_auth_valid` | 数据驱动登录流程 + 登录态缓存（TTL） |
+| `baibao.autotest.core.devtools` | `real_click` / `new_session` / `engine_name` | 真实输入与 CDP 会话统一收口（跨内核） |
+| `baibao.autotest.core.polling` | `poll_until` | 通用轮询等待 |
 | `baibao.autotest.api` | `ApiBase` | 后端接口基类：复用浏览器登录态 cookie + 防御式 JSON 解析 |
-| `baibao.autotest.dom_summary` | `run_probe` / `extract_summary` | DOM 摘要探针：页面压缩成 KB 级 markdown（CLI `autotest probe`） |
+| `baibao.autotest.probe` | `run_probe` / `extract_summary` | DOM 摘要探针：页面压缩成 KB 级 markdown（CLI `autotest probe`） |
 | `baibao.autotest.fixtures` | `browser` / `base_url` / `faker` 等 | opt-in pytest fixture（`pytest_plugins` 启用） |
-| `baibao.autotest.conftest_template` | — | 角色级 fixture 参考样板（复制改造） |
+| `baibao.autotest.fixtures.conftest_template` | — | 角色级 fixture 参考样板（复制改造，勿 import） |
 
 <br />
 
@@ -84,7 +113,7 @@ pytest_plugins = ["baibao.autotest.fixtures"]
 
 启用后即可用 `browser` / `base_url` / `faker` / `today_str` / `unique_id` 等 fixture。
 角色级 fixture（`storage_state` / `page` / `api_context`）请参考
-`baibao.autotest.conftest_template`，复制改造到项目 conftest。
+`baibao.autotest.fixtures.conftest_template`，复制改造到项目 conftest。
 
 ### 4. 配置环境变量（.env）
 
@@ -125,7 +154,7 @@ CHROME_PATH=                    # 可选，显式指定 Chrome 路径
 
 **原因**：Element Plus 的 `el-select` 放在 `el-dialog` 内时，pytest-playwright 托管 context
 下 Playwright 的合成 `click()` 事件无法触发 Vue 的 `pointerdown` 处理链，下拉面板展不开。
-自管理 context + CDP 真实点击才能解决。
+自管理 context + 真实输入（`core.devtools.real_click`）才能解决。
 
 <br />
 
@@ -167,7 +196,7 @@ python -m baibao autotest probe "#/oa/asset" --out summary.md --headless
 输出约定：摘要 markdown 走 stdout（`--delim` 可包裹），日志走 stderr；
 单页摘要硬上限 6000 字符（超出截断并标注）。
 
-程序内调用：`from baibao.autotest.dom_summary import run_probe, extract_summary`——
+程序内调用：`from baibao.autotest.probe import run_probe, extract_summary`——
 前者完整流程（含登录态管理），后者在已打开的 `Page` 上直接提取。
 
 <br />
@@ -184,13 +213,15 @@ python -m baibao autotest probe "#/oa/asset" --out summary.md --headless
 
 **解法**（已内置在 `BasePage.el_select`）：
 - 用 `_scope_form_item` 把选择器限定到 `.el-dialog` 内部
-- 用 `_cdp_click`（CDP `Input.dispatchMouseEvent`）发送浏览器底层真实鼠标事件，
-  完整触发 `mouseMoved → mousePressed → mouseReleased` 链
+- 用 `_cdp_click`（经 `core.devtools.real_click` 发送浏览器底层真实鼠标事件，
+  Chromium 系为 CDP `Input.dispatchMouseEvent`）完整触发
+  `mouseMoved → mousePressed → mouseReleased` 链
 
 ### 2. pytest-playwright 的 page fixture 不要用
 
 装了 `pytest-playwright` 后它自动注册 `page` / `context` fixture。**不要用它们**，
-否则会触发上述事件兼容问题。本模块的 `fixtures.browser` + 角色级 `admin_page` 已自管理。
+否则会触发上述事件兼容问题。本包的 `fixtures.browser` + 角色级 `admin_page` 已自管理，
+`baibao[autotest]` extra 也因此不再依赖 pytest-playwright（只用它的 CLI 选项时自行安装）。
 
 ### 3. 登录态缓存失效
 
@@ -211,7 +242,8 @@ pytest -m smoke
 # 调试：可见浏览器 + 慢放
 pytest --headed --slowmo 200
 
-# 失败时截图/录屏（pytest-playwright 提供的 CLI 选项）
+# 失败时截图/录屏（pytest-playwright 提供的 CLI 选项，需自行安装 pytest-playwright；
+# 注意：装了它也别在用例里用它注册的 page/context fixture，原因见上）
 pytest --screenshot=only-on-failure --video=retain-on-failure --tracing=retain-on-failure
 
 # 调试器
