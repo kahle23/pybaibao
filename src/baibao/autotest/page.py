@@ -541,17 +541,25 @@ class BasePage:
         self, keyword: str, *, filter_selector: str | None = None, query_button: str = "查询",
         wait_after_query_ms: int = 1500, timeout: int = 12000,
     ) -> Locator:
-        """列表先按关键词筛选再定位目标行（防『早建单被推下第一页』）。
+        """列表先按关键词筛选圈定再定位目标行。
 
-        列表通常按创建时间倒序，先建的数据会被后建数据推下第一页，裸 ``get_table_row``
-        只查当前页会永远找不到 → 行内按钮点击超时（2026-08-31 报价管理 E2E 连锁根因）。
-        正解：刷新到列表 → 填筛选框圈定 → 点查询 → 再等目标行。
+        **适用场景 / 解决什么问题**：业务列表通常按创建时间倒序，先建的数据
+        （如早建的订单）会被后续新建的数据推下第一页。此时裸用
+        ``get_table_row`` / ``wait_row`` 只查**当前页**永远找不到目标行 →
+        行内「编辑/款号管理/删除」等按钮点击超时，且是**连环失败**（前置用例建
+        的数据一旦被推下页，后续所有依赖它的用例全挂）。本方法先填筛选框圈定、
+        点查询、再等目标行，把「跨页找不到」变成「首页即命中」。
+
+        **何时用**：任何「先建数据 → 后跑的行操作用例」组合（如报价单 PO_A 建
+        立后被 TC-008~028 各用例反复回列表找行），或列表数据量大、目标不在首屏。
+
+        例：``row = bp.filter_row("界面测试A0831"); row.locator("button:has-text('款号管理')").click()``
 
         Args:
             keyword: 行定位关键词（业务键，如系列名/单号，既作筛选值也作行定位）。
             filter_selector: 筛选输入框定位（CSS）。默认取页面第一个 ``input``
-                （列表页第一个文本输入通常是主筛选框）；定位不到时尝试按
-                ``placeholder`` 含关键词所在列名的兜底由调用方传入。
+                （列表页第一个文本输入通常是主筛选框）；若第一个 input 不是目标
+                筛选框，传入如 ``"input[placeholder*='单号']"``。
             query_button: 查询按钮文本，默认「查询」。
             wait_after_query_ms: 点查询后固定等待毫秒（列表异步加载）。
             timeout: 等目标行出现的总超时毫秒。
@@ -584,9 +592,16 @@ class BasePage:
     def fill_row_by_cells(self, row: Locator, col_map: dict[int, str]) -> None:
         """按列序号填充可编辑表格行（新增/编辑行的单元格输入框）。
 
-        ⚠️ 可编辑行的首个 ``input`` 往往是 enabled 复选框/开关（value='on'），
-        不是首个数据字段——若用 ``row.locator('input').nth(n)`` 会把第 0 项填到
-        开关上、后续字段全错位（保存后 DB 查不到）。须按单元格定位。
+        **适用场景 / 解决什么问题**：表格「新增一行」/「编辑」后出现的**可编辑行**，
+        其首列往往是 enabled 复选框/开关（``value='on'``），**不是**首个数据字段。
+        若用 ``row.locator('input').nth(n)`` 逐 input 填值，会把第 0 项填到开关上、
+        后续字段（款号/数量…）**全部错位** → 保存后 DB 查不到预期值，且界面无任何
+        报错（最迷惑）。本方法按**单元格（td 列序号）**定位输入框，天然跳过开关列。
+
+        **何时用**：任何「行内新增/编辑录入」场景（如报价单款号管理行内新增款号）。
+        注意列序号需先用探针确认（见 browser-e2e-runner 技能），不同页面列不同。
+
+        例：``bp.fill_row_by_cells(new_row, {2: "品名", 4: "款号", 6: "100"})``
 
         Args:
             row: 可编辑行的 ``tr`` Locator。
@@ -604,9 +619,16 @@ class BasePage:
     ) -> str:
         """操作 ma-element-table-select（表格型多选下拉）选中一项。
 
-        该组件展开后是**表格**（非简单选项列表），且选中后 popper 不自动收起——
-        若不收起，popper 会遮挡弹窗 footer 的「确定」按钮导致点击超时
-        （2026-08-31 报价管理匹配款式库 E2E 实证）。
+        **适用场景 / 解决什么问题**：IMP 的 ma-element-table-select（如「匹配款式库」
+        「换客人后选款式」）展开后是**表格**而非简单选项列表，且选中后 popper
+        **不自动收起**。若不主动收起，popper 会**遮挡弹窗 footer 的「确定」按钮**，
+        导致点击确定超时（页面看似正常，实际确定点不到）。本方法一次完成
+        「点开下拉 → 点行 checkbox 选中 → 收起 popper」，确保后续能点 footer 按钮。
+
+        **何时用**：任何含 ma-element-table-select 的选择弹窗，且选完还要点「确定」；
+        若选完直接关闭弹窗（不点 footer）可将 ``collapse=False`` 省一次收起。
+
+        例：``txt = bp.select_table_select(bp.overlay()); bp.click_dialog_button("确定")``
 
         Args:
             container: 所在弹窗/抽屉 Locator（如 ``overlay()``）。
