@@ -126,7 +126,7 @@ def _read_auth_meta(path: Path) -> dict | None:
         return cast("dict | None", json.loads(
             path.with_suffix(".meta.json").read_text(encoding="utf-8"),
         ))
-    except Exception:
+    except (OSError, json.JSONDecodeError):
         return None
 
 

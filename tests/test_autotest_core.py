@@ -1,15 +1,18 @@
-"""core 层共享机制的单元测试：polling / envutil / devtools / 兼容 shim。
+"""core 层与 probe 参数对象的单元测试：polling / envutil / devtools / ProbeOptions / 兼容 shim。
 
 全部用 stub 对象（不启动浏览器）：devtools 用假 CDP 会话与假 mouse 记录
 调用序列做断言；polling 用小超时快跑。
 """
 
 import unittest
+from unittest.mock import patch
 
 import baibao.autotest as at
 from baibao.autotest.core.devtools import engine_name, new_session, real_click
 from baibao.autotest.core.envutil import normalize_base_url
 from baibao.autotest.core.polling import poll_until
+from baibao.autotest.probe import ProbeOptions, run_probe
+from baibao.autotest.probe import runner as probe_runner
 
 
 class TestPollUntil(unittest.TestCase):
@@ -139,6 +142,41 @@ class TestDevtools(unittest.TestCase):
     def test_new_session_chromium_ok(self):
         page = _FakePage("chromium")
         self.assertIs(new_session(page), page._cdp)
+
+
+class TestProbeOptions(unittest.TestCase):
+    """ProbeOptions 参数对象与 run_probe 兼容委托。"""
+
+    def test_defaults(self):
+        opts = ProbeOptions(target="it-asset", base_url="http://x.com")
+        self.assertEqual(opts.role, "admin")
+        self.assertEqual(opts.auth_dir, ".auth")
+        self.assertEqual(opts.settle_ms, 600)
+        self.assertFalse(opts.headless)
+        self.assertIsNone(opts.use_builtin_chromium)
+        self.assertEqual(opts.click_labels, ())
+        self.assertIsNone(opts.extract_js)
+
+    def test_run_probe_delegates_to_options_entry(self):
+        """旧签名 run_probe 委托 run_probe_with(ProbeOptions)，字段逐项透传。"""
+        captured = {}
+
+        def fake_run_with(opts):
+            captured["opts"] = opts
+            return "SUMMARY"
+
+        with patch.object(probe_runner, "run_probe_with", fake_run_with):
+            out = run_probe(
+                "#/oa/asset", base_url="http://x.com/", role="ops",
+                username="u", password="p", brief=True, click_labels=["供应商"],
+            )
+        self.assertEqual(out, "SUMMARY")
+        opts = captured["opts"]
+        self.assertEqual(opts.target, "#/oa/asset")
+        self.assertEqual(opts.role, "ops")
+        self.assertTrue(opts.brief)
+        self.assertEqual((opts.username, opts.password), ("u", "p"))
+        self.assertEqual(opts.click_labels, ["供应商"])
 
 
 class TestCompatShims(unittest.TestCase):

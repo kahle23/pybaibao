@@ -15,6 +15,10 @@ import os
 import shutil
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from playwright.sync_api import Browser, Playwright
 
 __all__ = ["detect_chrome_path", "launch_browser"]
 
@@ -98,13 +102,13 @@ def _install_builtin_kernel(headless: bool) -> bool:
 
 
 def launch_browser(
-    playwright,
+    playwright: Playwright,
     *,
     headless: bool = False,
     slow_mo: int = 0,
     use_builtin_chromium: bool | None = None,
     chrome_path: str | None = None,
-):
+) -> Browser:
     """启动浏览器（自管理 Playwright 模式）。
 
     刻意**不**使用 pytest-playwright 的 ``context``/``page`` fixture，

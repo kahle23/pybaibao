@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
@@ -36,9 +37,48 @@ from .render import _format_custom, format_summary
 from .url import build_target_url
 
 if TYPE_CHECKING:
-    from playwright.sync_api import Page
+    from playwright.sync_api import Browser, Page
 
-__all__ = ["extract_summary", "run_probe"]
+__all__ = ["ProbeOptions", "extract_summary", "run_probe", "run_probe_with"]
+
+
+@dataclass
+class ProbeOptions:
+    """探针完整参数集（run_probe 16 参的对象化封装，规范 2.3）。
+
+    Attributes:
+        target: hash 路由（如 ``#/oa/asset``）或完整 URL。
+        base_url: 被测系统基础地址（``target`` 非 http 时拼接）。
+        role: 角色名（登录态缓存文件名 ``<auth_dir>/<role>.json``）。
+        auth_dir: 登录态缓存目录。
+        username / password / captcha: 登录凭据（缓存有效时不使用）。
+        login_cfg: 登录流程配置，默认 LoginCfg（若依/RuoYi 风格）。
+        click_labels: 提取前依次点击的表单项标签（展开下拉拿实际选项）。
+        headless: 是否无头模式，默认 False（有头）。
+        use_builtin_chromium: None 自动 / True 强制内置 / False 跳过内置。
+        chrome_path: 本地 Chrome 路径；None 时按 CHROME_PATH 环境变量探测。
+        slow_mo: 慢放延迟毫秒（调试用）。
+        settle_ms: 页面就绪后的额外稳定等待毫秒。
+        brief: 超简略模式（只留页面骨架）。
+        extract_js: 自定义提取 JS，返回其结果的紧凑 JSON 替代内置摘要。
+    """
+
+    target: str
+    base_url: str
+    role: str = "admin"
+    auth_dir: Path | str = ".auth"
+    username: str = ""
+    password: str = ""
+    captcha: str = ""
+    login_cfg: LoginCfg | None = None
+    click_labels: Sequence[str] = ()
+    headless: bool = False
+    use_builtin_chromium: bool | None = None
+    chrome_path: str | None = None
+    slow_mo: int = 0
+    settle_ms: int = 600
+    brief: bool = False
+    extract_js: str | None = None
 
 
 def extract_summary(page: Page, *, brief: bool = False) -> str:
@@ -76,7 +116,7 @@ def _click_label(page: Page, label: str) -> None:
 
 
 def _resolve_state_file(
-    browser, cfg: LoginCfg, auth_dir: Path, role: str,
+    browser: Browser, cfg: LoginCfg, auth_dir: Path, role: str,
     base_url: str, username: str, password: str, captcha: str,
 ) -> Path:
     """登录态缓存校验与必要时的重登，返回可用的 storage_state 文件路径。
@@ -151,6 +191,9 @@ def run_probe(
     完整流程：登录态缓存（失效且给了账号密码则自动重登）→ 打开页面 →
     依次点击 ``click_labels`` → 注入 JS 提取 → 返回摘要字符串。
 
+    旧签名为兼容外部调用方（CLI、browser-e2e-runner 技能等）保留；
+    编程调用推荐改用 :class:`ProbeOptions` + :func:`run_probe_with`。
+
     Args:
         target: hash 路由（如 ``#/oa/asset``）或完整 URL。
         base_url: 被测系统基础地址（``target`` 非 http 时拼接）。
@@ -175,6 +218,31 @@ def run_probe(
     Returns:
         markdown 摘要字符串（``extract_js`` 时为紧凑 JSON 字符串）。
     """
+    return run_probe_with(ProbeOptions(
+        target=target,
+        base_url=base_url,
+        role=role,
+        auth_dir=auth_dir,
+        username=username,
+        password=password,
+        captcha=captcha,
+        login_cfg=login_cfg,
+        click_labels=click_labels,
+        headless=headless,
+        use_builtin_chromium=use_builtin_chromium,
+        chrome_path=chrome_path,
+        slow_mo=slow_mo,
+        settle_ms=settle_ms,
+        brief=brief,
+        extract_js=extract_js,
+    ))
+
+
+def run_probe_with(opts: ProbeOptions) -> str:
+    """:func:`run_probe` 的参数对象版实现入口。
+
+    流程与异常语义与 :func:`run_probe` 完全一致，参数见 :class:`ProbeOptions`。
+    """
     try:
         from playwright.sync_api import sync_playwright
     except ImportError as exc:  # pragma: no cover - 环境相关
@@ -182,43 +250,44 @@ def run_probe(
             '探针依赖 playwright，请先安装：pip install "baibao[autotest]"',
         ) from exc
 
-    cfg = login_cfg or LoginCfg()
-    auth_dir_path = Path(auth_dir)
+    cfg = opts.login_cfg or LoginCfg()
+    auth_dir_path = Path(opts.auth_dir)
 
     # 内置/本地选择三态：参数显式值 > USE_BUILTIN_CHROMIUM 环境变量 > 自动模式
-    if use_builtin_chromium is None:
+    use_builtin = opts.use_builtin_chromium
+    if use_builtin is None:
         env_val = os.getenv("USE_BUILTIN_CHROMIUM", "").lower()
-        use_builtin_chromium = (
+        use_builtin = (
             True if env_val == "true" else (False if env_val == "false" else None)
         )
     # chrome_path 仅显式传入/环境变量时用；本地链的自动探测交给 launch_browser
     detected = (
-        chrome_path if chrome_path is not None
+        opts.chrome_path if opts.chrome_path is not None
         else (os.getenv("CHROME_PATH") or None)
     )
 
     with sync_playwright() as p:
         browser = launch_browser(
-            p, headless=headless, slow_mo=slow_mo,
-            use_builtin_chromium=use_builtin_chromium, chrome_path=detected,
+            p, headless=opts.headless, slow_mo=opts.slow_mo,
+            use_builtin_chromium=use_builtin, chrome_path=detected,
         )
         try:
             state_file = _resolve_state_file(
-                browser, cfg, auth_dir_path, role,
-                base_url, username, password, captcha,
+                browser, cfg, auth_dir_path, opts.role,
+                opts.base_url, opts.username, opts.password, opts.captcha,
             )
             context = browser.new_context(
-                storage_state=str(state_file), viewport=cfg.viewport,
+                storage_state=str(state_file), viewport=cfg.viewport,  # type: ignore[arg-type]
             )
             try:
-                page = _open_page(context, target, base_url, settle_ms)
+                page = _open_page(context, opts.target, opts.base_url, opts.settle_ms)
 
-                for label in click_labels:
+                for label in opts.click_labels:
                     _click_label(page, label)
 
-                if extract_js is not None:
-                    return _format_custom(page.evaluate(extract_js))
-                return extract_summary(page, brief=brief)
+                if opts.extract_js is not None:
+                    return _format_custom(page.evaluate(opts.extract_js))
+                return extract_summary(page, brief=opts.brief)
             finally:
                 context.close()
         finally:

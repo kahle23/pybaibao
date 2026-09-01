@@ -41,6 +41,7 @@ class BaibaoHelpCommand(HelpCommand):
             f"{commands_text}\n\n"
             f"使用 {self.usage} 查看具体命令的详细用法\n\n"
             f"常用示例:\n"
+            f"    python -m baibao --version            查看版本号\n"
             f"    python -m baibao help pip_install     查看 pip_install 命令的详细用法\n"
             f"    python -m baibao pip_install <包名>   安装指定的 Python 包\n"
             f"    python -m baibao pip_upgrade <包名>   升级指定的 Python 包\n"
