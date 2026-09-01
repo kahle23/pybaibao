@@ -1,16 +1,13 @@
 """
 runner — DOM 摘要探针的编排层。
 
-把一个**已登录**页面压缩成 KB 级 markdown 结构摘要（表单项/表格/按钮/弹窗/
-消息/下拉实际选项），供 AI 在不读整页 HTML 的前提下了解页面结构：
+把一个**已登录**页面压缩成 KB 级 markdown 结构摘要（表单项/表格/按钮/弹窗/ 消息/下拉实际选项），供 AI 在不读整页 HTML 的前提下了解页面结构：
 
-  - :func:`run_probe` — 完整流程入口（登录态缓存 + 浏览器 + 打开页面 + 提取），
-    CLI 与脚本两用。
+  - :func:`run_probe` — 完整流程入口（登录态缓存 + 浏览器 + 打开页面 + 提取），CLI 与脚本两用。
   - :func:`extract_summary` — 在已打开的 ``Page`` 上注入 JS 提取并格式化摘要。
 
-提取脚本见 :mod:`.extract_js`；渲染见 :mod:`.render`；地址规范化见
-:mod:`.url`。选择器知识沿用 :mod:`baibao.autotest.page`（BasePage）的
-Element Plus 约定；点击交互复用真实输入事件（el-select 展开的唯一可靠方式）。
+提取脚本见 :mod:`.extract_js`；渲染见 :mod:`.render`；地址规范化见 :mod:`.url`。
+选择器知识沿用 :mod:`baibao.autotest.page`（BasePage）的 Element Plus 约定；点击交互复用真实输入事件（el-select 展开的唯一可靠方式）。
 
 依赖：playwright（重依赖，按需懒加载，不在模块顶层导入）。
 安装：``pip install "baibao[autotest]"``。
@@ -44,7 +41,8 @@ __all__ = ["ProbeOptions", "extract_summary", "run_probe", "run_probe_with"]
 
 @dataclass
 class ProbeOptions:
-    """探针完整参数集（run_probe 16 参的对象化封装，规范 2.3）。
+    """
+    探针完整参数集（run_probe 16 参的对象化封装，规范 2.3）。
 
     Attributes:
         target: hash 路由（如 ``#/oa/asset``）或完整 URL。
@@ -82,13 +80,16 @@ class ProbeOptions:
 
 
 def extract_summary(page: Page, *, brief: bool = False) -> str:
-    """在已打开的 ``Page`` 上注入 :data:`EXTRACT_JS` 并返回 markdown 摘要。"""
+    """
+    在已打开的 ``Page`` 上注入 :data:`EXTRACT_JS` 并返回 markdown 摘要。
+    """
     data = cast("dict", page.evaluate(EXTRACT_JS))
     return format_summary(data, brief=brief)
 
 
 def _click_label(page: Page, label: str) -> None:
-    """按标签文本点击表单控件（优先 el-select wrapper 的真实点击，用于展开下拉）。
+    """
+    按标签文本点击表单控件（优先 el-select wrapper 的真实点击，用于展开下拉）。
 
     找不到 el-select 时退化为按文本点击可见按钮（触发弹窗/页签等交互后提取）。
     """
@@ -119,10 +120,10 @@ def _resolve_state_file(
     browser: Browser, cfg: LoginCfg, auth_dir: Path, role: str,
     base_url: str, username: str, password: str, captcha: str,
 ) -> Path:
-    """登录态缓存校验与必要时的重登，返回可用的 storage_state 文件路径。
+    """
+    登录态缓存校验与必要时的重登，返回可用的 storage_state 文件路径。
 
-    身份绑定校验：缓存属另一账号/站点时强制重登（防跨账号串用得出错误
-    视角的结论）；缓存失效且缺凭据时报错。
+    身份绑定校验：缓存属另一账号/站点时强制重登（防跨账号串用得出错误视角的结论）；缓存失效且缺凭据时报错。
     """
     state_file = auth_state_path(auth_dir, role)
     if not is_auth_valid(
@@ -142,10 +143,10 @@ def _resolve_state_file(
 
 
 def _open_page(context, target: str, base_url: str, settle_ms: int) -> Page:
-    """在 context 中深链打开目标页并等待就绪（SPA 动态路由 404 自动重试）。
+    """
+    在 context 中深链打开目标页并等待就绪（SPA 动态路由 404 自动重试）。
 
-    动态路由 SPA（如若依）在菜单未注册完时会跳 404：检测到 404 则等待后
-    重新导航，最多 3 轮。长轮询页面到不了 networkidle，接受现状。
+    动态路由 SPA（如若依）在菜单未注册完时会跳 404：检测到 404 则等待后重新导航，最多 3 轮。长轮询页面到不了 networkidle，接受现状。
     """
     page = cast("Page", context.new_page())
     page.set_default_timeout(15000)
@@ -186,10 +187,10 @@ def run_probe(
     brief: bool = False,
     extract_js: str | None = None,
 ) -> str:
-    """打开已登录页面并返回 DOM 摘要（markdown）。
+    """
+    打开已登录页面并返回 DOM 摘要（markdown）。
 
-    完整流程：登录态缓存（失效且给了账号密码则自动重登）→ 打开页面 →
-    依次点击 ``click_labels`` → 注入 JS 提取 → 返回摘要字符串。
+    完整流程：登录态缓存（失效且给了账号密码则自动重登）→ 打开页面 → 依次点击 ``click_labels`` → 注入 JS 提取 → 返回摘要字符串。
 
     旧签名为兼容外部调用方（CLI、browser-e2e-runner 技能等）保留；
     编程调用推荐改用 :class:`ProbeOptions` + :func:`run_probe_with`。
@@ -204,17 +205,14 @@ def run_probe(
         login_cfg: 登录流程配置，默认 :class:`LoginCfg`（若依/RuoYi 风格）。
         click_labels: 提取前依次点击的表单项标签（展开下拉拿实际选项）。
         headless: 是否无头模式，默认 **False（有头）**——用户不强调一律有头。
-        use_builtin_chromium: ``None``（默认）自动模式（内置 Chromium 优先，
-            缺失自动下载，失败回退本地 Chrome → Edge）；``True`` 强制内置；
-            ``False`` 跳过内置走本地链。``USE_BUILTIN_CHROMIUM`` 环境变量
-            （true/false）可覆盖默认。
+        use_builtin_chromium: ``None``（默认）自动模式（内置 Chromium 优先，缺失自动下载，失败回退本地 Chrome → Edge）；``True`` 强制内置；
+            ``False`` 跳过内置走本地链。``USE_BUILTIN_CHROMIUM`` 环境变量（true/false）可覆盖默认。
         chrome_path: 本地 Chrome 路径；为 ``None`` 时按 ``CHROME_PATH`` 环境变量探测。
         slow_mo: 慢放延迟毫秒（调试用）。
         settle_ms: 页面就绪后的额外稳定等待毫秒。
         brief: 超简略模式（只留页面骨架，见 :func:`format_summary`）。
-        extract_js: 自定义提取 JS（表达式或箭头函数均可）——在页面上执行并
-            返回其结果的紧凑 JSON，**替代**内置摘要。配合 ``click_labels``
-            可先交互再取任意局部数据（如整列值、聚合统计）。
+        extract_js: 自定义提取 JS（表达式或箭头函数均可）——在页面上执行并返回其结果的紧凑 JSON，**替代**内置摘要。配合 ``click_labels`` 可先交互再取任意局部数据（如整列值、聚合统计）。
+
     Returns:
         markdown 摘要字符串（``extract_js`` 时为紧凑 JSON 字符串）。
     """
@@ -239,7 +237,8 @@ def run_probe(
 
 
 def run_probe_with(opts: ProbeOptions) -> str:
-    """:func:`run_probe` 的参数对象版实现入口。
+    """
+    :func:`run_probe` 的参数对象版实现入口。
 
     流程与异常语义与 :func:`run_probe` 完全一致，参数见 :class:`ProbeOptions`。
     """

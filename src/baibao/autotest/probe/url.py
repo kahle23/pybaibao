@@ -1,8 +1,7 @@
 """
 url — 探针目标地址规范化（纯函数）。
 
-把 CLI/脚本传入的 ``target``（完整 URL / hash 路由 / 纯路由）规范成
-可直接 ``page.goto`` 的 URL，并拦截 Git Bash (MSYS) 路径转换污染。
+把 CLI/脚本传入的 ``target``（完整 URL / hash 路由 / 纯路由）规范成可直接 ``page.goto`` 的 URL，并拦截 Git Bash (MSYS) 路径转换污染。
 """
 
 from __future__ import annotations
@@ -19,18 +18,17 @@ _MSYS_POLLUTED = re.compile(r"^#?[A-Za-z]:[\\/]")
 
 
 def build_target_url(target: str, base_url: str) -> str:
-    """把 ``target`` 规范成完整 URL。
+    """
+    把 ``target`` 规范成完整 URL。
 
     支持三种写法：
 
       - 完整 URL（``http``/``https`` 开头）原样返回；
       - hash 路由（``#/it-asset``）拼到 ``base_url`` 后；
-      - 纯路由（``it-asset`` 或 ``/it-asset``）自动补 ``#``——**Git Bash 下推荐**，
-        天然免疫 MSYS 参数路径转换。
+      - 纯路由（``it-asset`` 或 ``/it-asset``）自动补 ``#``——**Git Bash 下推荐**，天然免疫 MSYS 参数路径转换。
 
     Raises:
-        RuntimeError: ``target`` 是被 Git Bash MSYS 路径转换污染的形式
-            （如 ``#C:/Program Files/Git/it-asset``）。
+        RuntimeError: ``target`` 是被 Git Bash MSYS 路径转换污染的形式（如 ``#C:/Program Files/Git/it-asset``）。
     """
     if _MSYS_POLLUTED.match(target):
         raise RuntimeError(

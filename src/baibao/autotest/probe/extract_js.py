@@ -1,10 +1,7 @@
 """
 extract_js — 注入页面的 DOM 提取脚本（纯数据，无 Python 逻辑）。
 
-``EXTRACT_JS`` 在已登录页面上执行，返回结构化 dict：可见的 Element Plus
-表单项（label/类型/当前值/placeholder/选项/弹窗作用域）、表格（列头/行数/
-首行）、分页、按钮、打开中的弹窗/抽屉、消息、校验错误、页签、展开中的
-下拉面板（含实际选项）。所有元素经过可见性过滤与截断。
+``EXTRACT_JS`` 在已登录页面上执行，返回结构化 dict：可见的 Element Plus 表单项（label/类型/当前值/placeholder/选项/弹窗作用域）、表格（列头/行数/ 首行）、分页、按钮、打开中的弹窗/抽屉、消息、校验错误、页签、展开中的下拉面板（含实际选项）。所有元素经过可见性过滤与截断。
 
 由 :func:`baibao.autotest.probe.runner.extract_summary` 注入执行；
 渲染见 :mod:`baibao.autotest.probe.render`。

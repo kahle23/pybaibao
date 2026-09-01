@@ -7,8 +7,8 @@ login_state — 登录配置与登录态缓存。
     默认值匹配若依/RuoYi 风格 hash 路由后台（``/#/login``、用户名/密码占位符、验证码）。
     非 RuoYi 站点改字段选择器即可，无需改源码。
   - :func:`do_login` — 按 :class:`LoginCfg` 执行登录 + 等待跳转。
-  - :func:`auth_state_path` / :func:`is_auth_valid` / :func:`save_storage_state` —
-    登录态缓存（storage_state 文件 + TTL，首次登录后复用，默认 12 小时）。
+  - :func:`auth_state_path` / :func:`is_auth_valid` / :func:`save_storage_state` — 登录态缓存。
+    （storage_state 文件 + TTL，首次登录后复用，默认 12 小时）
 
 依赖：playwright（运行时由调用方传入 Page/Browser）。
 """
@@ -37,7 +37,8 @@ __all__ = [
 
 @dataclass
 class LoginCfg:
-    """登录流程配置（数据驱动，适配不同后台）。
+    """
+    登录流程配置（数据驱动，适配不同后台）。
 
     默认值匹配若依/RuoYi 风格 hash 路由后台。非 RuoYi 站点改字段选择器即可。
 
@@ -48,8 +49,7 @@ class LoginCfg:
         login_button_selector: 登录按钮选择器。
         captcha_selectors: 验证码输入框候选选择器（按顺序回退）。
             为空列表表示无验证码。
-        success_url_not_contains: 登录成功后 URL 不再包含的片段
-            （如 ``/login``，用于判断跳转完成）。
+        success_url_not_contains: 登录成功后 URL 不再包含的片段（如 ``/login``，用于判断跳转完成）。
         viewport: 浏览器视口尺寸。
     """
 
@@ -77,7 +77,8 @@ def do_login(
     password: str,
     captcha: str = "",
 ) -> None:
-    """按 :class:`LoginCfg` 执行登录并等待跳转完成。
+    """
+    按 :class:`LoginCfg` 执行登录并等待跳转完成。
 
     Args:
         page: Playwright ``Page`` 实例。
@@ -102,7 +103,9 @@ def do_login(
 
 
 def _fill_captcha(page: Page, cfg: LoginCfg, captcha: str) -> None:
-    """填写验证码（多候选选择器回退）。无候选或都不可见则跳过。"""
+    """
+    填写验证码（多候选选择器回退）。无候选或都不可见则跳过。
+    """
     if not cfg.captcha_selectors:
         return
     for sel in cfg.captcha_selectors:
@@ -116,12 +119,16 @@ def _fill_captcha(page: Page, cfg: LoginCfg, captcha: str) -> None:
 
 
 def auth_state_path(auth_dir: Path, role: str) -> Path:
-    """登录态缓存文件路径：``<auth_dir>/<role>.json``。"""
+    """
+    登录态缓存文件路径：``<auth_dir>/<role>.json``。
+    """
     return auth_dir / f"{role}.json"
 
 
 def _read_auth_meta(path: Path) -> dict | None:
-    """读登录态旁写元数据（``<role>.meta.json``）。不存在/损坏返回 None。"""
+    """
+    读登录态旁写元数据（``<role>.meta.json``）。不存在/损坏返回 None。
+    """
     try:
         return cast("dict | None", json.loads(
             path.with_suffix(".meta.json").read_text(encoding="utf-8"),
@@ -136,14 +143,12 @@ def is_auth_valid(
     username: str | None = None,
     base_url: str | None = None,
 ) -> bool:
-    """登录态缓存是否有效（文件存在、未超 TTL、且身份匹配）。
+    """
+    登录态缓存是否有效（文件存在、未超 TTL、且身份匹配）。
 
-    身份校验：:func:`save_storage_state` 保存登录态时会旁写
-    ``<role>.meta.json``（username/base_url）。调用方传入 ``username``/
-    ``base_url`` 时与 meta 比对，不一致（或 meta 缺失、无法证明同一身份）
-    判无效——否则同一 role 缓存会跨账号串用（典型坑：probe 换
-    ADMIN_USERNAME 后仍拿旧账号登录态，探出错误视角的页面结论，
-    2026-08-28 IMP 实坑）。不传时保持旧行为（仅年龄判断，兼容旧调用方）。
+    身份校验：:func:`save_storage_state` 保存登录态时会旁写 ``<role>.meta.json``（username/base_url）。
+    调用方传入 ``username``/``base_url`` 时与 meta 比对，不一致（或 meta 缺失、无法证明同一身份）判无效——否则同一 role 缓存会跨账号串用。
+    （典型坑：probe 换 ADMIN_USERNAME 后仍拿旧账号登录态，探出错误视角的页面结论，2026-08-28 IMP 实坑）不传时保持旧行为（仅年龄判断，兼容旧调用方）。
 
     Args:
         path: 缓存文件路径。
@@ -175,10 +180,10 @@ def save_storage_state(
     password: str,
     captcha: str = "",
 ) -> str:
-    """登录并保存 storage_state 到缓存文件。
+    """
+    登录并保存 storage_state 到缓存文件。
 
-    组合流程：建临时 context → :func:`do_login` → ``storage_state(path=...)``
-    → 关 context。缓存失效后由调用方重新触发。
+    组合流程：建临时 context → :func:`do_login` → ``storage_state(path=...)`` → 关 context。缓存失效后由调用方重新触发。
 
     Args:
         browser: Playwright ``Browser`` 实例。
@@ -189,6 +194,7 @@ def save_storage_state(
         username: 登录用户名。
         password: 登录密码。
         captcha: 验证码。
+
     Returns:
         缓存文件路径字符串（传给 ``browser.new_context(storage_state=...)``）。
     """

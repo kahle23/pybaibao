@@ -1,14 +1,11 @@
 """
 conftest_template — 角色级 fixture 参考样板（**复制用模板，勿 import**）。
 
-**本文件不是可直接生效的 conftest**，而是参考样板。请**复制本文件内容**
-到你的项目根目录命名为 ``conftest.py``，然后按你的被测系统与角色改造。
-（历史上本文件被误 import 时会在 import 处创建 ``.auth`` 目录，现已去除
-全部模块级副作用，但复制改造仍是唯一正确用法。）
+**本文件不是可直接生效的 conftest**，而是参考样板。请**复制本文件内容** 到你的项目根目录命名为 ``conftest.py``，然后按你的被测系统与角色改造。
+（历史上本文件被误 import 时会在 import 处创建 ``.auth`` 目录，现已去除全部模块级副作用，但复制改造仍是唯一正确用法。）
 
-展示了如何基于 :mod:`baibao.autotest` 的基础设施（``fixtures`` 提供的
-``browser``/``base_url`` 等 + ``core.login_state`` 的 ``LoginCfg``/
-``save_storage_state``）组装角色级 fixture：
+展示了如何基于 :mod:`baibao.autotest` 的基础设施组装角色级 fixture。
+（``fixtures`` 提供的 ``browser``/``base_url`` 等 + ``core.login_state`` 的 ``LoginCfg``/``save_storage_state``）
 
   - ``admin_storage_state`` (session) — 管理员登录态缓存
   - ``admin_page`` (function) — 每个用例独立 context + page（带登录态）
@@ -53,6 +50,9 @@ AUTH_DIR = Path(__file__).resolve().parent / ".auth"
 
 
 def _cfg(key: str, default: str = "") -> str:
+    """
+    读取环境变量配置（登录凭据等）。
+    """
     return os.getenv(key, default)
 
 
@@ -62,7 +62,9 @@ def _cfg(key: str, default: str = "") -> str:
 
 @pytest.fixture(scope="session")
 def admin_storage_state(browser, base_url):
-    """管理员登录态。首次登录后缓存到 ``.auth/admin.json``，12 小时内免登录。"""
+    """
+    管理员登录态。首次登录后缓存到 ``.auth/admin.json``，12 小时内免登录。
+    """
     from baibao.autotest.core.login_state import auth_state_path
 
     state_file = auth_state_path(AUTH_DIR, "admin")
@@ -82,13 +84,13 @@ def admin_storage_state(browser, base_url):
 
 @pytest.fixture()
 def admin_page(browser, admin_storage_state):
-    """已登录管理员的标准页面。
+    """
+    已登录管理员的标准页面。
 
     每个用例独立 context（带登录态），互不污染。用法::
 
         def test_xxx(admin_page):
-            admin_page.goto(...)
-            ...
+            admin_page.goto(...) ...
     """
     context = browser.new_context(
         storage_state=admin_storage_state,
@@ -104,7 +106,9 @@ def admin_page(browser, admin_storage_state):
 
 @pytest.fixture()
 def context(browser, admin_storage_state):
-    """已登录管理员的浏览器上下文（供 ``api_context`` 等使用）。"""
+    """
+    已登录管理员的浏览器上下文（供 ``api_context`` 等使用）。
+    """
     ctx = browser.new_context(
         storage_state=admin_storage_state,
         viewport=LOGIN_CFG.viewport,
@@ -115,7 +119,9 @@ def context(browser, admin_storage_state):
 
 @pytest.fixture()
 def api_context(context):
-    """API 请求上下文（复用登录态 cookie）。供 :class:`baibao.autotest.api.ApiBase` 子类使用。"""
+    """
+    API 请求上下文（复用登录态 cookie）。供 :class:`baibao.autotest.api.ApiBase` 子类使用。
+    """
     return context.request
 
 
@@ -125,7 +131,9 @@ def api_context(context):
 
 @pytest.fixture()
 def asset_management_url(base_url) -> str:
-    """资产管理页面 URL（hash 路由示例）。"""
+    """
+    资产管理页面 URL（hash 路由示例）。
+    """
     return f"{base_url}/#/it-asset"
 
 
@@ -134,12 +142,17 @@ def asset_management_url(base_url) -> str:
 # ---------------------------------------------------------------------------
 
 def pytest_configure(config):
+    """
+    注册业务测试标记（smoke/crud/flow/form/query）。
+    """
     for marker in ["smoke", "crud", "flow", "form", "query"]:
         config.addinivalue_line("markers", f"{marker}: 业务测试标记")
 
 
 def pytest_collection_modifyitems(config, items):
-    """按测试文件名自动分配模块标记。"""
+    """
+    按测试文件名自动分配模块标记。
+    """
     for item in items:
         if "test_crud" in item.nodeid:
             item.add_marker(pytest.mark.crud)

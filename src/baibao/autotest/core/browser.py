@@ -4,9 +4,8 @@ browser — 浏览器启动辅助（内置 Chromium 优先 + 本地浏览器兜�
 提供跨平台的 Google Chrome 路径自动探测，以及基于 Playwright 的浏览器启动封装。
 供 :mod:`baibao.autotest.fixtures` 与用户自定义 conftest 复用。
 
-浏览器选择链（默认自动模式）：Playwright 内置 Chromium（自动化事件兼容性最好，
-缺失自动下载）→ 本地 Chrome → Edge。只启动 Chromium 系（Firefox/WebKit
-内核的 Page 亦可使用本包其余设施，真实输入由 :mod:`.devtools` 按内核分流）。
+浏览器选择链（默认自动模式）：Playwright 内置 Chromium（自动化事件兼容性最好，缺失自动下载）→ 本地 Chrome → Edge。
+只启动 Chromium 系（Firefox/WebKit 内核的 Page 亦可使用本包其余设施，真实输入由 :mod:`.devtools` 按内核分流）。
 """
 
 from __future__ import annotations
@@ -38,7 +37,8 @@ _CHROME_CANDIDATES_MAC = [
 
 
 def detect_chrome_path(chrome_path_env: str | None = None) -> str | None:
-    """自动探测本地 Chrome 路径。
+    """
+    自动探测本地 Chrome 路径。
 
     优先级：
 
@@ -48,6 +48,7 @@ def detect_chrome_path(chrome_path_env: str | None = None) -> str | None:
 
     Args:
         chrome_path_env: 显式指定的 Chrome 路径，为空则跳过。
+
     Returns:
         Chrome 可执行文件路径，未找到返回 ``None``。
     """
@@ -67,12 +68,12 @@ def detect_chrome_path(chrome_path_env: str | None = None) -> str | None:
 
 
 def _install_builtin_kernel(headless: bool) -> bool:
-    """兜底自动安装 Playwright 内置浏览器内核（本地 Chrome/Edge 都缺失时）。
+    """
+    兜底自动安装 Playwright 内置浏览器内核（本地 Chrome/Edge 都缺失时）。
 
     - 无头场景优先只装 ``chromium-headless-shell``（轻量，约完整内核三分之一）；
       playwright < 1.49 不识别 ``--only-shell`` 时降级装完整内核。
-    - 下载源依次尝试：npmmirror 镜像（快，但存在版本同步空洞，如缺 v1208）
-      → 官方源（``cdn.playwright.dev``，实测多数网络可达）。
+    - 下载源依次尝试：npmmirror 镜像（快，但存在版本同步空洞，如缺 v1208）→ 官方源（``cdn.playwright.dev``，实测多数网络可达）。
       ``PLAYWRIGHT_DOWNLOAD_HOST`` 已被显式设置时尊重用户配置，只试该源。
     - 任何失败都返回 False（调用方继续走原始报错），不影响主流程。
     """
@@ -109,30 +110,27 @@ def launch_browser(
     use_builtin_chromium: bool | None = None,
     chrome_path: str | None = None,
 ) -> Browser:
-    """启动浏览器（自管理 Playwright 模式）。
+    """
+    启动浏览器（自管理 Playwright 模式）。
 
-    刻意**不**使用 pytest-playwright 的 ``context``/``page`` fixture，
-    以避免 Element Plus el-select 在弹窗内的事件兼容问题
-    （pytest-playwright 托管的 context 无法可靠触发 Vue pointerdown）。
+    刻意**不**使用 pytest-playwright 的 ``context``/``page`` fixture。
+    原因：Element Plus el-select 在弹窗内的事件兼容问题（pytest-playwright 托管的 context 无法可靠触发 Vue pointerdown）。
 
     浏览器选择链（默认 ``use_builtin_chromium=None`` 自动模式）：
 
       1. **Playwright 内置 Chromium 优先**（自动化事件兼容性最好）；
-         未安装则自动下载（镜像优先、官方回退，
-         ``BAIBAO_BROWSER_AUTO_INSTALL=false`` 关闭）
-      2. 下载失败 → 本地浏览器兜底：显式 ``chrome_path`` → Chrome → Edge
-         （只考虑 Chromium 系，CDP 点击仅 Chromium 支持）
+         未安装则自动下载（镜像优先、官方回退，``BAIBAO_BROWSER_AUTO_INSTALL=false`` 关闭）
+      2. 下载失败 → 本地浏览器兜底：显式 ``chrome_path`` → Chrome → Edge（只考虑 Chromium 系，CDP 点击仅 Chromium 支持）
       3. 都失败 → 抛出带 channel 信息的原始错误
 
     Args:
         playwright: ``sync_playwright().start()`` 返回的 Playwright 实例。
         headless: 是否无头模式，默认 **False（有头）**——用户不强调一律有头。
         slow_mo: 慢放延迟（毫秒），调试用。
-        use_builtin_chromium: ``None``（默认）自动模式（内置优先 → 自动下载
-            → 本地兜底）；``True`` 强制内置（缺失自动下载，失败抛错）；
+        use_builtin_chromium: ``None``（默认）自动模式（内置优先 → 自动下载 → 本地兜底）；``True`` 强制内置（缺失自动下载，失败抛错）；
             ``False`` 跳过内置，直接走本地浏览器链（不触发自动下载）。
-        chrome_path: 本地 Chrome 路径（仅本地链使用）；为 ``None`` 时按
-            channel 自动探测。
+        chrome_path: 本地 Chrome 路径（仅本地链使用）；为 ``None`` 时按 channel 自动探测。
+
     Returns:
         Playwright ``Browser`` 实例，调用方负责 ``browser.close()``。
     """

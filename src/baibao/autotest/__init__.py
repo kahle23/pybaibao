@@ -1,8 +1,7 @@
 """
 autotest — Playwright E2E 测试基础设施。
 
-把日常 Web 自动化测试中反复用到的能力封装成简洁 API：页面对象基类、
-浏览器启动、登录态缓存、接口基类、可选启用的 pytest fixture。
+把日常 Web 自动化测试中反复用到的能力封装成简洁 API：页面对象基类、浏览器启动、登录态缓存、接口基类、可选启用的 pytest fixture。
 
 核心特性：
 
@@ -16,11 +15,11 @@ autotest — Playwright E2E 测试基础设施。
 
 分包结构（旧扁平模块路径由根目录 shim 继续保底）::
 
-    core/    浏览器、登录态、真实输入(devtools)、轮询(polling)、环境工具(envutil)
-    page/    BasePage 页面对象基类
-    api/     ApiBase 接口基类
-    probe/   DOM 摘要探针（extract_js / url / render / runner）
-    fixtures/  opt-in pytest fixture + conftest 样板
+    core/     浏览器、登录态、真实输入(devtools)、轮询(polling)、环境工具(envutil)
+    page/     BasePage 页面对象基类
+    api/      ApiBase 接口基类
+    probe/    DOM 摘要探针（extract_js / url / render / runner）
+    fixtures/ opt-in pytest fixture + conftest 样板
 
 按需从子模块导入，例如::
 

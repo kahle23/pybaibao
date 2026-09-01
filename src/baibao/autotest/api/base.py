@@ -26,7 +26,8 @@ __all__ = ["ApiBase"]
 
 
 class ApiBase:
-    """后端接口基类。
+    """
+    后端接口基类。
 
     通过 Playwright ``APIRequestContext`` 发请求，复用浏览器登录态 cookie。
     子类按业务端点补充方法（参考 ``_post``/``_get``/``_parse_json`` 用法）。
@@ -34,8 +35,7 @@ class ApiBase:
     Args:
         request: Playwright ``APIRequestContext``，通常来自 ``context.request``。
         base_url: API 基础地址，末尾斜杠会被去除。
-        headers: 附加默认请求头（如 token 型项目 ``{"Authorization": token}``），
-            随每个请求发送；cookie 鉴权项目不传即可。
+        headers: 附加默认请求头（如 token 型项目 ``{"Authorization": token}``），随每个请求发送；cookie 鉴权项目不传即可。
     """
 
     def __init__(
@@ -51,7 +51,9 @@ class ApiBase:
     # ------------------------------------------------------------------
 
     def _post(self, path: str, data: dict | None = None) -> APIResponse:
-        """发起 POST 请求（JSON body）并返回响应对象。"""
+        """
+        发起 POST 请求（JSON body）并返回响应对象。
+        """
         import json
 
         resp = self.request.post(
@@ -64,13 +66,17 @@ class ApiBase:
     def _get(
         self, path: str, params: dict | None = None,
     ) -> APIResponse:
-        """发起 GET 请求并返回响应对象。"""
+        """
+        发起 GET 请求并返回响应对象。
+        """
         return self.request.get(
             f"{self.base_url}{path}", params=params or {}, headers=dict(self.headers),
         )
 
     def _parse_json(self, resp: APIResponse) -> dict:
-        """解析响应 JSON。防御式：解析失败时返回原始文本与状态码。"""
+        """
+        解析响应 JSON。防御式：解析失败时返回原始文本与状态码。
+        """
         try:
             return cast("dict", resp.json())
         except Exception:

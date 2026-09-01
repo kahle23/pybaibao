@@ -1,8 +1,7 @@
 """
 render — DOM 摘要的 markdown 渲染（纯函数，无浏览器依赖）。
 
-把 :data:`baibao.autotest.probe.extract_js.EXTRACT_JS` 提取的结构化 dict
-渲染成紧凑 markdown；自定义 JS 的返回值渲染成紧凑 JSON。
+把 :data:`baibao.autotest.probe.extract_js.EXTRACT_JS` 提取的结构化 dict 渲染成紧凑 markdown；自定义 JS 的返回值渲染成紧凑 JSON。
 """
 
 from __future__ import annotations
@@ -16,15 +15,14 @@ MAX_OUTPUT_CHARS = 6000
 
 
 def format_summary(data: dict, *, brief: bool = False) -> str:
-    """把 :data:`EXTRACT_JS` 提取的结构化 dict 渲染成紧凑 markdown。
+    """
+    把 :data:`EXTRACT_JS` 提取的结构化 dict 渲染成紧凑 markdown。
 
     空段落自动省略；整体超过 :data:`MAX_OUTPUT_CHARS` 时硬截断并标注。
 
     Args:
         data: :data:`EXTRACT_JS` 提取的结构化 dict。
-        brief: 超简略模式——只留骨架：表单项的 label/类型/必填/静态选项、
-            表格列头与行数、按钮/弹窗/页签等；去掉当前值、首行样本、
-            分页数据（展开中的下拉选项保留，因为点击是有意为之）。
+        brief: 超简略模式——只留骨架：表单项的 label/类型/必填/静态选项、表格列头与行数、按钮/弹窗/页签等；去掉当前值、首行样本、分页数据（展开中的下拉选项保留，因为点击是有意为之）。
     """
     if brief:
         data = {
@@ -121,7 +119,9 @@ def format_summary(data: dict, *, brief: bool = False) -> str:
 
 
 def _format_custom(result: object) -> str:
-    """把自定义 JS 的返回值渲染成紧凑 JSON（不可序列化时降级 str，超限截断）。"""
+    """
+    把自定义 JS 的返回值渲染成紧凑 JSON（不可序列化时降级 str，超限截断）。
+    """
     try:
         text = json.dumps(result, ensure_ascii=False)
     except TypeError:
