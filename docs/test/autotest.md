@@ -66,7 +66,7 @@ baibao.autotest
 | `baibao.autotest.core.devtools` | `real_click` / `new_session` / `engine_name` | 真实输入与 CDP 会话统一收口（跨内核） |
 | `baibao.autotest.core.polling` | `poll_until` | 通用轮询等待 |
 | `baibao.autotest.api` | `ApiBase` | 后端接口基类：复用浏览器登录态 cookie + 防御式 JSON 解析 |
-| `baibao.autotest.probe` | `run_probe` / `extract_summary` | DOM 摘要探针：页面压缩成 KB 级 markdown（CLI `autotest probe`） |
+| `baibao.autotest.probe` | `run_probe` / `run_probe_with` / `ProbeOptions` / `extract_summary` | DOM 摘要探针：页面压缩成 KB 级 markdown（CLI `autotest probe`） |
 | `baibao.autotest.fixtures` | `browser` / `base_url` / `faker` 等 | opt-in pytest fixture（`pytest_plugins` 启用） |
 | `baibao.autotest.fixtures.conftest_template` | — | 角色级 fixture 参考样板（复制改造，勿 import） |
 
@@ -197,7 +197,8 @@ python -m baibao autotest probe "#/oa/asset" --out summary.md --headless
 单页摘要硬上限 6000 字符（超出截断并标注）。
 
 程序内调用：`from baibao.autotest.probe import run_probe, extract_summary`——
-前者完整流程（含登录态管理），后者在已打开的 `Page` 上直接提取。
+前者完整流程（含登录态管理），后者在已打开的 `Page` 上直接提取；
+参数较多时推荐参数对象版 `from baibao.autotest.probe import ProbeOptions, run_probe_with`。
 
 <br />
 
