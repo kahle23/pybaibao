@@ -6,7 +6,7 @@ EasyOCR 策略实现模块。
 本模块仅负责调用引擎并将结果映射为 :class:`OcrResult`。
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pykunlun.ai.ocr import OcrCfg, OcrEngine, OcrResult
 from pykunlun.system import pip
@@ -108,7 +108,7 @@ class EasyOcr(OcrEngine):
         """获取是否启用 GPU 加速。``True`` 表示启用，``False`` 表示使用 CPU。"""
         return self._gpu
 
-    def _recognize_array(self, image: 'np.ndarray') -> list[OcrResult]:
+    def _recognize_array(self, image: 'np.ndarray[Any, np.dtype[Any]]') -> list[OcrResult]:
         """
         调用 EasyOCR 识别图像数组。
 

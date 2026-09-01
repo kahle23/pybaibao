@@ -29,6 +29,7 @@ autotest = ["playwright>=1.40", "python-dotenv>=1.0", "faker"]
 [tool.mypy]
 python_version = "3.10"
 check_untyped_defs = true
+disallow_any_generics = true
 warn_return_any = true
 warn_unused_configs = true
 

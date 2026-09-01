@@ -7,8 +7,12 @@ filter_row / fill_row_by_cells / select_table_select 依赖 Playwright Page 与�
 
 import inspect
 import unittest
+from typing import TYPE_CHECKING, cast
 
 from baibao.autotest.page import BasePage
+
+if TYPE_CHECKING:
+    from playwright.sync_api import Locator
 
 
 class _Chain:
@@ -100,10 +104,10 @@ class TestBasePageNewMethods(unittest.TestCase):
 
     def test_fill_row_by_cells_callable(self):
         # 不抛异常即通过；真实填值需 browser-e2e-runner 实跑
-        self.bp.fill_row_by_cells(_Chain(), {2: "品名", 4: "款号", 6: "100"})
+        self.bp.fill_row_by_cells(cast("Locator", _Chain()), {2: "品名", 4: "款号", 6: "100"})
 
     def test_select_table_select_callable(self):
-        text = self.bp.select_table_select(_Chain())
+        text = self.bp.select_table_select(cast("Locator", _Chain()))
         self.assertIn("stub", text)
 
 

@@ -123,13 +123,13 @@ class BasePage:
         self.page.wait_for_timeout(settle_ms)
         return wrapper
 
-    def _visible_dropdown_option_center(self, option_text: str, exact: bool = True) -> dict | None:
+    def _visible_dropdown_option_center(self, option_text: str, exact: bool = True) -> dict[str, float] | None:
         """
         在【所有】可见下拉面板中找选项中心坐标。
 
         下拉面板 teleport 到 body 且可能同时存在多个（上一个 select 的面板尚未收起时再展开下一个），只查第一个面板会漏掉真正目标面板里的选项。
         """
-        return cast("dict | None", self.page.evaluate(
+        return cast("dict[str, float] | None", self.page.evaluate(
             """([opt, exact]) => {
                 const dds = Array.from(document.querySelectorAll('.el-select-dropdown'))
                     .filter(d => d.offsetParent !== null);
@@ -146,11 +146,11 @@ class BasePage:
                 return null;
             }""", [option_text, exact]))
 
-    def _get_element_center(self, selector: str) -> dict:
+    def _get_element_center(self, selector: str) -> dict[str, float]:
         """
         获取元素中心坐标。
         """
-        return cast("dict", self.page.eval_on_selector(selector, """el => {
+        return cast("dict[str, float]", self.page.eval_on_selector(selector, """el => {
             const r = el.getBoundingClientRect();
             return {x: r.x + r.width/2, y: r.y + r.height/2};
         }"""))

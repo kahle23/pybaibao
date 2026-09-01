@@ -19,7 +19,7 @@ import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from .envutil import normalize_base_url
 
@@ -66,7 +66,7 @@ class LoginCfg:
         ],
     )
     success_url_not_contains: str = "/login"
-    viewport: dict = field(default_factory=lambda: {"width": 1920, "height": 1080})
+    viewport: dict[str, int] = field(default_factory=lambda: {"width": 1920, "height": 1080})
 
 
 def do_login(
@@ -125,12 +125,12 @@ def auth_state_path(auth_dir: Path, role: str) -> Path:
     return auth_dir / f"{role}.json"
 
 
-def _read_auth_meta(path: Path) -> dict | None:
+def _read_auth_meta(path: Path) -> dict[str, Any] | None:
     """
     读登录态旁写元数据（``<role>.meta.json``）。不存在/损坏返回 None。
     """
     try:
-        return cast("dict | None", json.loads(
+        return cast("dict[str, Any] | None", json.loads(
             path.with_suffix(".meta.json").read_text(encoding="utf-8"),
         ))
     except (OSError, json.JSONDecodeError):

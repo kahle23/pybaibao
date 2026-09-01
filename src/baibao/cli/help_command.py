@@ -4,6 +4,8 @@ Baibao help 命令模块。
 提供 BaibaoHelpCommand，在默认帮助信息基础上补充项目简介与常用命令示例。
 """
 
+from typing import Any
+
 from pykunlun.cli import HelpCommand
 
 
@@ -14,7 +16,7 @@ class BaibaoHelpCommand(HelpCommand):
     重写 full_help_text，在标准帮助文本头部追加项目简介、尾部追加常用命令示例。
     """
 
-    def full_help_text(self, commands: dict) -> str:
+    def full_help_text(self, commands: dict[str, Any]) -> str:
         """
         生成所有命令的帮助文本。
 

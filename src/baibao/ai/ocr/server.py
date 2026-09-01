@@ -31,7 +31,7 @@ import json
 import threading
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pykunlun.ai.ocr import OcrCfg, OcrEngine, OcrResult
 from pykunlun.util import logutil
@@ -178,7 +178,7 @@ def preload_engines(
 
 # region ======== 图片解码 / 工具 ========
 
-def _decode_image_bytes(raw: bytes) -> 'np.ndarray':
+def _decode_image_bytes(raw: bytes) -> 'np.ndarray[Any, np.dtype[Any]]':
     """把原始图片字节解码为 OpenCV 图像数组（BGR）。"""
     import cv2
     import numpy as np
@@ -210,7 +210,7 @@ def _parse_bool(val: object, default: bool = False) -> bool:
     return str(val).strip().lower() in ('1', 'true', 'yes', 'on')
 
 
-def _result_to_dict(r: OcrResult) -> dict:
+def _result_to_dict(r: OcrResult) -> dict[str, Any]:
     """
     将 OcrResult 转为可 JSON 序列化的字典。
 
@@ -276,7 +276,7 @@ def build_app(registry: OcrEngineRegistry, max_image_bytes: int) -> 'bottle.Bott
     app.add_hook('before_request', _on_request_start)
     app.add_hook('after_request', _on_request_end)
 
-    def _err(status: int, message: str) -> dict:
+    def _err(status: int, message: str) -> dict[str, Any]:
         bottle.response.status = status
         bottle.response.content_type = 'application/json; charset=utf-8'
         return {'success': False, 'error': message}
@@ -311,7 +311,7 @@ def build_app(registry: OcrEngineRegistry, max_image_bytes: int) -> 'bottle.Bott
 
         # ---- 2) 解析 engine / details / image ----
         details = False
-        image_input: str | np.ndarray
+        image_input: str | np.ndarray[Any, np.dtype[Any]]
 
         try:
             if ctype.startswith('application/json'):
@@ -380,7 +380,7 @@ def build_app(registry: OcrEngineRegistry, max_image_bytes: int) -> 'bottle.Bott
             log.exception("OCR 识别失败")
             return _err(500, f"OCR 识别失败: {e}")
 
-        resp: dict = {
+        resp: dict[str, Any] = {
             'success': True,
             'engine': engine_type,
             'text': text,

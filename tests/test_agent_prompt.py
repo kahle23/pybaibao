@@ -235,8 +235,9 @@ class TestSave(_PromptStoreTestBase):
         updated = store.save('dup', '标题', 'v2', shared=True, force=True)
         self.assertEqual(updated['action'], 'updated')
         self.assertEqual(updated['row']['content'], 'v2')
-        self.assertEqual(updated['row']['id'],
-                         store.find_by_name('dup', any_owner=True)['id'])
+        dup = store.find_by_name('dup', any_owner=True)
+        assert dup is not None
+        self.assertEqual(updated['row']['id'], dup['id'])
 
     def test_force_overwrite_shared_requires_shared_flag(self):
         alice = self._make_store('alice')
@@ -246,7 +247,9 @@ class TestSave(_PromptStoreTestBase):
             alice.save('shared-tpl', '共享', 'v2', shared=False, force=True)
         # 显式 shared → 允许
         alice.save('shared-tpl', '共享', 'v2', shared=True, force=True)
-        self.assertEqual(alice.find_by_name('shared-tpl')['content'], 'v2')
+        tpl = alice.find_by_name('shared-tpl')
+        assert tpl is not None
+        self.assertEqual(tpl['content'], 'v2')
 
     def test_save_with_bad_block_markers_rejected(self):
         store = self._make_store('alice')
@@ -306,6 +309,7 @@ class TestUpdateForgetTouch(_PromptStoreTestBase):
         store.save('t1', '标题', 'v1')
         self.assertTrue(store.update('t1', {'title': '新标题', 'content': 'v2'}))
         row = store.find_by_name('t1')
+        assert row is not None
         self.assertEqual(row['title'], '新标题')
         self.assertEqual(row['content'], 'v2')
         self.assertEqual(row['updated_by'], 'alice')
@@ -328,7 +332,9 @@ class TestUpdateForgetTouch(_PromptStoreTestBase):
         with self.assertRaises(ValueError):
             store.update('t1', {'content': '正文 <!-- @block:x -->未闭合'})
         # 校验失败不留半更新
-        self.assertEqual(store.find_by_name('t1')['content'], 'v1')
+        row = store.find_by_name('t1')
+        assert row is not None
+        self.assertEqual(row['content'], 'v1')
 
     def test_forget_soft_delete(self):
         store = self._make_store('alice')
@@ -346,7 +352,9 @@ class TestUpdateForgetTouch(_PromptStoreTestBase):
         rid = store.save('t1', '标题', 'v1')['row']['id']
         store.touch(rid)
         store.touch(rid)
-        self.assertEqual(store.find_by_name('t1')['use_count'], 2)
+        row = store.find_by_name('t1')
+        assert row is not None
+        self.assertEqual(row['use_count'], 2)
 
 
 class TestSearchListStats(_PromptStoreTestBase):
@@ -378,6 +386,7 @@ class TestSearchListStats(_PromptStoreTestBase):
     def test_list_tag_filter_and_hot_order(self):
         store = self._make_store('alice')
         doc = store.find_by_name('doc-gen')
+        assert doc is not None
         store.touch(doc['id'])
         rows = store.list_templates()
         self.assertEqual(rows[0]['name'], 'doc-gen')  # use_count=1 排最前
@@ -387,6 +396,7 @@ class TestSearchListStats(_PromptStoreTestBase):
     def test_stats_and_tag_counts(self):
         store = self._make_store('alice')
         api = store.find_by_name('api-test')
+        assert api is not None
         store.touch(api['id'])
         stats = store.stats()
         self.assertEqual(stats[0]['name'], 'api-test')
@@ -402,6 +412,7 @@ class TestAttachParsed(_PromptStoreTestBase):
         store.save('t1', '标题',
                    '正文 {{a}} {{b}}\n<!-- @block:x | default:off | 说明 -->内容<!-- @endblock:x -->')
         row = store.find_by_name('t1')
+        assert row is not None
         self.assertEqual([v['name'] for v in row['vars']], ['a', 'b'])
         self.assertEqual(row['blocks'],
                          [{'name': 'x', 'default_on': False, 'note': '说明'}])
@@ -415,6 +426,7 @@ class TestAttachParsed(_PromptStoreTestBase):
             ('legacy-bad', '历史坏数据', '正文 <!-- @block:x -->未闭合'),
             name='default')
         row = store.find_by_name('legacy-bad')
+        assert row is not None
         self.assertIn('parse_error', row['blocks'][0])
 
 # endregion

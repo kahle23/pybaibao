@@ -21,7 +21,7 @@ import json
 import os
 import urllib.error
 import urllib.request
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from pykunlun.ai.ocr import OcrCfg, OcrEngine, OcrResult
 from pykunlun.util import logutil
@@ -136,7 +136,7 @@ class ServerOcr(OcrEngine):
         # 视为 numpy 数组：需要 opencv 编码
         import cv2
 
-        ok, buf = cv2.imencode('.png', cast('np.ndarray', image))
+        ok, buf = cv2.imencode('.png', cast('np.ndarray[Any, np.dtype[Any]]', image))
         if not ok:
             raise RuntimeError('图像编码为 PNG 失败')
         return base64.b64encode(buf.tobytes()).decode('ascii')
@@ -145,7 +145,7 @@ class ServerOcr(OcrEngine):
 
     # region ======== HTTP 调用 ========
 
-    def _post_ocr(self, image: object) -> dict:
+    def _post_ocr(self, image: object) -> dict[str, Any]:
         """
         把图像 POST 到服务端 ``/ocr``，返回完整响应 dict。
 
@@ -153,7 +153,7 @@ class ServerOcr(OcrEngine):
         :meth:`recognize` 自行拼接。任何网络 / 服务端错误均转为 :class:`RuntimeError`。
         """
         b64 = self._image_to_base64(image)
-        payload: dict = {'image_base64': b64, 'details': True}
+        payload: dict[str, Any] = {'image_base64': b64, 'details': True}
         if self._server_engine:
             payload['engine'] = self._server_engine
 
@@ -174,11 +174,11 @@ class ServerOcr(OcrEngine):
                 f"无法连接 OCR 服务 {self._url}: {e.reason}"
             ) from e
 
-        result: dict = json.loads(body)
+        result: dict[str, Any] = json.loads(body)
         return result
 
     @staticmethod
-    def _details_to_results(details: list) -> list[OcrResult]:
+    def _details_to_results(details: list[Any]) -> list[OcrResult]:
         """把服务端返回的 details 列表映射为 :class:`OcrResult` 列表。"""
         return [
             OcrResult(
@@ -216,7 +216,7 @@ class ServerOcr(OcrEngine):
             raise RuntimeError(f"OCR 服务失败: {result.get('error')}")
         return self._details_to_results(result.get('details') or [])
 
-    def _recognize_array(self, image: 'np.ndarray') -> list[OcrResult]:
+    def _recognize_array(self, image: 'np.ndarray[Any, np.dtype[Any]]') -> list[OcrResult]:
         """
         仅供基类 :meth:`OcrEngine.recognize_and_draw` 走的模板方法入口。
 

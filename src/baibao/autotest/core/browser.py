@@ -14,7 +14,7 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from playwright.sync_api import Browser, Playwright
@@ -134,7 +134,7 @@ def launch_browser(
     Returns:
         Playwright ``Browser`` 实例，调用方负责 ``browser.close()``。
     """
-    launch_kwargs: dict = {"headless": headless}
+    launch_kwargs: dict[str, Any] = {"headless": headless}
     if slow_mo > 0:
         launch_kwargs["slow_mo"] = slow_mo
 

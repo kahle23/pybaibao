@@ -31,18 +31,16 @@ Usage:
 
 from __future__ import annotations
 
-import io
 import os
-import re
 
 __all__ = [
+    "clean_fffd",
+    "clean_fffd_file",
+    "fix_file",
+    "fix_text",
     "looks_mojibake",
     "scan_file",
     "scan_tree",
-    "fix_file",
-    "fix_text",
-    "clean_fffd",
-    "clean_fffd_file",
 ]
 
 
@@ -97,9 +95,7 @@ def _is_weird_char(ch: str) -> bool:
         (0xFE30 <= cp <= 0xFE4F)):   # CJK Compat Forms
         return True
     # 0x9000-0x9FFF: only weird if NOT in gb2312 (excludes common chars like 间/类)
-    if 0x9000 <= cp <= 0x9FFF and not _is_in_gb2312(ch):
-        return True
-    return False
+    return 0x9000 <= cp <= 0x9FFF and not _is_in_gb2312(ch)
 
 
 def _has_consecutive_cjk(text: str, n: int = 2) -> bool:
@@ -141,12 +137,10 @@ def _extract_non_ascii_runs(text: str, min_len: int = 2) -> list[str]:
     of original Chinese often ends up as an isolated 0x3F; treating it as a
     separator breaks byte continuity and prevents restoration.
     """
-    runs = []
-    cur = []
+    runs: list[str] = []
+    cur: list[str] = []
     for ch in text:
-        if _is_non_ascii(ch):
-            cur.append(ch)
-        elif ch == "?" and cur and _is_non_ascii(cur[-1]):
+        if _is_non_ascii(ch) or ch == "?" and cur and _is_non_ascii(cur[-1]):
             cur.append(ch)
         else:
             if len(cur) >= min_len:
@@ -251,9 +245,9 @@ def fix_text(text: str) -> tuple[str, int]:
 def scan_file(path: str) -> tuple[list[tuple[int, str]], int]:
     """Scan one file. Returns (list of (lineno, line), total_lines)."""
     try:
-        with io.open(path, "r", encoding="utf-8") as f:
+        with open(path, "r", encoding="utf-8") as f:
             lines = f.readlines()
-    except (UnicodeDecodeError, IOError):
+    except (OSError, UnicodeDecodeError):
         return [], 0
     suspicious = []
     for i, line in enumerate(lines, 1):
@@ -279,7 +273,7 @@ def scan_tree(root: str, suffix: str = ".java") -> list[tuple[str, list[tuple[in
 
 def fix_file(path: str, dry_run: bool = False) -> int:
     """Fix one file in place. Returns the number of replacements applied."""
-    with io.open(path, "r", encoding="utf-8") as f:
+    with open(path, "r", encoding="utf-8") as f:
         lines = f.readlines()
     total = 0
     new_lines = []
@@ -289,7 +283,7 @@ def fix_file(path: str, dry_run: bool = False) -> int:
         new_lines.append(new_line)
     if total == 0 or dry_run:
         return total
-    with io.open(path, "w", encoding="utf-8", newline="") as f:
+    with open(path, "w", encoding="utf-8", newline="") as f:
         f.writelines(new_lines)
     return total
 
@@ -319,10 +313,9 @@ def clean_fffd(text: str, mode: str = "conservative") -> tuple[str, int]:
     """
     new_text = text
     count = 0
-    if mode == "aggressive":
-        if "\ufffd?" in new_text:
-            new_text = new_text.replace("\ufffd?", "：")
-            count += 1
+    if mode == "aggressive" and "\ufffd?" in new_text:
+        new_text = new_text.replace("\ufffd?", "：")
+        count += 1
     # Drop remaining lone U+FFFD (info already lost, just clean the artifact)
     if "\ufffd" in new_text:
         n_before = len(new_text)
@@ -333,7 +326,7 @@ def clean_fffd(text: str, mode: str = "conservative") -> tuple[str, int]:
 
 def clean_fffd_file(path: str, mode: str = "conservative", dry_run: bool = False) -> int:
     """Clean U+FFFD residuals in one file. Returns total replacements."""
-    with io.open(path, "r", encoding="utf-8") as f:
+    with open(path, "r", encoding="utf-8") as f:
         lines = f.readlines()
     total = 0
     new_lines = []
@@ -343,6 +336,6 @@ def clean_fffd_file(path: str, mode: str = "conservative", dry_run: bool = False
         new_lines.append(new_line)
     if total == 0 or dry_run:
         return total
-    with io.open(path, "w", encoding="utf-8", newline="") as f:
+    with open(path, "w", encoding="utf-8", newline="") as f:
         f.writelines(new_lines)
     return total

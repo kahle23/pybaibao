@@ -295,12 +295,12 @@ class AgentTaskCommand(Command):
                       or cfg.get('agent_name'))
         return session_id, agent_name
 
-    def _emit(self, ctx: CliContext, rows: list[dict], fmt: str) -> None:
+    def _emit(self, ctx: CliContext, rows: list[dict[str, Any]], fmt: str) -> None:
         ctx.print_delim()
         self._format_result(rows, fmt)
         ctx.print_delim()
 
-    def _emit_one(self, ctx: CliContext, row: dict, fmt: str) -> None:
+    def _emit_one(self, ctx: CliContext, row: dict[str, Any], fmt: str) -> None:
         """输出单个对象（非列表，如续跑上下文包）为一段 JSON。
 
         ``fmt='jsonl'`` 单行（省 token，可整体 ``json.loads`` 解析）；
@@ -313,7 +313,7 @@ class AgentTaskCommand(Command):
             print(json.dumps(row, ensure_ascii=False, indent=2, cls=_CustomEncoder))
         ctx.print_delim()
 
-    def _format_result(self, rows: list[dict], fmt: str) -> None:
+    def _format_result(self, rows: list[dict[str, Any]], fmt: str) -> None:
         if not rows:
             log.info("结果为空")
             return
@@ -332,7 +332,7 @@ class AgentTaskCommand(Command):
                 print(json.dumps(row, ensure_ascii=False, cls=_CustomEncoder))
 
     @staticmethod
-    def _print_table(rows: list[dict]) -> None:
+    def _print_table(rows: list[dict[str, Any]]) -> None:
         columns = list(rows[0].keys())
         widths = {c: max(len(str(c)), max(len(str(r.get(c, ''))) for r in rows)) for c in columns}
         header = ' | '.join(str(c).ljust(widths[c]) for c in columns)
@@ -343,8 +343,8 @@ class AgentTaskCommand(Command):
         print(f"\n共 {len(rows)} 条记录")
 
     @staticmethod
-    def _apply_snippet(rows: list[dict], limit: int,
-                       fields: tuple[str, ...] = ('goal',)) -> list[dict]:
+    def _apply_snippet(rows: list[dict[str, Any]], limit: int,
+                       fields: tuple[str, ...] = ('goal',)) -> list[dict[str, Any]]:
         """对 rows 的指定长字段做预览截断（省 AI 上下文）。
 
         折叠空白（含换行）为单行预览；超 limit 则截断并追加 ``…（+N 字，--full 看全文）``。
@@ -598,7 +598,7 @@ class AgentTaskCommand(Command):
             return False
         log.info("run %s 已成功收口", ns.run_id)
         run = mgr.get_run(ns.run_id)
-        if run is not None:
+        if run is not None and run.task_id is not None:
             step_row = next((s for s in mgr.list_steps(run.task_id)
                              if s.get('id') == run.step_id), None)
             if step_row is not None:

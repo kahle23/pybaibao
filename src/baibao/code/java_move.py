@@ -31,19 +31,19 @@ Usage:
 
 from __future__ import annotations
 
-import io
 import os
 import re
-from typing import Iterable, NamedTuple, Sequence
+from collections.abc import Iterable, Sequence
+from typing import NamedTuple
 
 __all__ = [
     "JavaMove",
-    "path_to_fqcn",
     "derive_package",
-    "update_package_declaration",
-    "update_imports_in_tree",
-    "move_java_file",
     "move_java_batch",
+    "move_java_file",
+    "path_to_fqcn",
+    "update_imports_in_tree",
+    "update_package_declaration",
 ]
 
 
@@ -70,8 +70,7 @@ class JavaMove(NamedTuple):
 def path_to_fqcn(relpath: str) -> str:
     """``store/code/csv/ApacheCsvDemo.java`` -> ``store.code.csv.ApacheCsvDemo``."""
     p = relpath.replace("\\", "/").lstrip("/")
-    if p.endswith(".java"):
-        p = p[:-5]
+    p = p.removesuffix(".java")
     return p.replace("/", ".")
 
 
@@ -87,7 +86,7 @@ def update_package_declaration(file_path: str, new_package: str) -> bool:
 
     Returns True if the file was actually changed.
     """
-    with io.open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
     new_content = _PKG_RE.sub(
         lambda m: m.group(1) + new_package + m.group(3),
@@ -95,7 +94,7 @@ def update_package_declaration(file_path: str, new_package: str) -> bool:
         count=1,
     )
     if new_content != content:
-        with io.open(file_path, "w", encoding="utf-8", newline="") as f:
+        with open(file_path, "w", encoding="utf-8", newline="") as f:
             f.write(new_content)
         return True
     return False
@@ -118,7 +117,7 @@ def update_imports_in_tree(src_root: str, old_fqcn: str, new_fqcn: str) -> int:
             if not name.endswith(".java"):
                 continue
             full = os.path.join(dirpath, name)
-            with io.open(full, "r", encoding="utf-8") as f:
+            with open(full, "r", encoding="utf-8") as f:
                 content = f.read()
             new_content = content
             if old_imp in new_content:
@@ -127,7 +126,7 @@ def update_imports_in_tree(src_root: str, old_fqcn: str, new_fqcn: str) -> int:
             if old_fqcn in new_content and old_imp not in new_content:
                 new_content = fqcn_pattern.sub(new_fqcn, new_content)
             if new_content != content:
-                with io.open(full, "w", encoding="utf-8", newline="") as f:
+                with open(full, "w", encoding="utf-8", newline="") as f:
                     f.write(new_content)
                 changed += 1
     return changed
@@ -182,14 +181,14 @@ def move_java_file(
     dest_dir = os.path.dirname(dest_file)
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
-    with io.open(src_file, "r", encoding="utf-8") as f:
+    with open(src_file, "r", encoding="utf-8") as f:
         content = f.read()
     new_content = _PKG_RE.sub(
         lambda m: m.group(1) + new_package + m.group(3),
         content,
         count=1,
     )
-    with io.open(dest_file, "w", encoding="utf-8", newline="") as f:
+    with open(dest_file, "w", encoding="utf-8", newline="") as f:
         f.write(new_content)
     os.remove(src_file)
     for root in src_roots:
@@ -216,7 +215,7 @@ def move_java_batch(
             log.warning("[SKIP] source not found: %s", m.src_relpath)
             skipped += 1
             continue
-        src_file, src_root = found
+        _, src_root = found
         target_root = m.dest_root if m.dest_root else src_root
         log.info("[MOVE] %s (%s) -> %s (%s)",
                  m.src_relpath, os.path.basename(src_root),

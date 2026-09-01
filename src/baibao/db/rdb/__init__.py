@@ -29,6 +29,7 @@ sqlite 备份使用内置 sqlite3 的 :class:`~pykunlun.db.SqliteBackupService`�
 
 import json
 import logging
+from typing import Any
 
 from pykunlun.db import (
     RdbBackupService,
@@ -68,7 +69,7 @@ def _config_loader(manager: RdbManager, name: str) -> None:
     try:
         content = fileutil.read_text(".baibao/rdb.config",
                            search_dirs=[ResolveType.CURRENT, ResolveType.USER])
-        config: dict[str, dict] = json.loads(content)
+        config: dict[str, dict[str, Any]] = json.loads(content)
         for n, cfg_data in config.items():
             cfg = RdbCfg(**cfg_data)
             manager.register(n, cfg)

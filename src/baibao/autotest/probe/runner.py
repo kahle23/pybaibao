@@ -19,7 +19,7 @@ import os
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from ..core.browser import launch_browser
 from ..core.devtools import real_click
@@ -83,7 +83,7 @@ def extract_summary(page: Page, *, brief: bool = False) -> str:
     """
     在已打开的 ``Page`` 上注入 :data:`EXTRACT_JS` 并返回 markdown 摘要。
     """
-    data = cast("dict", page.evaluate(EXTRACT_JS))
+    data = cast("dict[str, Any]", page.evaluate(EXTRACT_JS))
     return format_summary(data, brief=brief)
 
 

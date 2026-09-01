@@ -329,12 +329,12 @@ class AgentPromptCommand(Command):
                                 choices=['json', 'jsonl', 'csv', 'table'], default='jsonl',
                                 help='输出格式（默认: jsonl）')
 
-    def _emit(self, ctx: CliContext, rows: list[dict], fmt: str) -> None:
+    def _emit(self, ctx: CliContext, rows: list[dict[str, Any]], fmt: str) -> None:
         ctx.print_delim()
         self._format_result(rows, fmt)
         ctx.print_delim()
 
-    def _format_result(self, rows: list[dict], fmt: str) -> None:
+    def _format_result(self, rows: list[dict[str, Any]], fmt: str) -> None:
         if not rows:
             log.info("结果为空")
             return
@@ -353,7 +353,7 @@ class AgentPromptCommand(Command):
                 print(json.dumps(row, ensure_ascii=False, cls=_CustomEncoder))
 
     @staticmethod
-    def _print_table(rows: list[dict]) -> None:
+    def _print_table(rows: list[dict[str, Any]]) -> None:
         columns = list(rows[0].keys())
         widths = {c: max(len(str(c)), max(len(str(r.get(c, ''))) for r in rows)) for c in columns}
         header = ' | '.join(str(c).ljust(widths[c]) for c in columns)
@@ -364,7 +364,7 @@ class AgentPromptCommand(Command):
         print(f"\n共 {len(rows)} 条记录")
 
     @staticmethod
-    def _apply_snippet(rows: list[dict], limit: int) -> list[dict]:
+    def _apply_snippet(rows: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
         """对 rows 的 content 做预览截断（list/search 用，节省 AI 上下文）。
 
         折叠空白（含换行）为单行预览；超 limit 则截断并追加内联指示

@@ -42,7 +42,7 @@ from pykunlun.util import logutil
 
 from baibao.db.rdb import rdb_mgr
 
-from .schema import TABLES, ddl, _sql_str
+from .schema import TABLES, _sql_str, ddl
 
 log = logutil.getLogger(__name__)
 

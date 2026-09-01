@@ -165,7 +165,7 @@ class OcrCommand(Command):
         )
 
     @staticmethod
-    def _result_to_dict(r: OcrResult) -> dict:
+    def _result_to_dict(r: OcrResult) -> dict[str, Any]:
         """将 OcrResult 转为可 JSON 序列化的字典。"""
         return {
             "text": r.text,

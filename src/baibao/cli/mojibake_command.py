@@ -144,7 +144,7 @@ class MojibakeCommand(Command):
         sus, total = scan_file(path)
         has_fffd = self._file_has_fffd(path)
         if not sus and not (clean_mode and has_fffd):
-            print("[OK] {}".format(path))
+            print(f"[OK] {path}")
             return True
         if fix:
             cnt = fix_file(path, dry_run=dry_run)
@@ -157,11 +157,11 @@ class MojibakeCommand(Command):
             print("[{}] {} : {} U+FFFD {}".format(
                 "DRY-RUN" if dry_run else "CLEAN", path, cnt, action))
         if not fix and not clean_mode and sus:
-            print("[WARN] {} ({}/{}):".format(path, len(sus), total))
+            print(f"[WARN] {path} ({len(sus)}/{total}):")
             for lineno, line in sus[:5]:
-                print("  L{}: {}".format(lineno, line[:120]))
+                print(f"  L{lineno}: {line[:120]}")
             if len(sus) > 5:
-                print("  ... and {} more".format(len(sus) - 5))
+                print(f"  ... and {len(sus) - 5} more")
         return True
 
     def _process_tree(self, root: str, suffixes: list[str], fix: bool,
@@ -180,7 +180,7 @@ class MojibakeCommand(Command):
                     if self._file_has_fffd(full):
                         targets.add(full)
         if not targets:
-            print("[OK] No mojibake/U+FFFD found under: {}".format(root))
+            print(f"[OK] No mojibake/U+FFFD found under: {root}")
             return True
         print("[{}] Processing {} file(s):\n".format(
             "DRY-RUN" if dry_run else ("FIX/CLEAN" if (fix or clean_mode) else "WARN"),
@@ -195,12 +195,12 @@ class MojibakeCommand(Command):
                 grand_clean += cnt
             if not fix and not clean_mode:
                 sus, total = scan_file(path)
-                print("=== {} ({}/{}) ===".format(path, len(sus), total))
+                print(f"=== {path} ({len(sus)}/{total}) ===")
                 for lineno, line in sus[:5]:
-                    print("  L{}: {}".format(lineno, line[:120]))
+                    print(f"  L{lineno}: {line[:120]}")
                 if len(sus) > 5:
-                    print("  ... and {} more".format(len(sus) - 5))
-                print("")
+                    print(f"  ... and {len(sus) - 5} more")
+                print()
         if fix or clean_mode:
             parts = []
             if fix:
@@ -215,5 +215,5 @@ class MojibakeCommand(Command):
         try:
             with open(path, "r", encoding="utf-8") as f:
                 return "\ufffd" in f.read()
-        except (UnicodeDecodeError, IOError):
+        except (OSError, UnicodeDecodeError):
             return False

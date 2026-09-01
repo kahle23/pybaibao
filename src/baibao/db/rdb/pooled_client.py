@@ -140,7 +140,7 @@ class PooledDBClient(RdbClient):
         return _SingleConnectionProxy(self._connection)
 
     def query(self, sql: str, params: tuple[Any, ...] | None = None,
-              converters: dict[type, Callable[[Any], Any]] | None = None) -> list[dict]:
+              converters: dict[type, Callable[[Any], Any]] | None = None) -> list[dict[str, Any]]:
         """
         执行查询（连接池/单连接版）。
 

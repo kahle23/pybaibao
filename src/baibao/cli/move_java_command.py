@@ -34,7 +34,6 @@ CSV 文件示例（moves.csv）：
 
 import argparse
 import os
-import sys
 from typing import Any
 
 from pykunlun.cli import CliContext, Command
@@ -161,5 +160,5 @@ class MoveJavaCommand(Command):
             log.warning("映射文件中没有有效条目: %s", csv_path)
             return False
         log.info("从 %s 加载了 %d 条迁移条目", csv_path, len(moves))
-        ok, skipped = move_java_batch(moves, src_roots, dry_run=dry_run)
+        ok, _skipped = move_java_batch(moves, src_roots, dry_run=dry_run)
         return ok > 0

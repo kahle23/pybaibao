@@ -115,7 +115,7 @@ class PaddleOcrV2(OcrEngine):
         """获取是否启用角度分类器。"""
         return self._use_angle_cls
 
-    def _recognize_array(self, image: 'np.ndarray') -> list[OcrResult]:
+    def _recognize_array(self, image: 'np.ndarray[Any, np.dtype[Any]]') -> list[OcrResult]:
         """
         调用 paddleocr 2.x 识别图像数组。
 
@@ -226,7 +226,7 @@ class PaddleOcrV3(OcrEngine):
         """获取是否启用文本行方向分类。"""
         return self._use_textline_orientation
 
-    def _recognize_array(self, image: 'np.ndarray') -> list[OcrResult]:
+    def _recognize_array(self, image: 'np.ndarray[Any, np.dtype[Any]]') -> list[OcrResult]:
         """
         调用 paddleocr 3.x 识别图像数组。
 
@@ -353,7 +353,7 @@ class PaddleOcr(OcrEngine):
         """获取底层实现配置的语言代码。"""
         return self._delegate.lang
 
-    def _recognize_array(self, image: 'np.ndarray') -> list[OcrResult]:
+    def _recognize_array(self, image: 'np.ndarray[Any, np.dtype[Any]]') -> list[OcrResult]:
         """转发给底层 V2 / V3 实现。"""
         return self._delegate._recognize_array(image)
 

@@ -5,6 +5,7 @@
 """
 
 import unittest
+from typing import TYPE_CHECKING, cast
 from unittest.mock import patch
 
 import baibao.autotest as at
@@ -13,6 +14,9 @@ from baibao.autotest.core.envutil import normalize_base_url
 from baibao.autotest.core.polling import poll_until
 from baibao.autotest.probe import ProbeOptions, run_probe
 from baibao.autotest.probe import runner as probe_runner
+
+if TYPE_CHECKING:
+    from playwright.sync_api import Page
 
 
 class TestPollUntil(unittest.TestCase):
@@ -42,7 +46,7 @@ class TestPollUntil(unittest.TestCase):
         self.assertGreaterEqual(len(calls), 2)  # 至少执行一轮，超时前有间隔
 
     def test_custom_sleep_ms(self):
-        slept = []
+        slept: list[int] = []
         poll_until(lambda: None, timeout_ms=30, interval_ms=10, sleep_ms=slept.append)
         self.assertIn(10, slept)
 
@@ -108,16 +112,16 @@ class TestDevtools(unittest.TestCase):
     """devtools：真实输入按内核分流 + CDP 会话守卫。"""
 
     def test_engine_name(self):
-        self.assertEqual(engine_name(_FakePage("chromium")), "chromium")
-        self.assertEqual(engine_name(_FakePage("firefox")), "firefox")
-        self.assertEqual(engine_name(_FakePage("webkit")), "webkit")
+        self.assertEqual(engine_name(cast("Page", _FakePage("chromium"))), "chromium")
+        self.assertEqual(engine_name(cast("Page", _FakePage("firefox"))), "firefox")
+        self.assertEqual(engine_name(cast("Page", _FakePage("webkit"))), "webkit")
 
     def test_engine_name_browser_none_defaults_chromium(self):
-        self.assertEqual(engine_name(_FakePage("x", browser_none=True)), "chromium")
+        self.assertEqual(engine_name(cast("Page", _FakePage("x", browser_none=True))), "chromium")
 
     def test_real_click_chromium_sends_cdp_sequence(self):
         page = _FakePage("chromium")
-        real_click(page, 10, 20)
+        real_click(cast("Page", page), 10, 20)
         cdp = page._cdp
         self.assertEqual(
             [p["type"] for _, p in cdp.sent],
@@ -130,18 +134,18 @@ class TestDevtools(unittest.TestCase):
 
     def test_real_click_firefox_uses_mouse_sequence(self):
         page = _FakePage("firefox")
-        real_click(page, 5, 6)
+        real_click(cast("Page", page), 5, 6)
         self.assertEqual(page.mouse.calls, [("move", 5, 6), ("down",), ("up",)])
         self.assertEqual(page._cdp.sent, [])  # Firefox 不碰 CDP
 
     def test_new_session_non_chromium_rejected(self):
         for engine in ("firefox", "webkit"):
             with self.assertRaises(NotImplementedError):
-                new_session(_FakePage(engine))
+                new_session(cast("Page", _FakePage(engine)))
 
     def test_new_session_chromium_ok(self):
         page = _FakePage("chromium")
-        self.assertIs(new_session(page), page._cdp)
+        self.assertIs(new_session(cast("Page", page)), page._cdp)
 
 
 class TestProbeOptions(unittest.TestCase):

@@ -15,7 +15,7 @@ base — 后端接口基类 ApiBase。
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from ..core.envutil import normalize_base_url
 
@@ -50,7 +50,7 @@ class ApiBase:
     # 内部辅助
     # ------------------------------------------------------------------
 
-    def _post(self, path: str, data: dict | None = None) -> APIResponse:
+    def _post(self, path: str, data: dict[str, Any] | None = None) -> APIResponse:
         """
         发起 POST 请求（JSON body）并返回响应对象。
         """
@@ -64,7 +64,7 @@ class ApiBase:
         return resp
 
     def _get(
-        self, path: str, params: dict | None = None,
+        self, path: str, params: dict[str, Any] | None = None,
     ) -> APIResponse:
         """
         发起 GET 请求并返回响应对象。
@@ -73,11 +73,11 @@ class ApiBase:
             f"{self.base_url}{path}", params=params or {}, headers=dict(self.headers),
         )
 
-    def _parse_json(self, resp: APIResponse) -> dict:
+    def _parse_json(self, resp: APIResponse) -> dict[str, Any]:
         """
         解析响应 JSON。防御式：解析失败时返回原始文本与状态码。
         """
         try:
-            return cast("dict", resp.json())
+            return cast("dict[str, Any]", resp.json())
         except Exception:
             return {"_rawText": resp.text(), "_status": resp.status}

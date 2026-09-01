@@ -1,12 +1,13 @@
 """probe 渲染与 URL 规范化的单元测试（format_summary 纯函数：渲染/截断/空页面兜底）。"""
 
 import unittest
+from typing import Any
 
 from baibao.autotest.probe import MAX_OUTPUT_CHARS, build_target_url, format_summary
 from baibao.autotest.probe.render import _format_custom
 
 
-def _sample_data(**overrides) -> dict:
+def _sample_data(**overrides) -> dict[str, Any]:
     """最小可渲染样本（probe 真实返回结构的子集）。"""
     data = {
         "title": "资产管理",

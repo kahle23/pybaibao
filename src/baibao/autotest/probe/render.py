@@ -7,6 +7,7 @@ render — DOM 摘要的 markdown 渲染（纯函数，无浏览器依赖）。
 from __future__ import annotations
 
 import json
+from typing import Any
 
 __all__ = ["MAX_OUTPUT_CHARS", "format_summary"]
 
@@ -14,7 +15,7 @@ __all__ = ["MAX_OUTPUT_CHARS", "format_summary"]
 MAX_OUTPUT_CHARS = 6000
 
 
-def format_summary(data: dict, *, brief: bool = False) -> str:
+def format_summary(data: dict[str, Any], *, brief: bool = False) -> str:
     """
     把 :data:`EXTRACT_JS` 提取的结构化 dict 渲染成紧凑 markdown。
 

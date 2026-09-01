@@ -120,7 +120,7 @@ class AgentImageAdapter:
         """默认会话库路径。子类按 agent 的约定返回。"""
         raise NotImplementedError
 
-    def fetch_latest_sql(self, max_age_sec: int) -> tuple[str, tuple]:
+    def fetch_latest_sql(self, max_age_sec: int) -> tuple[str, tuple[Any, ...]]:
         """
         构造"取最新一条图片记录"的 SQL 与参数。
 
@@ -132,11 +132,11 @@ class AgentImageAdapter:
         """
         raise NotImplementedError
 
-    def list_sql(self) -> tuple[str, tuple]:
+    def list_sql(self) -> tuple[str, tuple[Any, ...]]:
         """构造"列最近若干条图片记录"的 SQL 与参数（供 ``--list``）。"""
         raise NotImplementedError
 
-    def parse_row(self, row: dict) -> tuple[str, str | None]:
+    def parse_row(self, row: dict[str, Any]) -> tuple[str, str | None]:
         """
         从查询行解析出图片信息。
 
@@ -148,7 +148,7 @@ class AgentImageAdapter:
         """
         raise NotImplementedError
 
-    def format_list_row(self, row: dict, now_ms: float) -> str:
+    def format_list_row(self, row: dict[str, Any], now_ms: float) -> str:
         """
         列表模式下单行的可读格式（``--list`` 输出）。
 
@@ -180,7 +180,7 @@ class AgentImageAdapter:
             return None
         return self.parse_row(rows[0])
 
-    def list_recent(self, mgr: RdbManager, instance_name: str) -> list[dict]:
+    def list_recent(self, mgr: RdbManager, instance_name: str) -> list[dict[str, Any]]:
         """返回最近若干条图片记录（字典列表）。"""
         sql, params = self.list_sql()
         return mgr.query(sql, params or None, name=instance_name)
@@ -200,13 +200,13 @@ class _OpencodeAdapter(AgentImageAdapter):
     def default_db_path(self) -> str:
         return os.path.join(os.path.expanduser("~"), ".local", "share", "opencode", "opencode.db")
 
-    def fetch_latest_sql(self, max_age_sec: int) -> tuple[str, tuple]:
+    def fetch_latest_sql(self, max_age_sec: int) -> tuple[str, tuple[Any, ...]]:
         sql = (
             "SELECT data, time_created FROM part "
             "WHERE json_extract(data,'$.type')='file' "
             "AND json_extract(data,'$.mime') LIKE 'image/%'"
         )
-        params: tuple = ()
+        params: tuple[Any, ...] = ()
         if max_age_sec and max_age_sec > 0:
             threshold_ms = time.time() * 1000 - max_age_sec * 1000
             sql += " AND time_created >= ?"
@@ -214,7 +214,7 @@ class _OpencodeAdapter(AgentImageAdapter):
         sql += " ORDER BY time_created DESC LIMIT 1"
         return sql, params
 
-    def list_sql(self) -> tuple[str, tuple]:
+    def list_sql(self) -> tuple[str, tuple[Any, ...]]:
         return (
             """SELECT time_created, session_id,
                       json_extract(data,'$.mime') AS mime,
@@ -227,7 +227,7 @@ class _OpencodeAdapter(AgentImageAdapter):
             (),
         )
 
-    def parse_row(self, row: dict) -> tuple[str, str | None]:
+    def parse_row(self, row: dict[str, Any]) -> tuple[str, str | None]:
         data = json.loads(row["data"])
         return data.get("url", ""), data.get("mime")
 
