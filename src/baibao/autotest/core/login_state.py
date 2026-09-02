@@ -118,16 +118,19 @@ def _fill_captcha(page: Page, cfg: LoginCfg, captcha: str) -> None:
             continue
 
 
-def auth_state_path(auth_dir: Path, role: str) -> Path:
+def auth_state_path(auth_dir: Path, account: str) -> Path:
     """
-    登录态缓存文件路径：``<auth_dir>/<role>.json``。
+    登录态缓存文件路径：``<auth_dir>/<account>.json``。
+
+    ``account`` 是**登录态槽位**（一个命名槽同一时刻绑定一个账号身份），
+    不是系统权限角色——多账号并存用不同 account 名（如 ``admin``/``a``/``b``）。
     """
-    return auth_dir / f"{role}.json"
+    return auth_dir / f"{account}.json"
 
 
 def _read_auth_meta(path: Path) -> dict[str, Any] | None:
     """
-    读登录态旁写元数据（``<role>.meta.json``）。不存在/损坏返回 None。
+    读登录态旁写元数据（``<account>.meta.json``）。不存在/损坏返回 None。
     """
     try:
         return cast("dict[str, Any] | None", json.loads(
@@ -146,8 +149,8 @@ def is_auth_valid(
     """
     登录态缓存是否有效（文件存在、未超 TTL、且身份匹配）。
 
-    身份校验：:func:`save_storage_state` 保存登录态时会旁写 ``<role>.meta.json``（username/base_url）。
-    调用方传入 ``username``/``base_url`` 时与 meta 比对，不一致（或 meta 缺失、无法证明同一身份）判无效——否则同一 role 缓存会跨账号串用。
+    身份校验：:func:`save_storage_state` 保存登录态时会旁写 ``<account>.meta.json``（username/base_url）。
+    调用方传入 ``username``/``base_url`` 时与 meta 比对，不一致（或 meta 缺失、无法证明同一身份）判无效——否则同一 account 槽位会跨账号串用。
     （典型坑：probe 换 ADMIN_USERNAME 后仍拿旧账号登录态，探出错误视角的页面结论，2026-08-28 IMP 实坑）不传时保持旧行为（仅年龄判断，兼容旧调用方）。
 
     Args:
@@ -174,7 +177,7 @@ def save_storage_state(
     browser: Browser,
     cfg: LoginCfg,
     auth_dir: Path,
-    role: str,
+    account: str,
     base_url: str,
     username: str,
     password: str,
@@ -189,7 +192,8 @@ def save_storage_state(
         browser: Playwright ``Browser`` 实例。
         cfg: 登录配置。
         auth_dir: 缓存目录（不存在则创建）。
-        role: 角色名（用于文件命名，如 ``admin``/``employee1``）。
+        account: 账号名——**登录态槽位**（用于文件命名，如 ``admin``/``a``/``b``），
+            非系统权限角色；一个槽位同一时刻绑定一个账号身份，换账号由身份校验触发重登覆盖。
         base_url: 被测系统基础地址。
         username: 登录用户名。
         password: 登录密码。
@@ -199,7 +203,7 @@ def save_storage_state(
         缓存文件路径字符串（传给 ``browser.new_context(storage_state=...)``）。
     """
     auth_dir.mkdir(parents=True, exist_ok=True)
-    state_file = auth_state_path(auth_dir, role)
+    state_file = auth_state_path(auth_dir, account)
 
     context = browser.new_context(viewport=cfg.viewport)  # type: ignore[arg-type]
     page = context.new_page()

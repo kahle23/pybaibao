@@ -5,7 +5,7 @@ OCR 命令 - 识别图片中的文字。
 默认输出纯文本，便于脚本与无视觉能力的模型直接消费识别结果。
 
 使用方式：
-    python -m baibao ocr <图片路径>                                  默认 easy 引擎
+    python -m baibao ocr <图片路径>                                  默认 rapid 引擎（轻量本地）
     python -m baibao ocr <图片路径> --engine paddle                  PaddleOCR（中文精度更高）
     python -m baibao ocr <图片路径> --engine paddle --lang en         英文识别
     python -m baibao ocr <图片路径> --engine paddle --cpu-threads 8   多线程 CPU 推理
@@ -28,20 +28,23 @@ log = logutil.getLogger(__name__)
 
 # 支持的引擎类型。引擎构造与参数映射统一收敛在 build_ocr_engine，
 # 本命令只负责解析参数、组装 OcrCfg、调用工厂。
-# - easy    : EasyOCR（命令默认）
-# - paddle  : PaddleOcr 自动分发器（按已装 paddleocr 版本选 V2/V3）
+# - rapid   : RapidOCR（命令默认）：rapidocr + onnxruntime，约 30MB 内置 PP-OCRv6
+#             small 模型，恒 CPU、中英文，免 PaddlePaddle/torch、运行时零联网
+# - easy    : EasyOCR（多语言，torch 系，首次需下载约 1GB 模型）
+# - paddle  : PaddleOcr 自动分发器（按已装 paddleocr 版本选 V2/V3，中文精度更高）
 # - paddle2 : 显式 PaddleOcrV2（paddleocr 2.x API）
 # - paddle3 : 显式 PaddleOcrV3（paddleocr 3.x API）
 # - server  : 不加载本地模型，转发给运行中的 baibao ocr_server（客户端零重依赖）
-_ENGINE_TYPES = ('easy', 'paddle', 'paddle2', 'paddle3', 'server')
-DEFAULT_ENGINE = "easy"
+_ENGINE_TYPES = ('rapid', 'easy', 'paddle', 'paddle2', 'paddle3', 'server')
+DEFAULT_ENGINE = "rapid"
 
 
 class OcrCommand(Command):
     """
     图片文字识别（OCR）命令。
 
-    支持 EasyOCR（默认，多语言）与 PaddleOCR（中文精度更高）两种引擎。
+    默认 RapidOCR（轻量本地：模型内置、恒 CPU、中英文），可选 EasyOCR（多语言）、
+    PaddleOCR（中文精度更高）与 server（转发常驻 ocr_server）等引擎。
     默认向 stdout 输出纯文本，便于模型/脚本直接消费；加 ``--details`` 输出
     含坐标与置信度的 JSON；加 ``--draw`` 将识别框绘制到图片并另存。
     日志信息走 stderr，识别文字走 stdout，二者分离。
@@ -53,7 +56,7 @@ class OcrCommand(Command):
 
     @property
     def description(self) -> str:
-        return "识别图片中的文字（OCR，支持 easy/paddle/server 引擎）"
+        return "识别图片中的文字（OCR，支持 rapid/easy/paddle/server 引擎）"
 
     @property
     def usage(self) -> str:
@@ -110,7 +113,7 @@ class OcrCommand(Command):
         parser.add_argument(
             "--gpu",
             action="store_true",
-            help="启用 GPU（easyocr 需 CUDA 版 torch；paddle 需 paddlepaddle-gpu）",
+            help="启用 GPU（easyocr 需 CUDA 版 torch；paddle 需 paddlepaddle-gpu；rapid 恒 CPU 不支持）",
         )
         parser.add_argument(
             "--cpu-threads",

@@ -1,13 +1,13 @@
 """
 OCR HTTP 服务命令 - 启动常驻内存的 OCR 服务。
 
-把 ``baibao.ai.ocr`` 的多种引擎（EasyOCR / PaddleOCR 2.x/3.x）暴露为统一的 HTTP
+把 ``baibao.ai.ocr`` 的多种引擎（RapidOCR / EasyOCR / PaddleOCR 2.x/3.x）暴露为统一的 HTTP
 接口：模型在启动时按 ``--engines`` 预加载一次并驻留内存，避免每次 OCR 都重新
 加载模型。请求时通过 ``engine`` 参数选择已加载的引擎，从而「一个接口走多个实现」。
 
 使用方式：
-    python -m baibao ocr_server                                       默认加载 easy
-    python -m baibao ocr_server --engines easy,paddle3                同时加载两个引擎
+    python -m baibao ocr_server                                       默认加载 rapid（轻量本地）
+    python -m baibao ocr_server --engines rapid,paddle3               同时加载两个引擎
     python -m baibao ocr_server --engines paddle --lang en            PaddleOCR + 英文
     python -m baibao ocr_server --engines paddle --gpu --port 9000    GPU + 自定义端口
 
@@ -63,14 +63,14 @@ class OcrServerCommand(Command):
     def usage(self) -> str:
         return (
             "python -m baibao ocr_server [选项]"
-            "  （引擎: easy, paddle, paddle2, paddle3；默认: easy）\n"
+            "  （引擎: rapid, easy, paddle, paddle2, paddle3；默认: rapid）\n"
             "\n"
             "选项:\n"
             "      --host HOST            监听地址（默认: 127.0.0.1）\n"
             "  -p, --port PORT            监听端口（默认: 8000；0=由系统分配空闲端口）\n"
-            "      --engines LIST         预加载引擎，逗号分隔（默认: easy；如 easy,paddle,paddle2,paddle3）\n"
+            "      --engines LIST         预加载引擎，逗号分隔（默认: rapid；如 rapid,easy,paddle,paddle2,paddle3）\n"
             "      --lang CODE            识别语言，作用于所有预加载引擎（默认: ch；如 en、japan、ko、ch_tra）\n"
-            "      --gpu                  启用 GPU（easy 需 CUDA 版 torch；paddle 需 paddlepaddle-gpu）\n"
+            "      --gpu                  启用 GPU（easy 需 CUDA 版 torch；paddle 需 paddlepaddle-gpu；rapid 恒 CPU）\n"
             "      --cpu-threads N        CPU 推理线程数（仅 paddle 引擎生效）\n"
             "      --no-angle-cls         关闭角度/方向分类（更快，但倾斜文本识别变差）\n"
             "      --default-engine NAME  默认引擎（请求未指定 engine 时使用；默认取 --engines 的第一个）\n"
@@ -79,7 +79,7 @@ class OcrServerCommand(Command):
             "\n"
             "示例:\n"
             "  python -m baibao ocr_server\n"
-            "  python -m baibao ocr_server --engines easy,paddle3\n"
+            "  python -m baibao ocr_server --engines rapid,paddle3\n"
             "  python -m baibao ocr_server --engines paddle --lang en --gpu --port 9000\n"
         )
 
@@ -105,8 +105,8 @@ class OcrServerCommand(Command):
         )
         parser.add_argument(
             '--engines',
-            default='easy',
-            help='预加载引擎，逗号分隔（默认: easy；可选 easy,paddle,paddle2,paddle3）',
+            default='rapid',
+            help='预加载引擎，逗号分隔（默认: rapid；可选 rapid,easy,paddle,paddle2,paddle3）',
         )
         parser.add_argument(
             '--lang',

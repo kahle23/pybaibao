@@ -4,13 +4,17 @@
 调用序列做断言；polling 用小超时快跑。
 """
 
+import os
+import tempfile
 import unittest
+from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from unittest.mock import patch
 
 import baibao.autotest as at
 from baibao.autotest.core.devtools import engine_name, new_session, real_click
-from baibao.autotest.core.envutil import normalize_base_url
+from baibao.autotest.core.envutil import load_dotenv_if_present, normalize_base_url
+from baibao.autotest.core.login_state import auth_state_path
 from baibao.autotest.core.polling import poll_until
 from baibao.autotest.probe import ProbeOptions, run_probe
 from baibao.autotest.probe import runner as probe_runner
@@ -153,7 +157,7 @@ class TestProbeOptions(unittest.TestCase):
 
     def test_defaults(self):
         opts = ProbeOptions(target="it-asset", base_url="http://x.com")
-        self.assertEqual(opts.role, "admin")
+        self.assertEqual(opts.account, "admin")
         self.assertEqual(opts.auth_dir, ".auth")
         self.assertEqual(opts.settle_ms, 600)
         self.assertFalse(opts.headless)
@@ -171,16 +175,76 @@ class TestProbeOptions(unittest.TestCase):
 
         with patch.object(probe_runner, "run_probe_with", fake_run_with):
             out = run_probe(
-                "#/oa/asset", base_url="http://x.com/", role="ops",
+                "#/oa/asset", base_url="http://x.com/", account="ops",
                 username="u", password="p", brief=True, click_labels=["供应商"],
             )
         self.assertEqual(out, "SUMMARY")
         opts = captured["opts"]
         self.assertEqual(opts.target, "#/oa/asset")
-        self.assertEqual(opts.role, "ops")
+        self.assertEqual(opts.account, "ops")
         self.assertTrue(opts.brief)
         self.assertEqual((opts.username, opts.password), ("u", "p"))
         self.assertEqual(opts.click_labels, ["供应商"])
+
+
+class TestEnvUtilFindEnvFile(unittest.TestCase):
+    """load_dotenv_if_present 的查找顺序：显式路径 > cwd/.env > 逐级向上。"""
+
+    KEY = "_BAIBAO_TEST_DOTENV_KEY"
+
+    def setUp(self):
+        self._old_cwd = Path.cwd()
+        self._tmp = tempfile.mkdtemp(prefix="baibao_envutil_")
+        os.environ.pop(self.KEY, None)
+
+    def tearDown(self):
+        os.chdir(self._old_cwd)
+        os.environ.pop(self.KEY, None)
+        import shutil
+        shutil.rmtree(self._tmp, ignore_errors=True)
+
+    def _write_env(self, dir_path: Path, value: str):
+        (dir_path / ".env").write_text(f"{self.KEY}={value}\n", encoding="utf-8")
+
+    def test_walk_up_finds_parent_env(self):
+        parent = Path(self._tmp); child = parent / "sub"; child.mkdir()
+        self._write_env(parent, "from_parent")
+        os.chdir(child)
+        load_dotenv_if_present()
+        self.assertEqual(os.environ.get(self.KEY), "from_parent")
+
+    def test_cwd_takes_priority_over_parent(self):
+        parent = Path(self._tmp); child = parent / "sub"; child.mkdir()
+        self._write_env(parent, "from_parent"); self._write_env(child, "from_cwd")
+        os.chdir(child)
+        load_dotenv_if_present()
+        self.assertEqual(os.environ.get(self.KEY), "from_cwd")
+
+    def test_explicit_env_file_overrides_cwd(self):
+        parent = Path(self._tmp); child = parent / "sub"; child.mkdir()
+        explicit = parent / "custom.env"
+        explicit.write_text(f"{self.KEY}=from_explicit\n", encoding="utf-8")
+        self._write_env(child, "from_cwd")
+        os.chdir(child)
+        load_dotenv_if_present(explicit)
+        self.assertEqual(os.environ.get(self.KEY), "from_explicit")
+
+    def test_no_env_found_is_silent(self):
+        os.chdir(self._tmp)
+        load_dotenv_if_present()  # 无 .env：静默，不抛错
+        self.assertIsNone(os.environ.get(self.KEY))
+
+
+class TestAuthStatePathAccount(unittest.TestCase):
+    """auth_state_path 按账号（登录态槽位）命名：<auth_dir>/<account>.json。"""
+
+    def test_account_slot_naming(self):
+        self.assertEqual(
+            auth_state_path(Path(".auth"), "a"), Path(".auth") / "a.json",
+        )
+        self.assertEqual(
+            auth_state_path(Path(".auth"), "admin"), Path(".auth") / "admin.json",
+        )
 
 
 class TestCompatShims(unittest.TestCase):

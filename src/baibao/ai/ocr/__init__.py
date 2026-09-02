@@ -3,11 +3,14 @@ OCR 模块，提供多种 OCR 策略实现。
 
 采用策略模式（结合模板方法）设计：基类 :class:`OcrEngine`（来自 :mod:`pykunlun.ai.ocr`）
 统一负责图片加载、文本清洗与结果绘制，子类只需实现核心识别方法，专注于引擎适配。
-支持 EasyOCR、PaddleOCR 2.x/3.x、以及转发给 ``baibao ocr_server`` 的 server 引擎。
+支持 RapidOCR（轻量默认）、EasyOCR、PaddleOCR 2.x/3.x、以及转发给
+``baibao ocr_server`` 的 server 引擎。
 
 引擎无关配置 :class:`OcrCfg` 与抽象基类 :class:`OcrEngine` / 管理器 :class:`OcrManager`
 收敛在 :mod:`pykunlun.ai.ocr`；本包提供 EasyOCR / PaddleOCR / ServerOcr 的具体实现
-（EasyOCR / PaddleOCR 带重依赖，ServerOcr 仅依赖 Python 标准库）。
+（EasyOCR / PaddleOCR 带重依赖，ServerOcr 仅依赖 Python 标准库）。轻量默认实现
+:class:`RapidOcr`（rapidocr + onnxruntime，模型内置、恒 CPU、中英文）同样来自
+:mod:`pykunlun.ai.ocr`。
 
 两种使用风格：
 
@@ -30,7 +33,7 @@ OCR 模块，提供多种 OCR 策略实现。
      recognize("image.png", ocr_name="my")
 """
 
-from pykunlun.ai.ocr import OcrCfg, OcrEngine, OcrManager, OcrResult
+from pykunlun.ai.ocr import OcrCfg, OcrEngine, OcrManager, OcrResult, RapidOcr
 
 from .easy_ocr import EasyOcr, langs_from_code
 from .paddle_ocr import PaddleOcr, PaddleOcrV2, PaddleOcrV3, get_paddleocr_version
@@ -41,6 +44,7 @@ from .server_ocr import ServerOcr
 # 引擎类型与实现类的映射。引擎间的参数差异（语言码、gpu/device、cpu_threads、角度分类）
 # 由各实现类在构造时按 cfg 自行解释，工厂只负责按类型取类并构造。
 _ENGINE_CLASSES: dict[str, type[OcrEngine]] = {
+    'rapid': RapidOcr,
     'easy': EasyOcr,
     'paddle': PaddleOcr,
     'paddle2': PaddleOcrV2,
@@ -68,7 +72,8 @@ def build_ocr_engine(
     :class:`OcrCfg`，而由本函数的关键字参数透传给 :class:`ServerOcr`；非 server 引擎忽略之。
 
     Args:
-        engine_type: 引擎类型：``easy`` / ``paddle`` / ``paddle2`` / ``paddle3`` / ``server``。
+        engine_type: 引擎类型：``rapid`` / ``easy`` / ``paddle`` / ``paddle2`` / ``paddle3`` / ``server``。
+            ``rapid`` 为轻量本地默认（rapidocr + onnxruntime，模型内置、恒 CPU、中英文）；
             ``paddle`` 为自动分发器，按已装 paddleocr 版本选 V2/V3；
             ``server`` 不加载本地模型，而是转发给运行中的 ``baibao ocr_server``。
         cfg: 引擎无关配置（``engine_type`` 字段无需设置，由所构造的实现类推导）。
@@ -221,6 +226,7 @@ __all__ = [
     'PaddleOcr',
     'PaddleOcrV2',
     'PaddleOcrV3',
+    'RapidOcr',
     'ServerOcr',
     'build_ocr_engine',
     'get_ocr_engine',

@@ -13,6 +13,7 @@ from .agent_prompt_command import AgentPromptCommand
 from .agent_task_command import AgentTaskCommand
 from .autotest_command import AutotestCommand
 from .help_command import BaibaoHelpCommand
+from .hookshot_command import HookshotCommand
 from .kbase_command import KbaseInitCommand
 from .mojibake_command import MojibakeCommand
 from .move_java_command import MoveJavaCommand
@@ -49,3 +50,4 @@ command_manager.register(AgentTaskCommand())
 command_manager.register(MojibakeCommand())
 command_manager.register(MoveJavaCommand())
 command_manager.register(AutotestCommand())
+command_manager.register(HookshotCommand())

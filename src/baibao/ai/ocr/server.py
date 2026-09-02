@@ -1,7 +1,7 @@
 """
 OCR HTTP 服务模块。
 
-把 :mod:`baibao.ai.ocr` 的多种引擎（EasyOCR / PaddleOCR 2.x/3.x）包装为常驻内存
+把 :mod:`baibao.ai.ocr` 的多种引擎（RapidOCR / EasyOCR / PaddleOCR 2.x/3.x）包装为常驻内存
 的 HTTP 服务：模型在启动时按 ``--engines`` 预加载一次，后续请求直接复用内存中的
 实例，避免每次 OCR 都重新加载模型（首次加载动辄数秒到数十秒）。
 
@@ -48,11 +48,11 @@ log = logutil.getLogger(__name__)
 # region ======== 常量 ========
 
 # 支持的引擎类型（与 baibao.ai.ocr.build_ocr_engine 对齐）。
-ENGINE_TYPES: tuple[str, ...] = ('easy', 'paddle', 'paddle2', 'paddle3')
+ENGINE_TYPES: tuple[str, ...] = ('rapid', 'easy', 'paddle', 'paddle2', 'paddle3')
 
 DEFAULT_HOST = '127.0.0.1'
 DEFAULT_PORT = 8000
-DEFAULT_ENGINES = 'easy'
+DEFAULT_ENGINES = 'rapid'
 DEFAULT_MAX_IMAGE_MB = 16
 
 # endregion

@@ -6,7 +6,7 @@ autotest 命令 - Web 自动化测试（Playwright）辅助工具。
   供 AI 在不读整页 HTML 的前提下了解页面结构（省 token 的关键工具）。
 
 规划中（未实现，勿依赖）：
-- login: 预热/刷新指定角色的登录态缓存
+- login: 预热/刷新指定账号的登录态缓存
 - doctor: 环境自检（chrome / playwright / .env 配置）
 """
 
@@ -76,7 +76,8 @@ class AutotestCommand(Command):
             "  （不带开头 # 或 /），否则会被 MSYS 路径转换污染\n"
             "\n"
             "probe 选项:\n"
-            "  --role NAME        角色名，登录态缓存文件名 <role>.json（默认: admin）\n"
+            "  --account NAME     账号名（登录态槽位），登录态缓存文件名 <account>.json\n"
+            "                     （默认: admin；非系统权限角色，多账号用不同账号名）\n"
             "  --base-url URL     被测系统基础地址（默认: 环境变量 BASE_URL）\n"
             "  --auth-dir DIR     登录态缓存目录（默认: .auth）\n"
             "  --username NAME    登录用户名（默认: 环境变量 ADMIN_USERNAME；缓存有效时不使用）\n"
@@ -89,19 +90,20 @@ class AutotestCommand(Command):
             "  --js CODE          自定义提取 JS（表达式或箭头函数），返回其结果的紧凑 JSON，\n"
             "                    替代内置摘要（与 --js-file 二选一；含引号时改用 --js-file）\n"
             "  --js-file PATH     从 UTF-8 文件读取自定义 JS（传 - 读 stdin）\n"
+            "  --env-file PATH    显式指定 .env 文件（默认: 当前目录 .env，未命中逐级向上找）\n"
             "  --headless         无头模式运行（默认有头）\n"
             "  --out FILE         摘要同时写入指定文件（UTF-8）\n"
             "\n"
-            "环境变量（.env 同名键自动加载）:\n"
+            "环境变量（.env 同名键自动加载，Shell/系统环境变量优先）:\n"
             "  BASE_URL / ADMIN_USERNAME / ADMIN_PASSWORD / CAPTCHA_VALUE\n"
             "  HEADLESS 未使用；浏览器内核选择沿用 USE_BUILTIN_CHROMIUM / CHROME_PATH\n"
             "\n"
             "示例:\n"
-            "  python -m baibao autotest probe \"#/oa/asset\" --role admin\n"
+            "  python -m baibao autotest probe \"#/oa/asset\" --account admin\n"
             "  python -m baibao autotest probe \"#/purchase/stock\" --click-label 供应商\n"
             "\n"
             "规划中（未实现，勿依赖）:\n"
-            "  login              预热/刷新指定角色的登录态缓存\n"
+            "  login              预热/刷新指定账号的登录态缓存\n"
             "  doctor             环境自检（chrome / playwright / .env）\n"
             "\n"
             "-h, --help              显示帮助信息"
@@ -140,8 +142,8 @@ class AutotestCommand(Command):
             help="路由（如 it-asset、#/it-asset）或完整 URL；Git Bash 下用纯路由（不带开头 # 或 /）",
         )
         parser.add_argument(
-            "--role", default="admin",
-            help="角色名，登录态缓存文件名 <role>.json（默认: admin）",
+            "--account", default="admin",
+            help="账号名（登录态槽位），登录态缓存文件名 <account>.json（默认: admin；非系统权限角色）",
         )
         parser.add_argument(
             "--base-url", dest="base_url", default=None,
@@ -183,6 +185,10 @@ class AutotestCommand(Command):
             help="从 UTF-8 文件读取自定义 JS（传 - 读 stdin），适合含引号/特殊字符/超长 JS",
         )
         parser.add_argument(
+            "--env-file", dest="env_file", default=None,
+            help="显式指定 .env 文件路径（默认: 当前目录 .env，未命中则逐级向上查找）",
+        )
+        parser.add_argument(
             "--headless", action="store_true",
             help="无头模式运行（默认有头）",
         )
@@ -202,7 +208,7 @@ class AutotestCommand(Command):
         except SystemExit:
             return False
 
-        load_dotenv_if_present()
+        load_dotenv_if_present(ns.env_file)
 
         base_url = normalize_base_url(ns.base_url or os.getenv("BASE_URL", ""))
         if not base_url:
@@ -221,7 +227,7 @@ class AutotestCommand(Command):
             summary = run_probe(
                 ns.target,
                 base_url=base_url,
-                role=ns.role,
+                account=ns.account,
                 auth_dir=ns.auth_dir,
                 username=ns.username or os.getenv("ADMIN_USERNAME", ""),
                 password=ns.password or os.getenv("ADMIN_PASSWORD", ""),

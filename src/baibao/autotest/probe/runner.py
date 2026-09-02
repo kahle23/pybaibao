@@ -47,7 +47,8 @@ class ProbeOptions:
     Attributes:
         target: hash 路由（如 ``#/oa/asset``）或完整 URL。
         base_url: 被测系统基础地址（``target`` 非 http 时拼接）。
-        role: 角色名（登录态缓存文件名 ``<auth_dir>/<role>.json``）。
+        account: 账号名——登录态槽位（缓存文件名 ``<auth_dir>/<account>.json``），
+            非系统权限角色。
         auth_dir: 登录态缓存目录。
         username / password / captcha: 登录凭据（缓存有效时不使用）。
         login_cfg: 登录流程配置，默认 LoginCfg（若依/RuoYi 风格）。
@@ -63,7 +64,7 @@ class ProbeOptions:
 
     target: str
     base_url: str
-    role: str = "admin"
+    account: str = "admin"
     auth_dir: Path | str = ".auth"
     username: str = ""
     password: str = ""
@@ -117,7 +118,7 @@ def _click_label(page: Page, label: str) -> None:
 
 
 def _resolve_state_file(
-    browser: Browser, cfg: LoginCfg, auth_dir: Path, role: str,
+    browser: Browser, cfg: LoginCfg, auth_dir: Path, account: str,
     base_url: str, username: str, password: str, captcha: str,
 ) -> Path:
     """
@@ -125,18 +126,18 @@ def _resolve_state_file(
 
     身份绑定校验：缓存属另一账号/站点时强制重登（防跨账号串用得出错误视角的结论）；缓存失效且缺凭据时报错。
     """
-    state_file = auth_state_path(auth_dir, role)
+    state_file = auth_state_path(auth_dir, account)
     if not is_auth_valid(
         state_file, username=username or None, base_url=base_url or None,
     ):
         if not (username and password):
             raise RuntimeError(
                 f"登录态缓存无效（{state_file}）且未提供账号密码"
-                f"（role={role}）：请传 username/password 或配置"
+                f"（account={account}）：请传 username/password 或配置"
                 " ADMIN_USERNAME/ADMIN_PASSWORD 环境变量",
             )
         state_file = Path(save_storage_state(
-            browser, cfg, auth_dir, role,
+            browser, cfg, auth_dir, account,
             base_url, username, password, captcha,
         ))
     return state_file
@@ -172,7 +173,7 @@ def run_probe(
     target: str,
     *,
     base_url: str,
-    role: str = "admin",
+    account: str = "admin",
     auth_dir: Path | str = ".auth",
     username: str = "",
     password: str = "",
@@ -198,7 +199,8 @@ def run_probe(
     Args:
         target: hash 路由（如 ``#/oa/asset``）或完整 URL。
         base_url: 被测系统基础地址（``target`` 非 http 时拼接）。
-        role: 角色名（登录态缓存文件名 ``<auth_dir>/<role>.json``）。
+        account: 账号名——登录态槽位（缓存文件名 ``<auth_dir>/<account>.json``），
+            非系统权限角色。
         auth_dir: 登录态缓存目录。
         username / password / captcha: 登录凭据（缓存有效时不使用；
             缓存失效且缺凭据时报错）。
@@ -219,7 +221,7 @@ def run_probe(
     return run_probe_with(ProbeOptions(
         target=target,
         base_url=base_url,
-        role=role,
+        account=account,
         auth_dir=auth_dir,
         username=username,
         password=password,
@@ -272,7 +274,7 @@ def run_probe_with(opts: ProbeOptions) -> str:
         )
         try:
             state_file = _resolve_state_file(
-                browser, cfg, auth_dir_path, opts.role,
+                browser, cfg, auth_dir_path, opts.account,
                 opts.base_url, opts.username, opts.password, opts.captcha,
             )
             context = browser.new_context(
