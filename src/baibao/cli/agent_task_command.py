@@ -156,6 +156,7 @@ class AgentTaskCommand(Command):
             "python -m baibao at <子命令> [选项]        # 缩写\n"
             "\n"
             "生命周期:  init → create → plan → (claim → finish|fail)* → status\n"
+            "           bash 步骤可无人值守：run = claim + 执行 + 自动收口（循环到无可认领）\n"
             "恢复入口:  sweep → list --status running → claim（断点续跑）\n"
             "\n"
             "子命令:\n"
@@ -167,6 +168,10 @@ class AgentTaskCommand(Command):
             "  claim   <task_id> [--session-id --agent-name --format]  原子认领下一步骤，输出续跑上下文包\n"
             "                                              （依赖感知：声明了 depends_on 的任务只认领依赖就绪者；\n"
             "                                               --ignore-deps 无视依赖按 seq 最小；--format: jsonl|json）\n"
+            "  run     <task_id> [--session-id --agent-name --format]  无人值守执行：循环认领并自动跑 bash 步骤\n"
+            "                                              （subprocess 执行 instruction、超时强杀进程树、\n"
+            "                                               自动 finish/fail；agent 等非 bash 步骤 release 并停止；\n"
+            "                                               失败预算内回 pending 但不自动重跑，重跑即续）\n"
             "  finish  <run_id> [--output/--output-file --summary/--summary-file]  成功收口\n"
             "                                              （建议必带 --summary；--token-usage 可选回填；\n"
             "                                               成功后 stdout 回显步骤状态）\n"
@@ -218,6 +223,8 @@ class AgentTaskCommand(Command):
                 return self._step(ctx, rest)
             if sub == 'claim':
                 return self._claim(ctx, rest)
+            if sub == 'run':
+                return self._run(ctx, rest)
             if sub == 'finish':
                 return self._finish(ctx, rest)
             if sub == 'fail':
@@ -563,6 +570,39 @@ class AgentTaskCommand(Command):
         log.info("已认领 step %s (run_id=%s)，续跑上下文包如下（前序 %d 步摘要）",
                  package['step']['id'], package['run_id'], len(package['context']))
         self._emit_one(ctx, package, ns.format)
+        return True
+
+    def _run(self, ctx: CliContext, args: list[str]) -> bool:
+        """无人值守执行：循环认领 bash 步骤并自动收口（run = claim + 执行 + finish/fail）。"""
+        parser = argparse.ArgumentParser(prog='python -m baibao agent_task run')
+        parser.add_argument('task_id', type=int, help='目标任务 id')
+        parser.add_argument('--session-id', default=None, dest='session_id',
+                            help='执行会话标识（默认: 环境变量 AGENT_TASK_SESSION_ID > 配置）')
+        parser.add_argument('--agent-name', default=None, dest='agent_name',
+                            help='agent 外壳标识（默认: 环境变量 AGENT_TASK_AGENT_NAME > 配置）')
+        parser.add_argument('--format', dest='format', choices=['json', 'jsonl'], default='jsonl',
+                            help='逐步骤结果输出格式（默认: jsonl 单行）')
+        ns = parser.parse_args(args)
+
+        session_id, agent_name = self._resolve_session(ns)
+        rows = self._build_mgr().run_task(ns.task_id, session_id=session_id,
+                                          agent_name=agent_name)
+        if not rows:
+            log.info("任务 %s 无可认领步骤（无 pending / 依赖均未就绪 / 非 pending-running 状态）；"
+                     "用 status %s 看终态", ns.task_id, ns.task_id)
+            return True
+        for row in rows:
+            log.info("步骤 %s「%s」%s（%s）", row.get('seq'), row.get('name'),
+                     row.get('status'), row.get('summary'))
+        self._emit(ctx, rows, ns.format)
+        released = [r for r in rows if r.get('status') == 'released']
+        if released:
+            log.warning("存在非 bash 步骤（%s），已 release 还队列并停止；"
+                        "该步骤需 AI 编排层接手，处理后再 run 续跑",
+                        '、'.join(str(r.get('name')) for r in released))
+        elif any(r.get('status') in ('failed', 'retried') for r in rows):
+            log.warning("存在失败步骤（预算内已回 pending，本轮不自动重跑）；"
+                        "排查后再次 run 续跑，或 retry <step_id> 重置")
         return True
 
     def _finish(self, ctx: CliContext, args: list[str]) -> bool:
