@@ -1,7 +1,7 @@
 # agent_prompt 命令行工具
 
 > AI prompt 模板库：把"给 AI 的任务 prompt"从散落的本地文本文件，升级为团队共享、可搜索、
-> 可参数化、可按场景裁剪的模板库。缩写 `ap`，与 `agent_task` / `agent_memory` 同库（`ai_agent` 实例）部署。
+> 可参数化、可按场景裁剪的模板库。缩写 `ap`，与 `plan_task` / `agent_memory` 同库（`ai_agent` 实例）部署。
 
 ```bash
 python -m baibao agent_prompt <子命令> [选项]
@@ -290,7 +290,7 @@ python -m baibao ap stats --limit 20
 |------|------|------|
 | 数据库 | MySQL / PostgreSQL / SQLite | RdbPromptStore 方言自适应 |
 | Python | ≥ 3.8 | 依赖 pykunlun / baibao |
-| rdb 实例 | 复用 `ai_agent` 可写实例 | 与 `agent_task` / `agent_memory` 同库，无需新增连接 |
+| rdb 实例 | 复用 `ai_agent` 可写实例 | 与 `plan_task` / `agent_memory` 同库，无需新增连接 |
 
 ---
 

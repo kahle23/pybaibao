@@ -1,11 +1,11 @@
-# agent_task 命令行工具
+# plan_task 命令行工具
 
-> AI 长任务能力：让 AI 以"断点可续、重试有据、全程留痕"的方式执行超出单会话承载能力的长任务。
-> 缩写 `at`。数据库是唯一真相源，AI 会话只是可随时替换的执行单元——会话崩溃/断连后，新会话凭库里的状态无缝接手。
+> AI 计划任务能力：让 AI 以"断点可续、重试有据、全程留痕"的方式执行超出单会话承载能力的计划任务。
+> 缩写 `pt`。数据库是唯一真相源，AI 会话只是可随时替换的执行单元——会话崩溃/断连后，新会话凭库里的状态无缝接手。
 
 ```bash
-python -m baibao agent_task <子命令> [选项]
-python -m baibao at <子命令> [选项]        # 缩写
+python -m baibao plan_task <子命令> [选项]
+python -m baibao pt <子命令> [选项]        # 缩写
 ```
 
 生命周期：`init → create → plan → (claim → finish|fail)* → status`
@@ -15,26 +15,26 @@ python -m baibao at <子命令> [选项]        # 缩写
 
 | 子命令 | 功能 | 用法一行 |
 |--------|------|----------|
-| `init` | 幂等建表 + 自检 | `at init` |
-| `create` | 建任务，输出 task_id | `at create --title T --goal-file F` |
-| `plan` | 批量导入步骤（JSON 数组） | `at plan <task_id> --steps-file F` |
-| `step add` | 单条加步骤 | `at step add <task_id> --name N --instruction-file F` |
-| `claim` | 原子认领下一步骤，输出续跑上下文包 | `at claim <task_id>` |
-| `finish` | 成功收口一次执行 | `at finish <run_id> --output-file F --summary "..."` |
-| `fail` | 失败上报（自动按预算决定重试/终败） | `at fail <run_id> --error "..."` |
-| `heartbeat` | 刷任务心跳 | `at heartbeat <task_id>` |
-| `status` | 任务总览（任务+步骤+进度+产物计数） | `at status <task_id>` |
-| `list` | 任务列表 | `at list [--status running]` |
-| `pause` / `resume` | 暂停 / 恢复 | `at pause <task_id>` / `at resume <task_id>` |
-| `cancel` | 取消任务 | `at cancel <task_id> [--reason R]` |
-| `retry` | 手动重置失败步骤回 pending | `at retry <step_id>` |
-| `skip` | 跳过 pending 步骤 | `at skip <step_id> [--reason R]` |
-| `sweep` | 僵尸检测与恢复（幂等） | `at sweep [--heartbeat-timeout-sec N]` |
-| `artifact add` | 产物登记 | `at artifact add <task_id> --path P` |
-| `artifact list` | 产物查询 | `at artifact list <task_id>` |
-| `event list` | 事件流水查询 | `at event list <task_id>` |
-| `template save` | 把任务步骤存为模板蓝图 | `at template save <task_id> --name N` |
-| `template list` | 列模板 | `at template list` |
+| `init` | 幂等建表 + 自检 | `pt init` |
+| `create` | 建任务，输出 task_id | `pt create --title T --goal-file F` |
+| `plan` | 批量导入步骤（JSON 数组） | `pt plan <task_id> --steps-file F` |
+| `step add` | 单条加步骤 | `pt step add <task_id> --name N --instruction-file F` |
+| `claim` | 原子认领下一步骤，输出续跑上下文包 | `pt claim <task_id>` |
+| `finish` | 成功收口一次执行 | `pt finish <run_id> --output-file F --summary "..."` |
+| `fail` | 失败上报（自动按预算决定重试/终败） | `pt fail <run_id> --error "..."` |
+| `heartbeat` | 刷任务心跳 | `pt heartbeat <task_id>` |
+| `status` | 任务总览（任务+步骤+进度+产物计数） | `pt status <task_id>` |
+| `list` | 任务列表 | `pt list [--status running]` |
+| `pause` / `resume` | 暂停 / 恢复 | `pt pause <task_id>` / `pt resume <task_id>` |
+| `cancel` | 取消任务 | `pt cancel <task_id> [--reason R]` |
+| `retry` | 手动重置失败步骤回 pending | `pt retry <step_id>` |
+| `skip` | 跳过 pending 步骤 | `pt skip <step_id> [--reason R]` |
+| `sweep` | 僵尸检测与恢复（幂等） | `pt sweep [--heartbeat-timeout-sec N]` |
+| `artifact add` | 产物登记 | `pt artifact add <task_id> --path P` |
+| `artifact list` | 产物查询 | `pt artifact list <task_id>` |
+| `event list` | 事件流水查询 | `pt event list <task_id>` |
+| `template save` | 把任务步骤存为模板蓝图 | `pt template save <task_id> --name N` |
+| `template list` | 列模板 | `pt template list` |
 
 ---
 
@@ -42,7 +42,7 @@ python -m baibao at <子命令> [选项]        # 缩写
 
 | 概念 | 说明 |
 |------|------|
-| 任务（instance） | 一次具体的长任务，有目标、状态、重试预算、心跳 |
+| 任务（instance） | 一次具体的计划任务，有目标、状态、重试预算、心跳 |
 | 步骤（step） | "计划中要做的事"，按 seq 串行；状态 pending/running/succeeded/failed/skipped |
 | 执行（run） | "实际的一次尝试"；失败重试 = 同一 step 新增一条 run，不污染 step 语义 |
 | 续跑上下文包 | `claim` 返回的 dict，含当前 step + run_id + 前序步骤摘要，新会话接手所需的全部信息 |
@@ -57,16 +57,17 @@ python -m baibao at <子命令> [选项]        # 缩写
 
 ## 配置
 
-配置三层优先级：**命令行标志 > 环境变量 > 配置文件**。
+配置三层优先级：**命令行标志 > 环境变量（新名 `PLAN_TASK_*` 优先，旧名 `AGENT_TASK_*` 回退）> 配置文件**。
 
-配置文件 `.baibao/agent_task.config`（JSON，当前目录优先，再 `~/.baibao/`，不读技能目录）：
+配置文件 `.baibao/plan_task.config`（JSON，当前目录优先，再 `~/.baibao/`，不读技能目录；旧名
+`agent_task.config` 同样回退兼容——2026-09-03 由 `agent_task`/`at` 改名 `plan_task`/`pt` 时保留的过渡口径）：
 
 | 配置项 | 环境变量 | 类型 | 默认值 | 说明 |
 |--------|---------|------|--------|------|
-| `rdb_name` | `AGENT_TASK_DB` | str | `ai_agent` | rdb 实例名；建议为长任务单独注册别名（如 `agent_task`），与业务库、记忆库隔离 |
-| `owner` | `AGENT_TASK_OWNER` | str | - | created_by 标签，不鉴权；未配置仅告警不阻断 |
-| `session_id` | `AGENT_TASK_SESSION_ID` | str | - | 执行会话标识，盖章 run |
-| `agent_name` | `AGENT_TASK_AGENT_NAME` | str | - | agent 外壳标识，盖章 run |
+| `rdb_name` | `PLAN_TASK_DB` | str | `ai_agent` | rdb 实例名；建议为计划任务单独注册别名（如 `plan_task`），与业务库、记忆库隔离 |
+| `owner` | `PLAN_TASK_OWNER` | str | - | created_by 标签，不鉴权；未配置仅告警不阻断 |
+| `session_id` | `PLAN_TASK_SESSION_ID` | str | - | 执行会话标识，盖章 run |
+| `agent_name` | `PLAN_TASK_AGENT_NAME` | str | - | agent 外壳标识，盖章 run |
 
 ```json
 {
@@ -86,7 +87,7 @@ python -m baibao at <子命令> [选项]        # 缩写
 ### init — 建表与自检
 
 ```bash
-python -m baibao at init
+python -m baibao pt init
 ```
 
 幂等建表 + 自检，打印任务数。
@@ -95,16 +96,16 @@ python -m baibao at init
 
 ```bash
 # 从文件读目标
-python -m baibao at create --title "补全 th-core-server 文档" \
+python -m baibao pt create --title "补全 th-core-server 文档" \
   --goal-file goals/doc-completion.txt --created-by zhangsan
 
 # 从 stdin 读目标
-python -m baibao at create --title "数据迁移" --goal-file - <<'EOF'
+python -m baibao pt create --title "数据迁移" --goal-file - <<'EOF'
 把 legacy 库的 user 表迁移到新库，字段映射见 docs/mapping.md
 EOF
 
 # 带参数 + 自定义重试预算 + 超时
-python -m baibao at create --title "批量 OCR" --goal-file - \
+python -m baibao pt create --title "批量 OCR" --goal-file - \
   --params-json '{"batch_size": 100}' --max-retries 3 --timeout-sec 7200
 ```
 
@@ -128,8 +129,8 @@ python -m baibao at create --title "批量 OCR" --goal-file - \
 ### plan — 批量导入步骤
 
 ```bash
-python -m baibao at plan 1 --steps-file steps.json
-python -m baibao at plan 1 --steps-file - <<'EOF'    # stdin
+python -m baibao pt plan 1 --steps-file steps.json
+python -m baibao pt plan 1 --steps-file - <<'EOF'    # stdin
 [
   {"name": "调研", "instruction": "分析现有代码结构", "step_type": "agent"},
   {"name": "写文档", "instruction": "根据调研结果写技术文档", "step_type": "agent", "timeout_sec": 1800, "max_retries": 2},
@@ -159,7 +160,7 @@ EOF
 ### step add — 单条加步骤
 
 ```bash
-python -m baibao at step add 1 --name "补充测试" \
+python -m baibao pt step add 1 --name "补充测试" \
   --instruction-file instructions/test.md --step-type agent --max-retries 2
 ```
 
@@ -178,8 +179,8 @@ python -m baibao at step add 1 --name "补充测试" \
 ### claim — 原子认领下一步骤
 
 ```bash
-python -m baibao at claim 1
-python -m baibao at claim 1 --session-id session-002 --agent-name zcode-recovery
+python -m baibao pt claim 1
+python -m baibao pt claim 1 --session-id session-002 --agent-name zcode-recovery
 ```
 
 | 选项 | 类型 | 必填 | 默认值 | 说明 |
@@ -209,8 +210,8 @@ python -m baibao at claim 1 --session-id session-002 --agent-name zcode-recovery
 ### finish — 成功收口
 
 ```bash
-python -m baibao at finish 9001 --output-file result.txt --summary "文档已补全 5 个模块"
-python -m baibao at finish 9001 --output "done" --summary "迁移完成" --token-usage 3200
+python -m baibao pt finish 9001 --output-file result.txt --summary "文档已补全 5 个模块"
+python -m baibao pt finish 9001 --output "done" --summary "迁移完成" --token-usage 3200
 ```
 
 | 选项 | 类型 | 必填 | 默认值 | 说明 |
@@ -230,8 +231,8 @@ python -m baibao at finish 9001 --output "done" --summary "迁移完成" --token
 ### fail — 失败上报
 
 ```bash
-python -m baibao at fail 9001 --error "子代理超时未返回"
-python -m baibao at fail 9001 --error-file error.log
+python -m baibao pt fail 9001 --error "子代理超时未返回"
+python -m baibao pt fail 9001 --error-file error.log
 ```
 
 | 选项 | 类型 | 必填 | 默认值 | 说明 |
@@ -245,7 +246,7 @@ python -m baibao at fail 9001 --error-file error.log
 ### heartbeat — 刷心跳
 
 ```bash
-python -m baibao at heartbeat 1
+python -m baibao pt heartbeat 1
 ```
 
 约定 claim / finish / fail / 任何写操作都顺带刷心跳——活动即心跳，避免编排层忘刷。执行长指令期间可穿插手动刷。
@@ -253,8 +254,8 @@ python -m baibao at heartbeat 1
 ### status — 任务总览
 
 ```bash
-python -m baibao at status 1
-python -m baibao at status 1 --full    # 看全文（goal/instruction/output）
+python -m baibao pt status 1
+python -m baibao pt status 1 --full    # 看全文（goal/instruction/output）
 ```
 
 | 选项 | 类型 | 必填 | 默认值 | 说明 |
@@ -269,8 +270,8 @@ python -m baibao at status 1 --full    # 看全文（goal/instruction/output）
 ### list — 任务列表
 
 ```bash
-python -m baibao at list --status running
-python -m baibao at list --created-by zhangsan --limit 20
+python -m baibao pt list --status running
+python -m baibao pt list --created-by zhangsan --limit 20
 ```
 
 | 选项 | 类型 | 必填 | 默认值 | 说明 |
@@ -285,9 +286,9 @@ python -m baibao at list --created-by zhangsan --limit 20
 ### pause / resume / cancel — 生命周期控制
 
 ```bash
-python -m baibao at pause 1       # 不派发新步骤，不强杀 running 步骤
-python -m baibao at resume 1
-python -m baibao at cancel 1 --reason "需求变更"
+python -m baibao pt pause 1       # 不派发新步骤，不强杀 running 步骤
+python -m baibao pt resume 1
+python -m baibao pt cancel 1 --reason "需求变更"
 ```
 
 | 选项 | 类型 | 必填 | 默认值 | 说明 |
@@ -300,8 +301,8 @@ python -m baibao at cancel 1 --reason "需求变更"
 ### retry / skip — 步骤操作
 
 ```bash
-python -m baibao at retry 101      # 手动给失败步骤再一次机会（预算 +1，回 pending）
-python -m baibao at skip 102 --reason "该步骤不再需要"
+python -m baibao pt retry 101      # 手动给失败步骤再一次机会（预算 +1，回 pending）
+python -m baibao pt skip 102 --reason "该步骤不再需要"
 ```
 
 | 选项 | 类型 | 必填 | 默认值 | 说明 |
@@ -315,8 +316,8 @@ python -m baibao at skip 102 --reason "该步骤不再需要"
 ### sweep — 僵尸检测与恢复
 
 ```bash
-python -m baibao at sweep                           # 逐任务用各自心跳配置
-python -m baibao at sweep --heartbeat-timeout-sec 600   # 全局覆盖心跳阈值
+python -m baibao pt sweep                           # 逐任务用各自心跳配置
+python -m baibao pt sweep --heartbeat-timeout-sec 600   # 全局覆盖心跳阈值
 ```
 
 | 选项 | 类型 | 必填 | 默认值 | 说明 |
@@ -338,11 +339,11 @@ python -m baibao at sweep --heartbeat-timeout-sec 600   # 全局覆盖心跳阈�
 
 ```bash
 # 登记
-python -m baibao at artifact add 1 --path docs/completion-report.md --type report --step 101
-python -m baibao at artifact add 1 --path logs/run.log --type log --note "执行日志"
+python -m baibao pt artifact add 1 --path docs/completion-report.md --type report --step 101
+python -m baibao pt artifact add 1 --path logs/run.log --type log --note "执行日志"
 
 # 查询
-python -m baibao at artifact list 1
+python -m baibao pt artifact list 1
 ```
 
 `artifact add` 选项：
@@ -358,7 +359,7 @@ python -m baibao at artifact list 1
 ### event list — 事件流水查询
 
 ```bash
-python -m baibao at event list 1 --limit 50
+python -m baibao pt event list 1 --limit 50
 ```
 
 | 选项 | 类型 | 必填 | 默认值 | 说明 |
@@ -373,10 +374,10 @@ python -m baibao at event list 1 --limit 50
 
 ```bash
 # 把任务步骤存为模板蓝图
-python -m baibao at template save 1 --name "doc-completion-template" --description "文档补全任务模板"
+python -m baibao pt template save 1 --name "doc-completion-template" --description "文档补全任务模板"
 
 # 列模板
-python -m baibao at template list
+python -m baibao pt template list
 ```
 
 `template save` 选项：
@@ -405,8 +406,8 @@ python -m baibao at template list
 | 现象 | 根因 | 解法 |
 |------|------|------|
 | `claim` 返回空 | 任务无 pending 步骤（全部 succeeded/skipped 或任务非 pending/running） | 用 `status` 查终态；若步骤 failed 用 `retry` 复活 |
-| 步骤 failed 后任务卡住 | 预算耗尽，步骤终态 failed 连带任务 failed | `at retry <step_id>` 手动给一次机会（预算 +1，任务回 running），再 `claim` |
-| 任务长时间 running 无进展 | 会话崩溃 / 断连，run 停在 running 成僵尸 | `at sweep` 清僵尸：超时 run 置 timeout，步骤按预算回 pending；再 `claim` 续跑 |
+| 步骤 failed 后任务卡住 | 预算耗尽，步骤终态 failed 连带任务 failed | `pt retry <step_id>` 手动给一次机会（预算 +1，任务回 running），再 `claim` |
+| 任务长时间 running 无进展 | 会话崩溃 / 断连，run 停在 running 成僵尸 | `pt sweep` 清僵尸：超时 run 置 timeout，步骤按预算回 pending；再 `claim` 续跑 |
 | `plan` 的 instruction 里 `@文件路径` 没生效 | 路径写错或文件不存在 | 用相对仓库根的路径；`@` 后紧跟路径无空格 |
 | Windows shell 引号剥离长 instruction/goal | argv 引号处理问题 | 用 `--xxx-file` / `-` 读 stdin，不内联长文本 |
 | 并发 `step add` 撞唯一键 | `seq = max(seq)+1` 取号在多进程并发下可能撞 | 本期 CLI 单进程使用，可接受；撞键时报错重试 |
@@ -415,7 +416,7 @@ python -m baibao at template list
 
 | 告警 | 含义 | 是否需处理 |
 |------|------|-----------|
-| `AGENT_TASK_OWNER 未配置` | created_by 标签为空 | 否（仅标签，不鉴权；需要追溯归属时再配） |
+| `PLAN_TASK_OWNER 未配置` | created_by 标签为空 | 否（仅标签，不鉴权；需要追溯归属时再配） |
 
 ### 版本兼容
 
@@ -430,19 +431,19 @@ python -m baibao at template list
 
 ## 完整示例
 
-一个断点可续的长任务完整流程（建任务 → 拆步骤 → 执行循环 → 崩溃后恢复）：
+一个断点可续的计划任务完整流程（建任务 → 拆步骤 → 执行循环 → 崩溃后恢复）：
 
 ```bash
 # 0) 首次初始化
-python -m baibao at init
+python -m baibao pt init
 
 # 1) 建任务 + 拆步骤
-python -m baibao at create --title "补全 th-core-server 文档" --goal-file - <<'EOF'
+python -m baibao pt create --title "补全 th-core-server 文档" --goal-file - <<'EOF'
 分析 th-core-server 代码，补全缺失的技术文档，覆盖 controller/service/mapper 三层
 EOF
 # 输出 task_id: 1
 
-python -m baibao at plan 1 --steps-file - <<'EOF'
+python -m baibao pt plan 1 --steps-file - <<'EOF'
 [
   {"name": "调研", "instruction": "分析现有代码结构与文档缺口", "step_type": "agent"},
   {"name": "写文档", "instruction": "根据调研结果写技术文档", "step_type": "agent", "max_retries": 2},
@@ -451,23 +452,23 @@ python -m baibao at plan 1 --steps-file - <<'EOF'
 EOF
 
 # 2) 主循环（编排层：主会话轻上下文）
-python -m baibao at claim 1
+python -m baibao pt claim 1
 # → 续跑上下文包（step + run_id + 前序摘要）
 #   ↓ 派子代理执行 instruction（执行层：子代理全新上下文）
 
-python -m baibao at finish <run_id> --output-file - --summary "调研完成，发现 5 个模块缺文档" <<'EOF'
+python -m baibao pt finish <run_id> --output-file - --summary "调研完成，发现 5 个模块缺文档" <<'EOF'
 controller 层 3 个、service 层 1 个、mapper 层 1 个模块文档缺失
 EOF
-# 或失败：python -m baibao at fail <run_id> --error "子代理超时"
+# 或失败：python -m baibao pt fail <run_id> --error "子代理超时"
 
 # 循环直到 claim 返回空
 
 # 3) 收尾
-python -m baibao at status 1                    # completed
-python -m baibao at artifact list 1             # 看产物
+python -m baibao pt status 1                    # completed
+python -m baibao pt artifact list 1             # 看产物
 
 # 4) 崩溃后（新会话接手，或 cron 唤醒）
-python -m baibao at sweep                       # 清僵尸：超时 run 置 timeout，步骤按预算回 pending
-python -m baibao at list --status running       # 找到未完任务
-python -m baibao at claim 1                     # 从断点继续——前序成果在 context 里
+python -m baibao pt sweep                       # 清僵尸：超时 run 置 timeout，步骤按预算回 pending
+python -m baibao pt list --status running       # 找到未完任务
+python -m baibao pt claim 1                     # 从断点继续——前序成果在 context 里
 ```

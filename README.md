@@ -51,7 +51,7 @@ python -m pip install paddlepaddle paddleocr opencv-python numpy -i https://pypi
 | 分类 | 模块 | 功能 | 文档 |
 |------|------|------|------|
 | **AI** | `baibao.ai` | LLM 对话（OpenAI 兼容）、OCR 文字识别（EasyOCR/PaddleOCR） | [文档](https://github.com/kahle23/pybaibao/blob/master/docs/ai/ai.md) |
-| **AI Agent** | `baibao.ai_agent` | AI 记忆（`am`）、长任务（`at`）、prompt 模板库（`ap`） | [记忆](https://github.com/kahle23/pybaibao/blob/master/docs/ai/agent_memory.md) · [长任务](https://github.com/kahle23/pybaibao/blob/master/docs/ai/agent_task.md) · [prompt 模板](https://github.com/kahle23/pybaibao/blob/master/docs/ai/agent_prompt.md) |
+| **AI Agent** | `baibao.ai_agent` | AI 记忆（`am`）、计划任务（`pt`）、prompt 模板库（`ap`） | [记忆](https://github.com/kahle23/pybaibao/blob/master/docs/ai/agent_memory.md) · [计划任务](https://github.com/kahle23/pybaibao/blob/master/docs/ai/plan_task.md) · [prompt 模板](https://github.com/kahle23/pybaibao/blob/master/docs/ai/agent_prompt.md) |
 | **数据** | `baibao.data` | 货币查询、元数据定义（Field/Style） | [文档](https://github.com/kahle23/pybaibao/blob/master/docs/data/data.md) |
 | **渲染** | `baibao.render` | HTML 报告片段（表格/图表/指标卡片）、模板引擎（Jinja2） | [文档](https://github.com/kahle23/pybaibao/blob/master/docs/output/render.md) |
 | **数据库** | `baibao.db` | MySQL/PostgreSQL 连接池与查询 | [文档](https://github.com/kahle23/pybaibao/blob/master/docs/data/db.md) |

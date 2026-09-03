@@ -15,11 +15,14 @@ from __future__ import annotations
 import os
 import shutil
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 if TYPE_CHECKING:
     from playwright.sync_api import Browser, BrowserContext, Playwright
+
+T = TypeVar("T")
 
 __all__ = ["detect_chrome_path", "launch_browser", "launch_browser_persistent"]
 
@@ -105,8 +108,12 @@ def _install_builtin_kernel(headless: bool) -> bool:
 
 
 def _run_chromium_chain(
-    launch, *, headless: bool, use_builtin_chromium: bool | None, chrome_path: str | None,
-):
+    launch: Callable[[dict[str, Any]], T],
+    *,
+    headless: bool,
+    use_builtin_chromium: bool | None,
+    chrome_path: str | None,
+) -> T:
     """
     按浏览器选择链执行 ``launch`` 回调，返回 Browser / BrowserContext。
 

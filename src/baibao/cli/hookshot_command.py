@@ -278,8 +278,8 @@ class HookshotCommand(Command):
         if cfg.get("note"):
             print(f"{TAG} 备注: {cfg['note']}")
         print(f"{TAG} 请求: {method} {_mask_url(url)}")
-        for hk in headers:
-            print(f"{TAG} 头部: {hk}: {_mask_header_value(str(headers[hk]))}")
+        for hk, value in headers.items():
+            print(f"{TAG} 头部: {hk}: {_mask_header_value(str(value))}")
         if dry_run:
             print(f"{TAG} DRY-RUN: 未实际触发")
             return True

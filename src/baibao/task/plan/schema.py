@@ -1,5 +1,5 @@
 """
-长任务 MySQL 表结构定义（单一信息源）。
+计划任务 MySQL 表结构定义（单一信息源）。
 
 集中承载 ``ai_task_*`` 六张表的列定义、索引/唯一键与表注释，并提供 DDL 生成
 函数 :func:`ddl`——列清单只此一份，建表语句由此生成，避免重复维护
@@ -99,7 +99,7 @@ TABLES: dict[str, tuple[list[tuple[str, str, str]], list[str], str]] = {
     'ai_task_template': (
         _COLUMNS_TEMPLATE,
         ['UNIQUE KEY uk_ai_task_template_name (name)'],
-        '长任务模板',
+        '计划任务模板',
     ),
     'ai_task_instance': (
         _COLUMNS_INSTANCE,
@@ -109,7 +109,7 @@ TABLES: dict[str, tuple[list[tuple[str, str, str]], list[str], str]] = {
             'KEY idx_ai_task_inst_template (template_id)',
             'KEY idx_ai_task_inst_parent (parent_task_id)',
         ],
-        '长任务实例',
+        '计划任务实例',
     ),
     'ai_task_step': (
         _COLUMNS_STEP,
@@ -117,7 +117,7 @@ TABLES: dict[str, tuple[list[tuple[str, str, str]], list[str], str]] = {
             'UNIQUE KEY uk_ai_task_step_seq (task_id, seq)',
             'KEY idx_ai_task_step_status (task_id, status)',
         ],
-        '长任务步骤（计划）',
+        '计划任务步骤（计划）',
     ),
     'ai_task_run': (
         _COLUMNS_RUN,
@@ -126,7 +126,7 @@ TABLES: dict[str, tuple[list[tuple[str, str, str]], list[str], str]] = {
             'KEY idx_ai_task_run_task (task_id)',
             'KEY idx_ai_task_run_status (status)',
         ],
-        '长任务执行记录（尝试）',
+        '计划任务执行记录（尝试）',
     ),
     'ai_task_artifact': (
         _COLUMNS_ARTIFACT,
@@ -134,12 +134,12 @@ TABLES: dict[str, tuple[list[tuple[str, str, str]], list[str], str]] = {
             'KEY idx_ai_task_art_task (task_id)',
             'KEY idx_ai_task_art_step (step_id)',
         ],
-        '长任务产物',
+        '计划任务产物',
     ),
     'ai_task_event': (
         _COLUMNS_EVENT,
         ['KEY idx_ai_task_event_task (task_id, id)'],
-        '长任务事件日志',
+        '计划任务事件日志',
     ),
 }
 

@@ -16,7 +16,7 @@
 | [ai/ai.md](./ai/ai.md) | 模块 | LLM 对话（OpenAI 兼容）与 OCR 文字识别 |
 | [ai/agent_memory.md](./ai/agent_memory.md) | 命令 | AI 记忆：记/回忆/更新/遗忘事实类项目知识（`am`） |
 | [ai/agent_prompt.md](./ai/agent_prompt.md) | 命令 | AI prompt 模板库：团队共享/可搜索/可参数化（`ap`） |
-| [ai/agent_task.md](./ai/agent_task.md) | 命令 | AI 长任务：建任务/拆步骤/认领/断点续跑（`at`） |
+| [ai/plan_task.md](./ai/plan_task.md) | 命令 | AI 计划任务：建任务/拆步骤/认领/断点续跑（`pt`） |
 | [data/data.md](./data/data.md) | 模块 | 货币查询与元数据定义（Field/Style） |
 | [data/db.md](./data/db.md) | 模块 | MySQL/PostgreSQL/SQLite 连接池与查询 |
 | [output/render.md](./output/render.md) | 模块 | HTML 报告片段（表格/图表/指标卡片）与 Jinja2 模板引擎 |
@@ -57,6 +57,6 @@ baibao 核心依赖很轻（仅 `pykunlun`），重依赖按需安装：
 | `agent_image` | 从 AI agent 会话库取最新粘贴图并解码为本地文件 |
 | `agent_memory`（`am`） | AI 记忆操作（记/回忆/更新/遗忘） |
 | `agent_prompt`（`ap`） | AI prompt 模板库 |
-| `agent_task`（`at`） | AI 长任务（建任务/拆步骤/认领/续跑） |
+| `plan_task`（`pt`） | AI 计划任务（建任务/拆步骤/认领/续跑） |
 | `mojibake` | 检测/修复源文件乱码（UTF-8 当 GBK 解读型） |
 | `move_java` | 迁移 Java 源文件到新包（改 package + 同步 import） |

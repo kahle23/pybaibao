@@ -29,6 +29,8 @@ sqlite 备份使用内置 sqlite3 的 :class:`~pykunlun.db.SqliteBackupService`�
 
 import json
 import logging
+import sqlite3
+from datetime import datetime
 from typing import Any
 
 from pykunlun.db import (
@@ -47,6 +49,10 @@ from .postgresql_backup import PostgresqlBackupService
 from .postgresql_client import PostgresqlClient
 
 log = logging.getLogger(__name__)
+
+# Python 3.12+ 弃用了 sqlite3 默认 datetime adapter，显式注册等价适配器
+# （输出与原默认行为一致的 ISO 8601 字符串，仅影响 sqlite3 连接，MySQL/PostgreSQL 不受影响）
+sqlite3.register_adapter(datetime, lambda dt: dt.isoformat())
 
 # region ======== 配置加载 ========
 

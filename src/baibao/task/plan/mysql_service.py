@@ -1,11 +1,11 @@
 """
-长任务服务的 MySQL 实现（基于 baibao 的 rdb_mgr）。
+计划任务服务的 MySQL 实现（基于 baibao 的 rdb_mgr）。
 
-实现 :class:`pykunlun.ai_agent.long_task.LongTaskService` 抽象，核心要点：
+实现 :class:`pykunlun.task.plan.PlanTaskService` 抽象，核心要点：
 
   - **仅支持 MySQL**（本期唯一方言）：首次使用时探测目标实例的 ``db_type``，
     非 ``mysql`` 直接抛 ``NotImplementedError``；占位符固定 ``%s``；
-  - **幂等初始化**——:meth:`MySqlLongTaskService.setup` 用 ``CREATE TABLE IF NOT
+  - **幂等初始化**——:meth:`MySqlPlanTaskService.setup` 用 ``CREATE TABLE IF NOT
     EXISTS`` 建 ``ai_task_*`` 六张表（列定义见 :mod:`.schema` 单一信息源）；
     首版无老库，不做补列迁移；
   - **事务化复合操作**——claim_next_step / finish_run / fail_run / sweep / cancel /
@@ -22,16 +22,16 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import Any
 
-from pykunlun.ai_agent.long_task import (
+from pykunlun.task.plan import (
     UPDATABLE_TASK_FIELDS,
     VALID_ART_TYPES,
     VALID_EVENT_LEVELS,
     VALID_EVENT_TYPES,
     VALID_STEP_TYPES,
-    AgentRun,
-    LongTaskManager,
-    LongTaskService,
+    PlanTaskManager,
+    PlanTaskService,
     TaskInstance,
+    TaskRun,
     TaskStep,
     TaskTemplate,
     deps_satisfied,
@@ -71,12 +71,12 @@ def _jload(text: Any) -> Any:
         return None
 
 
-class MySqlLongTaskService(LongTaskService):
+class MySqlPlanTaskService(PlanTaskService):
     """
-    基于 rdb_mgr 的长任务服务实现（仅 MySQL）。
+    基于 rdb_mgr 的计划任务服务实现（仅 MySQL）。
 
     通过指定 rdb 实例名（``db_name``）复用 baibao 已注册的数据库连接；省略时使用
-    rdb 的默认实例（``default``）。建议为长任务单独注册一个别名实例（如
+    rdb 的默认实例（``default``）。建议为计划任务单独注册一个别名实例（如
     ``agent_task``），与业务库、记忆库隔离。
 
     Args:
@@ -108,10 +108,10 @@ class MySqlLongTaskService(LongTaskService):
         return self._db_type
 
     def _require_mysql(self) -> None:
-        """方言守卫：本期长任务仅支持 MySQL，其余方言直接拒绝。"""
+        """方言守卫：本期计划任务仅支持 MySQL，其余方言直接拒绝。"""
         db_type = self._get_db_type()
         if db_type != 'mysql':
-            raise NotImplementedError(f"本期长任务仅支持 MySQL，目标实例为 {db_type}")
+            raise NotImplementedError(f"本期计划任务仅支持 MySQL，目标实例为 {db_type}")
 
     def _query(self, sql: str, params: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
         """单语句读（rdb_mgr.query，参数化 %s）。"""
@@ -219,7 +219,7 @@ class MySqlLongTaskService(LongTaskService):
         for base in TABLES:
             self._execute(ddl(base, self._t(base)))
         self._migrate()
-        log.info("MySqlLongTaskService 已初始化 6 张 ai_task_* 表 (db_name=%s)", self._db_name)
+        log.info("MySqlPlanTaskService 已初始化 6 张 ai_task_* 表 (db_name=%s)", self._db_name)
 
     def _migrate(self) -> None:
         """轻量补列迁移：CREATE TABLE IF NOT EXISTS 不会给已存在的表补新列，
@@ -741,9 +741,9 @@ class MySqlLongTaskService(LongTaskService):
                             'task: running → failed (步骤预算耗尽)')
             return 'retried' if disposition == 'pending' else 'step_failed'
 
-    def get_run(self, run_id: int) -> AgentRun | None:
+    def get_run(self, run_id: int) -> TaskRun | None:
         rows = self._query(f'SELECT * FROM {self._t("ai_task_run")} WHERE id = %s', (run_id,))
-        return AgentRun.from_dict(rows[0]) if rows else None
+        return TaskRun.from_dict(rows[0]) if rows else None
 
     def list_runs(self, step_id: int) -> list[dict[str, Any]]:
         return self._query(
@@ -1171,9 +1171,9 @@ class MySqlLongTaskService(LongTaskService):
         return [self._template_row(r) for r in rows]
 
 
-#: 模块级默认管理器实例：注册一个指向 rdb 默认实例的 MySqlLongTaskService
-task_mgr: LongTaskManager = LongTaskManager()
-task_mgr.register(LongTaskManager.DEFAULT_NAME, MySqlLongTaskService())
+#: 模块级默认管理器实例：注册一个指向 rdb 默认实例的 MySqlPlanTaskService
+task_mgr: PlanTaskManager = PlanTaskManager()
+task_mgr.register(PlanTaskManager.DEFAULT_NAME, MySqlPlanTaskService())
 
-__all__ = ['MySqlLongTaskService', 'task_mgr']
+__all__ = ['MySqlPlanTaskService', 'task_mgr']
     # endregion

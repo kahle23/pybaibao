@@ -1,7 +1,7 @@
 """
-agent_task 命令 - AI 长任务的高层操作（create / plan / claim / finish / fail 等）。
+plan_task 命令 - AI 计划任务的高层操作（create / plan / claim / finish / fail 等）。
 
-基于 :mod:`baibao.ai_agent.long_task` 的 ``MySqlLongTaskService``，对外封装为面向
+基于 :mod:`baibao.task.plan` 的 ``MySqlPlanTaskService``，对外封装为面向
 AI/用户的高层子命令。数据库是唯一真相源，AI 会话只是可随时替换的执行单元——
 断了就 ``sweep → list --status running → claim`` 从断点续跑。
 
@@ -25,10 +25,12 @@ AI/用户的高层子命令。数据库是唯一真相源，AI 会话只是可�
   - template    存模板/列模板（最小实现）
 
 身份与配置：
-  - 配置文件 ``.baibao/agent_task.config``（当前目录优先，再用户目录，utf-8-sig 容错），
-    键：``rdb_name`` / ``owner`` / ``session_id`` / ``agent_name``；
-  - 环境变量 ``AGENT_TASK_DB`` / ``AGENT_TASK_OWNER`` / ``AGENT_TASK_SESSION_ID`` /
-    ``AGENT_TASK_AGENT_NAME``；解析优先级：命令行标志 > 环境变量 > 配置文件；
+  - 配置文件 ``.baibao/plan_task.config``（当前目录优先，再用户目录，utf-8-sig 容错；
+    旧名 ``agent_task.config`` 回退兼容），键：``rdb_name`` / ``owner`` / ``session_id`` /
+    ``agent_name``；
+  - 环境变量 ``PLAN_TASK_DB`` / ``PLAN_TASK_OWNER`` / ``PLAN_TASK_SESSION_ID`` /
+    ``PLAN_TASK_AGENT_NAME``（旧名 ``AGENT_TASK_*`` 回退兼容）；解析优先级：命令行标志 >
+    环境变量（新名优先）> 配置文件；
   - ``owner`` 仅作为 created_by 标签（不鉴权），未配置只告警不阻断。
 
 长文本（goal/instruction/output/error/steps/params）一律提供 ``--xxx-file`` 且支持
@@ -45,37 +47,39 @@ import sys
 from datetime import date, datetime
 from typing import Any
 
-from pykunlun.ai_agent import (
+from pykunlun.cli import CliContext, Command
+from pykunlun.task.plan import (
     VALID_ART_TYPES,
     VALID_STEP_TYPES,
-    LongTaskManager,
+    PlanTaskManager,
     TaskInstance,
     TaskStep,
     TaskTemplate,
 )
-from pykunlun.cli import CliContext, Command
 from pykunlun.util import logutil
 
-from baibao.ai_agent.long_task import MySqlLongTaskService
+from baibao.task.plan import MySqlPlanTaskService
 
 log = logutil.getLogger(__name__)
 
-#: 身份配置文件名
-_CONFIG_FILENAME = 'agent_task.config'
+#: 身份配置文件名（新名优先，旧名 agent_task.config 回退兼容）
+_CONFIG_FILENAMES = ('plan_task.config', 'agent_task.config')
 
 #: 配置缓存（一次进程内复用）
 _config_cache: dict[str, Any] | None = None
 
 
 def _load_config() -> dict[str, Any]:
-    """搜索并加载配置文件，返回字典（无则为空 dict）。优先级：先找到的为准。"""
+    """搜索并加载配置文件，返回字典（无则为空 dict）。优先级：先找到的为准。
+
+    每个候选目录内按新名 ``plan_task.config`` 优先、旧名 ``agent_task.config``
+    回退依次探测；目录间仍为 当前目录 → 用户目录。
+    """
     global _config_cache
     if _config_cache is not None:
         return _config_cache
-    paths = [
-        os.path.join(os.getcwd(), '.baibao', _CONFIG_FILENAME),
-        os.path.join(os.path.expanduser('~'), '.baibao', _CONFIG_FILENAME),
-    ]
+    dirs = [os.getcwd(), os.path.expanduser('~')]
+    paths = [os.path.join(d, '.baibao', fn) for d in dirs for fn in _CONFIG_FILENAMES]
     for p in paths:
         try:
             if os.path.isfile(p):
@@ -83,11 +87,11 @@ def _load_config() -> dict[str, Any]:
                 with open(p, encoding='utf-8-sig') as f:
                     data = json.load(f)
                 if isinstance(data, dict):
-                    log.debug("加载长任务配置: %s", p)
+                    log.debug("加载计划任务配置: %s", p)
                     _config_cache = data
                     return data
         except Exception:
-            log.warning("读取长任务配置失败: %s", p, exc_info=True)
+            log.warning("读取计划任务配置失败: %s", p, exc_info=True)
     _config_cache = {}
     return _config_cache
 
@@ -129,31 +133,31 @@ class _CustomEncoder(json.JSONEncoder):
         return super().default(o)
 
 
-class AgentTaskCommand(Command):
+class PlanTaskCommand(Command):
     """
-    AI 长任务命令（断点可续、重试有据、全程留痕）。
+    AI 计划任务命令（断点可续、重试有据、全程留痕）。
 
     每次调用按配置（环境变量/配置文件）解析 rdb 实例名，构造
-    :class:`MySqlLongTaskService` 并经 :class:`LongTaskManager` 转发。
+    :class:`MySqlPlanTaskService` 并经 :class:`PlanTaskManager` 转发。
     """
 
     @property
     def name(self) -> str:
-        return 'agent_task'
+        return 'plan_task'
 
     @property
     def abbr(self) -> str:
-        return 'at'
+        return 'pt'
 
     @property
     def description(self) -> str:
-        return 'AI 长任务操作（建任务/拆步骤/认领/收口/断点续跑）'
+        return 'AI 计划任务操作（建任务/拆步骤/认领/收口/断点续跑）'
 
     @property
     def usage(self) -> str:
         return (
-            "python -m baibao agent_task <子命令> [选项]\n"
-            "python -m baibao at <子命令> [选项]        # 缩写\n"
+            "python -m baibao plan_task <子命令> [选项]\n"
+            "python -m baibao pt <子命令> [选项]        # 缩写\n"
             "\n"
             "生命周期:  init → create → plan → (claim → finish|fail)* → status\n"
             "           bash 步骤可无人值守：run = claim + 执行 + 自动收口（循环到无可认领）\n"
@@ -196,8 +200,10 @@ class AgentTaskCommand(Command):
             "  template save <task_id> --name [--description --skill-ref]  把任务步骤存为模板\n"
             "  template list [--limit]                     列模板\n"
             "\n"
-            "配置: .baibao/agent_task.config（rdb_name/owner/session_id/agent_name）\n"
-            "      环境变量: AGENT_TASK_DB / AGENT_TASK_OWNER / AGENT_TASK_SESSION_ID / AGENT_TASK_AGENT_NAME\n"
+            "配置: .baibao/plan_task.config（rdb_name/owner/session_id/agent_name；\n"
+            "      旧名 agent_task.config 回退兼容）\n"
+            "      环境变量: PLAN_TASK_DB / PLAN_TASK_OWNER / PLAN_TASK_SESSION_ID / PLAN_TASK_AGENT_NAME\n"
+            "      （旧名 AGENT_TASK_* 同样回退兼容）\n"
             "\n"
             "通用选项:\n"
             "  --format FMT  输出格式: json|jsonl|csv|table（默认: jsonl）\n"
@@ -264,40 +270,45 @@ class AgentTaskCommand(Command):
             self.show_usage()
             return False
         except Exception as e:
-            log.error(f"agent_task {sub} 失败: {e}")
+            log.error(f"plan_task {sub} 失败: {e}")
             return False
 
     # region ======== 工具：配置解析与构造 ========
 
     @staticmethod
-    def _build_mgr() -> LongTaskManager:
-        """构造 LongTaskManager（rdb 实例名走配置，调用方无需关心）。"""
+    def _build_mgr() -> PlanTaskManager:
+        """构造 PlanTaskManager（rdb 实例名走配置，调用方无需关心）。"""
         cfg = _load_config()
-        db_name = os.environ.get('AGENT_TASK_DB') or cfg.get('rdb_name')
-        mgr = LongTaskManager()
-        mgr.register(LongTaskManager.DEFAULT_NAME, MySqlLongTaskService(db_name=db_name))
+        db_name = (os.environ.get('PLAN_TASK_DB')
+                   or os.environ.get('AGENT_TASK_DB')
+                   or cfg.get('rdb_name'))
+        mgr = PlanTaskManager()
+        mgr.register(PlanTaskManager.DEFAULT_NAME, MySqlPlanTaskService(db_name=db_name))
         return mgr
 
     @staticmethod
     def _resolve_created_by(ns: argparse.Namespace) -> str | None:
-        """解析 created_by 标签：标志 > AGENT_TASK_OWNER > 配置文件；未配置仅告警。"""
+        """解析 created_by 标签：标志 > PLAN_TASK_OWNER（旧名 AGENT_TASK_OWNER 回退）> 配置文件；未配置仅告警。"""
         cfg = _load_config()
         created_by = (getattr(ns, 'created_by', None)
+                      or os.environ.get('PLAN_TASK_OWNER')
                       or os.environ.get('AGENT_TASK_OWNER')
                       or cfg.get('owner'))
         if created_by is None:
-            log.info("未配置 owner（AGENT_TASK_OWNER / agent_task.config），任务将无创建者标签；"
+            log.info("未配置 owner（PLAN_TASK_OWNER / plan_task.config），任务将无创建者标签；"
                      "多机共用库建议配置以便筛选")
         return created_by
 
     @staticmethod
     def _resolve_session(ns: argparse.Namespace) -> tuple[str | None, str | None]:
-        """解析 (session_id, agent_name)：标志 > AGENT_TASK_* 环境变量 > 配置文件。"""
+        """解析 (session_id, agent_name)：标志 > PLAN_TASK_*（旧名 AGENT_TASK_* 回退）> 配置文件。"""
         cfg = _load_config()
         session_id = (getattr(ns, 'session_id', None)
+                      or os.environ.get('PLAN_TASK_SESSION_ID')
                       or os.environ.get('AGENT_TASK_SESSION_ID')
                       or cfg.get('session_id'))
         agent_name = (getattr(ns, 'agent_name', None)
+                      or os.environ.get('PLAN_TASK_AGENT_NAME')
                       or os.environ.get('AGENT_TASK_AGENT_NAME')
                       or cfg.get('agent_name'))
         return session_id, agent_name
@@ -373,18 +384,18 @@ class AgentTaskCommand(Command):
     # region ======== 子命令实现：初始化 / 建任务 / 拆步骤 ========
 
     def _init(self, ctx: CliContext, args: list[str]) -> bool:
-        parser = argparse.ArgumentParser(prog='python -m baibao agent_task init')
+        parser = argparse.ArgumentParser(prog='python -m baibao plan_task init')
         parser.parse_args(args)
         mgr = self._build_mgr()
         mgr.setup()
         n = len(mgr.list_tasks(limit=1000))
         ctx.print_delim()
-        print(f"长任务库已就绪（6 张 ai_task_* 表，service=mysql），现有任务 {n} 个")
+        print(f"计划任务库已就绪（6 张 ai_task_* 表，service=mysql），现有任务 {n} 个")
         ctx.print_delim()
         return True
 
     def _create(self, ctx: CliContext, args: list[str]) -> bool:
-        parser = argparse.ArgumentParser(prog='python -m baibao agent_task create')
+        parser = argparse.ArgumentParser(prog='python -m baibao plan_task create')
         parser.add_argument('--title', required=True, help='任务标题')
         goal_group = parser.add_mutually_exclusive_group(required=True)
         goal_group.add_argument('--goal', default=None,
@@ -408,7 +419,7 @@ class AgentTaskCommand(Command):
         parser.add_argument('--heartbeat-timeout-sec', type=int, default=None,
                             dest='heartbeat_timeout_sec', help='心跳超时阈值秒（默认 1800）')
         parser.add_argument('--created-by', default=None, dest='created_by',
-                            help='创建者标签（默认: 环境变量 AGENT_TASK_OWNER > 配置 owner）')
+                            help='创建者标签（默认: 环境变量 PLAN_TASK_OWNER > 配置 owner）')
         parser.add_argument('--format', dest='format',
                             choices=['json', 'jsonl', 'csv', 'table'], default='jsonl',
                             help='输出格式（默认: jsonl）')
@@ -450,7 +461,7 @@ class AgentTaskCommand(Command):
         return True
 
     def _plan(self, ctx: CliContext, args: list[str]) -> bool:
-        parser = argparse.ArgumentParser(prog='python -m baibao agent_task plan')
+        parser = argparse.ArgumentParser(prog='python -m baibao plan_task plan')
         parser.add_argument('task_id', type=int, help='目标任务 id')
         parser.add_argument('--steps-file', required=True, dest='steps_file',
                             help='步骤 JSON 数组文件（"-" 读 stdin）；元素 '
@@ -504,7 +515,7 @@ class AgentTaskCommand(Command):
         return False
 
     def _step_add(self, ctx: CliContext, args: list[str]) -> bool:
-        parser = argparse.ArgumentParser(prog='python -m baibao agent_task step add')
+        parser = argparse.ArgumentParser(prog='python -m baibao plan_task step add')
         parser.add_argument('task_id', type=int, help='目标任务 id')
         parser.add_argument('--name', required=True, help='步骤名')
         instr_group = parser.add_mutually_exclusive_group(required=True)
@@ -547,12 +558,12 @@ class AgentTaskCommand(Command):
     # region ======== 子命令实现：执行主循环 ========
 
     def _claim(self, ctx: CliContext, args: list[str]) -> bool:
-        parser = argparse.ArgumentParser(prog='python -m baibao agent_task claim')
+        parser = argparse.ArgumentParser(prog='python -m baibao plan_task claim')
         parser.add_argument('task_id', type=int, help='目标任务 id')
         parser.add_argument('--session-id', default=None, dest='session_id',
-                            help='执行会话标识（默认: 环境变量 AGENT_TASK_SESSION_ID > 配置）')
+                            help='执行会话标识（默认: 环境变量 PLAN_TASK_SESSION_ID > 配置）')
         parser.add_argument('--agent-name', default=None, dest='agent_name',
-                            help='agent 外壳标识（默认: 环境变量 AGENT_TASK_AGENT_NAME > 配置）')
+                            help='agent 外壳标识（默认: 环境变量 PLAN_TASK_AGENT_NAME > 配置）')
         parser.add_argument('--format', dest='format', choices=['json', 'jsonl'], default='jsonl',
                             help='续跑上下文包输出格式（默认: jsonl 单行省 token；json 为缩进多行）')
         parser.add_argument('--ignore-deps', action='store_true', dest='ignore_deps',
@@ -574,12 +585,12 @@ class AgentTaskCommand(Command):
 
     def _run(self, ctx: CliContext, args: list[str]) -> bool:
         """无人值守执行：循环认领 bash 步骤并自动收口（run = claim + 执行 + finish/fail）。"""
-        parser = argparse.ArgumentParser(prog='python -m baibao agent_task run')
+        parser = argparse.ArgumentParser(prog='python -m baibao plan_task run')
         parser.add_argument('task_id', type=int, help='目标任务 id')
         parser.add_argument('--session-id', default=None, dest='session_id',
-                            help='执行会话标识（默认: 环境变量 AGENT_TASK_SESSION_ID > 配置）')
+                            help='执行会话标识（默认: 环境变量 PLAN_TASK_SESSION_ID > 配置）')
         parser.add_argument('--agent-name', default=None, dest='agent_name',
-                            help='agent 外壳标识（默认: 环境变量 AGENT_TASK_AGENT_NAME > 配置）')
+                            help='agent 外壳标识（默认: 环境变量 PLAN_TASK_AGENT_NAME > 配置）')
         parser.add_argument('--format', dest='format', choices=['json', 'jsonl'], default='jsonl',
                             help='逐步骤结果输出格式（默认: jsonl 单行）')
         ns = parser.parse_args(args)
@@ -606,7 +617,7 @@ class AgentTaskCommand(Command):
         return True
 
     def _finish(self, ctx: CliContext, args: list[str]) -> bool:
-        parser = argparse.ArgumentParser(prog='python -m baibao agent_task finish')
+        parser = argparse.ArgumentParser(prog='python -m baibao plan_task finish')
         parser.add_argument('run_id', type=int, help='执行 id（claim 输出的 run_id）')
         output_group = parser.add_mutually_exclusive_group(required=False)
         output_group.add_argument('--output', default=None, help='执行输出原文')
@@ -650,7 +661,7 @@ class AgentTaskCommand(Command):
         return True
 
     def _fail(self, ctx: CliContext, args: list[str]) -> bool:
-        parser = argparse.ArgumentParser(prog='python -m baibao agent_task fail')
+        parser = argparse.ArgumentParser(prog='python -m baibao plan_task fail')
         parser.add_argument('run_id', type=int, help='执行 id（claim 输出的 run_id）')
         error_group = parser.add_mutually_exclusive_group(required=True)
         error_group.add_argument('--error', default=None, help='失败原因')
@@ -673,7 +684,7 @@ class AgentTaskCommand(Command):
         return True
 
     def _heartbeat(self, ctx: CliContext, args: list[str]) -> bool:
-        parser = argparse.ArgumentParser(prog='python -m baibao agent_task heartbeat')
+        parser = argparse.ArgumentParser(prog='python -m baibao plan_task heartbeat')
         parser.add_argument('task_id', type=int, help='目标任务 id')
         ns = parser.parse_args(args)
         self._build_mgr().heartbeat(ns.task_id)
@@ -685,7 +696,7 @@ class AgentTaskCommand(Command):
     # region ======== 子命令实现：查询 ========
 
     def _status(self, ctx: CliContext, args: list[str]) -> bool:
-        parser = argparse.ArgumentParser(prog='python -m baibao agent_task status')
+        parser = argparse.ArgumentParser(prog='python -m baibao plan_task status')
         parser.add_argument('task_id', type=int, help='目标任务 id')
         parser.add_argument('--snippet', type=int, default=300,
                             help='长字段预览字数（默认 300）；--full 时忽略')
@@ -725,7 +736,7 @@ class AgentTaskCommand(Command):
         return True
 
     def _list(self, ctx: CliContext, args: list[str]) -> bool:
-        parser = argparse.ArgumentParser(prog='python -m baibao agent_task list')
+        parser = argparse.ArgumentParser(prog='python -m baibao plan_task list')
         parser.add_argument('--status', default=None,
                             help='限定任务状态（pending/running/paused/completed/failed/cancelled）')
         parser.add_argument('--created-by', default=None, dest='created_by',
@@ -753,7 +764,7 @@ class AgentTaskCommand(Command):
     # region ======== 子命令实现：生命周期 / 恢复 ========
 
     def _pause(self, ctx: CliContext, args: list[str]) -> bool:
-        parser = argparse.ArgumentParser(prog='python -m baibao agent_task pause')
+        parser = argparse.ArgumentParser(prog='python -m baibao plan_task pause')
         parser.add_argument('task_id', type=int, help='目标任务 id')
         ns = parser.parse_args(args)
         ok = self._build_mgr().pause(ns.task_id)
@@ -762,7 +773,7 @@ class AgentTaskCommand(Command):
         return ok
 
     def _resume(self, ctx: CliContext, args: list[str]) -> bool:
-        parser = argparse.ArgumentParser(prog='python -m baibao agent_task resume')
+        parser = argparse.ArgumentParser(prog='python -m baibao plan_task resume')
         parser.add_argument('task_id', type=int, help='目标任务 id')
         ns = parser.parse_args(args)
         ok = self._build_mgr().resume(ns.task_id)
@@ -770,7 +781,7 @@ class AgentTaskCommand(Command):
         return ok
 
     def _cancel(self, ctx: CliContext, args: list[str]) -> bool:
-        parser = argparse.ArgumentParser(prog='python -m baibao agent_task cancel')
+        parser = argparse.ArgumentParser(prog='python -m baibao plan_task cancel')
         parser.add_argument('task_id', type=int, help='目标任务 id')
         parser.add_argument('--reason', default='', help='取消原因（记入事件）')
         ns = parser.parse_args(args)
@@ -780,7 +791,7 @@ class AgentTaskCommand(Command):
         return ok
 
     def _retry(self, ctx: CliContext, args: list[str]) -> bool:
-        parser = argparse.ArgumentParser(prog='python -m baibao agent_task retry')
+        parser = argparse.ArgumentParser(prog='python -m baibao plan_task retry')
         parser.add_argument('step_id', type=int, help='目标步骤 id')
         parser.add_argument('--force', action='store_true',
                             help='管理强制：额外放行 succeeded（清假摘要，completed 任务一并复活）')
@@ -792,7 +803,7 @@ class AgentTaskCommand(Command):
         return ok
 
     def _skip(self, ctx: CliContext, args: list[str]) -> bool:
-        parser = argparse.ArgumentParser(prog='python -m baibao agent_task skip')
+        parser = argparse.ArgumentParser(prog='python -m baibao plan_task skip')
         parser.add_argument('step_id', type=int, help='目标步骤 id')
         parser.add_argument('--reason', default='', help='跳过原因（记入事件）')
         ns = parser.parse_args(args)
@@ -801,7 +812,7 @@ class AgentTaskCommand(Command):
         return ok
 
     def _sweep(self, ctx: CliContext, args: list[str]) -> bool:
-        parser = argparse.ArgumentParser(prog='python -m baibao agent_task sweep')
+        parser = argparse.ArgumentParser(prog='python -m baibao plan_task sweep')
         parser.add_argument('--heartbeat-timeout-sec', type=int, default=None,
                             dest='heartbeat_timeout_sec',
                             help='心跳超时阈值秒的全局覆盖（默认逐任务用其自身配置）')
@@ -819,7 +830,7 @@ class AgentTaskCommand(Command):
         return True
 
     def _release(self, ctx: CliContext, args: list[str]) -> bool:
-        parser = argparse.ArgumentParser(prog='python -m baibao agent_task release')
+        parser = argparse.ArgumentParser(prog='python -m baibao plan_task release')
         parser.add_argument('run_id', type=int, help='执行 id（claim 输出的 run_id）')
         parser.add_argument('--reason', default='', help='释放原因（记入事件），如会话结束/上游未就绪')
         ns = parser.parse_args(args)
@@ -831,7 +842,7 @@ class AgentTaskCommand(Command):
         return True
 
     def _verify(self, ctx: CliContext, args: list[str]) -> bool:
-        parser = argparse.ArgumentParser(prog='python -m baibao agent_task verify')
+        parser = argparse.ArgumentParser(prog='python -m baibao plan_task verify')
         parser.add_argument('task_id', type=int, help='目标任务 id')
         parser.add_argument('--fix', action='store_true',
                             help='就地修复（全部修复同一事务执行，并追加 warn 级汇总事件留痕）')
@@ -867,7 +878,7 @@ class AgentTaskCommand(Command):
         return False
 
     def _artifact_add(self, ctx: CliContext, args: list[str]) -> bool:
-        parser = argparse.ArgumentParser(prog='python -m baibao agent_task artifact add')
+        parser = argparse.ArgumentParser(prog='python -m baibao plan_task artifact add')
         parser.add_argument('task_id', type=int, help='目标任务 id')
         parser.add_argument('--path', required=True, help='产物路径（相对仓库根或绝对路径）')
         parser.add_argument('--type', default='file', dest='art_type',
@@ -883,7 +894,7 @@ class AgentTaskCommand(Command):
         return True
 
     def _artifact_list(self, ctx: CliContext, args: list[str]) -> bool:
-        parser = argparse.ArgumentParser(prog='python -m baibao agent_task artifact list')
+        parser = argparse.ArgumentParser(prog='python -m baibao plan_task artifact list')
         parser.add_argument('task_id', type=int, help='目标任务 id')
         parser.add_argument('--format', dest='format',
                             choices=['json', 'jsonl', 'csv', 'table'], default='jsonl',
@@ -897,7 +908,7 @@ class AgentTaskCommand(Command):
         if not args or args[0] != 'list':
             log.error("event 需要二级子命令: list")
             return False
-        parser = argparse.ArgumentParser(prog='python -m baibao agent_task event list')
+        parser = argparse.ArgumentParser(prog='python -m baibao plan_task event list')
         parser.add_argument('task_id', type=int, help='目标任务 id')
         parser.add_argument('--limit', type=int, default=100,
                             help='最近事件条数（默认 100）')
@@ -922,7 +933,7 @@ class AgentTaskCommand(Command):
         return False
 
     def _template_save(self, ctx: CliContext, args: list[str]) -> bool:
-        parser = argparse.ArgumentParser(prog='python -m baibao agent_task template save')
+        parser = argparse.ArgumentParser(prog='python -m baibao plan_task template save')
         parser.add_argument('task_id', type=int, help='来源任务 id（其步骤被抽成蓝图）')
         parser.add_argument('--name', required=True, help='模板名（唯一）')
         parser.add_argument('--description', default=None, help='模板说明')
@@ -953,7 +964,7 @@ class AgentTaskCommand(Command):
         return True
 
     def _template_list(self, ctx: CliContext, args: list[str]) -> bool:
-        parser = argparse.ArgumentParser(prog='python -m baibao agent_task template list')
+        parser = argparse.ArgumentParser(prog='python -m baibao plan_task template list')
         parser.add_argument('--limit', type=int, default=50, help='最多返回条数（默认 50）')
         parser.add_argument('--format', dest='format',
                             choices=['json', 'jsonl', 'csv', 'table'], default='jsonl',

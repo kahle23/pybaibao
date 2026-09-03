@@ -1,7 +1,7 @@
 # agent_memory 命令行工具
 
 > AI 记忆：把"事实类项目知识"持久化进可检索的记忆库，让 AI 跨会话"记住/回忆/更新/遗忘"。
-> 缩写 `am`，与 `agent_prompt` / `agent_task` 同库（`ai_agent` 实例）部署，复用同一套 rdb 实例与 owner 鉴权模型。
+> 缩写 `am`，与 `agent_prompt` / `plan_task` 同库（`ai_agent` 实例）部署，复用同一套 rdb 实例与 owner 鉴权模型。
 
 ```bash
 python -m baibao agent_memory <子命令> [选项]
@@ -34,7 +34,7 @@ python -m baibao am <子命令> [选项]        # 缩写
 
 `--shared` 切换为**共享角色**：owner 被忽略，仅查看/操作 owner 为空的共享数据，个人数据不可见不可改。
 
-> `owner` 仅作鉴权；`machine` / `agent_name` 不鉴权、不过滤——这与 `agent_task` 的 `owner`（仅作标签不鉴权）不同。鉴权模型详见 `pykunlun.ai_agent.memory` 的 `visibility_clause` / `permission_clause`。
+> `owner` 仅作鉴权；`machine` / `agent_name` 不鉴权、不过滤——这与 `plan_task` 的 `owner`（仅作标签不鉴权）不同。鉴权模型详见 `pykunlun.ai_agent.memory` 的 `visibility_clause` / `permission_clause`。
 
 ### 去重维度（仅 `remember`）
 
@@ -260,7 +260,7 @@ python -m baibao am count --all                  # 含软删除项
 |------|------|------|
 | 数据库 | MySQL / PostgreSQL / SQLite | `RdbMemoryStore` 方言自适应 |
 | Python | ≥ 3.10 | 依赖 pykunlun / baibao |
-| rdb 实例 | 复用 `ai_agent` 可写实例 | 与 `agent_prompt` / `agent_task` 同库，无需新增连接 |
+| rdb 实例 | 复用 `ai_agent` 可写实例 | 与 `agent_prompt` / `plan_task` 同库，无需新增连接 |
 
 ---
 

@@ -19,12 +19,12 @@
 | [`agent_image`](#agent_image) | 从 AI agent 会话库取最新粘贴图 | `python -m baibao agent_image [选项]` |
 | [`agent_memory`](#agent_memory)（`am`） | AI 记忆操作（记/回忆/更新/遗忘） | `python -m baibao am <子命令> [选项]` |
 | [`agent_prompt`](#agent_prompt)（`ap`） | AI prompt 模板库 | `python -m baibao ap <子命令> [选项]` |
-| [`agent_task`](#agent_task)（`at`） | AI 长任务（建任务/拆步骤/认领/续跑） | `python -m baibao at <子命令> [选项]` |
+| [`plan_task`](#plan_task)（`pt`） | AI 计划任务（建任务/拆步骤/认领/续跑） | `python -m baibao pt <子命令> [选项]` |
 | [`mojibake`](#mojibake) | 检测/修复源文件乱码 | `python -m baibao mojibake [路径] [选项]` |
 | [`move_java`](#move_java) | 迁移 Java 源文件到新包 | `python -m baibao move_java <src> <dest> [选项]` |
 | [`autotest`](#autotest)（`au`） | Web 自动化测试辅助（DOM 摘要探针） | `python -m baibao autotest probe <路由> [选项]` |
 
-> `agent_memory` / `agent_prompt` / `agent_task` 子命令丰富、概念独立，本篇只给命令行调用差异，完整语义见各自的命令篇：[agent_memory.md](./ai/agent_memory.md)、[agent_prompt.md](./ai/agent_prompt.md)、[agent_task.md](./ai/agent_task.md)。`rdb` 的 SQL API 语义见 [db.md](./data/db.md)，`ocr` 的引擎参数语义见 [ai.md](./ai/ai.md)。
+> `agent_memory` / `agent_prompt` / `plan_task` 子命令丰富、概念独立，本篇只给命令行调用差异，完整语义见各自的命令篇：[agent_memory.md](./ai/agent_memory.md)、[agent_prompt.md](./ai/agent_prompt.md)、[plan_task.md](./ai/plan_task.md)。`rdb` 的 SQL API 语义见 [db.md](./data/db.md)，`ocr` 的引擎参数语义见 [ai.md](./ai/ai.md)。
 
 ---
 
@@ -519,9 +519,9 @@ python -m baibao ap render code-review --var lang=python
 
 ---
 
-## agent_task
+## plan_task
 
-AI 长任务（建任务/拆步骤/认领/收口/断点续跑）。完整子命令、状态机、重试预算、心跳僵尸检测见 [agent_task.md](./ai/agent_task.md)。
+AI 计划任务（建任务/拆步骤/认领/收口/断点续跑）。完整子命令、状态机、重试预算、心跳僵尸检测见 [plan_task.md](./ai/plan_task.md)。
 
 ### 子命令一览
 
@@ -541,12 +541,12 @@ AI 长任务（建任务/拆步骤/认领/收口/断点续跑）。完整子命�
 | `template save` / `template list` | 任务蓝图模板 |
 
 ```bash
-python -m baibao at init
-python -m baibao at create --title "重构 OCR 模块" --description "..."
-python -m baibao at status <task_id>
+python -m baibao pt init
+python -m baibao pt create --title "重构 OCR 模块" --description "..."
+python -m baibao pt status <task_id>
 ```
 
-> 完整选项、续跑上下文包、产物登记见 [agent_task.md](./ai/agent_task.md)。
+> 完整选项、续跑上下文包、产物登记见 [plan_task.md](./ai/plan_task.md)。
 
 ---
 
