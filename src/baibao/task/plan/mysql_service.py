@@ -17,7 +17,7 @@
 """
 
 import json
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import Any
@@ -42,7 +42,7 @@ from pykunlun.util import logutil
 
 from baibao.db.rdb import rdb_mgr
 
-from .schema import TABLES, _sql_str, ddl
+from .schema import TABLES, ddl, sql_str
 
 log = logutil.getLogger(__name__)
 
@@ -124,7 +124,7 @@ class MySqlPlanTaskService(PlanTaskService):
         return rdb_mgr.execute(sql, tuple(params), name=self._db_name)
 
     @contextmanager
-    def _tx(self) -> Iterator[tuple[Any, Any]]:
+    def _tx(self) -> Generator[tuple[Any, Any], None, None]:
         """
         事务：从 rdb 实例借裸连接并建游标，正常退出 commit，异常回滚后重抛。
 
@@ -236,7 +236,7 @@ class MySqlPlanTaskService(PlanTaskService):
                 if col not in existing and 'PRIMARY KEY' not in col_def.upper():
                     self._execute(
                         f'ALTER TABLE {table} ADD COLUMN {col} {col_def} '
-                        f'COMMENT {_sql_str(note)}')
+                        f'COMMENT {sql_str(note)}')
                     log.info("已补列 %s.%s", table, col)
     # endregion
 

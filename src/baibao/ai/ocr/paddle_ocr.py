@@ -128,7 +128,10 @@ class PaddleOcrV2(OcrEngine):
         Returns:
             :class:`OcrResult` 对象列表。
         """
-        result = self._ocr.ocr(image, cls=self._use_angle_cls)
+        # 本类仅运行于 paddleocr 2.x（分发器 PaddleOcr 按 major version 分发），
+        # 2.x 的 .ocr() 是正当 API；本机装 3.x 时 pyright 才把它标为 deprecated
+        # （3.x 用 .predict()），连带 Unknown 均为跨版本类型标注错位，故行级豁免。
+        result: Any = self._ocr.ocr(image, cls=self._use_angle_cls)  # pyright: ignore[reportDeprecated, reportUnknownMemberType, reportUnknownVariableType]
         if not result or not result[0]:
             return []
 
@@ -354,7 +357,7 @@ class PaddleOcr(OcrEngine):
         return self._delegate.lang
 
     def _recognize_array(self, image: 'np.ndarray[Any, np.dtype[Any]]') -> list[OcrResult]:
-        """转发给底层 V2 / V3 实现。"""
-        return self._delegate._recognize_array(image)
+        """转发给底层 V2 / V3 实现（同族类白盒协作）。"""
+        return self._delegate._recognize_array(image)  # pyright: ignore[reportPrivateUsage]
 
 # endregion

@@ -216,7 +216,9 @@ class AutotestCommand(Command):
             return False
 
         try:
-            from playwright.sync_api import sync_playwright  # noqa: F401
+            from playwright.sync_api import (
+                sync_playwright,  # noqa: F401  # pyright: ignore[reportUnusedImport]
+            )
         except ImportError:
             log.error('探针依赖 playwright，请先安装：pip install "baibao[autotest]"')
             return False

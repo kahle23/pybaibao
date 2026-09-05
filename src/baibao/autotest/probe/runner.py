@@ -30,11 +30,11 @@ from ..core.login_state import (
     save_storage_state,
 )
 from .extract_js import EXTRACT_JS
-from .render import _format_custom, format_summary
+from .render import format_custom, format_summary
 from .url import build_target_url
 
 if TYPE_CHECKING:
-    from playwright.sync_api import Browser, Page
+    from playwright.sync_api import Browser, BrowserContext, Page
 
 __all__ = ["ProbeOptions", "extract_summary", "run_probe", "run_probe_with"]
 
@@ -143,13 +143,13 @@ def _resolve_state_file(
     return state_file
 
 
-def _open_page(context, target: str, base_url: str, settle_ms: int) -> Page:
+def _open_page(context: BrowserContext, target: str, base_url: str, settle_ms: int) -> Page:
     """
     在 context 中深链打开目标页并等待就绪（SPA 动态路由 404 自动重试）。
 
     动态路由 SPA（如若依）在菜单未注册完时会跳 404：检测到 404 则等待后重新导航，最多 3 轮。长轮询页面到不了 networkidle，接受现状。
     """
-    page = cast("Page", context.new_page())
+    page = context.new_page()
     page.set_default_timeout(15000)
     page.set_default_navigation_timeout(30000)
 
@@ -287,7 +287,7 @@ def run_probe_with(opts: ProbeOptions) -> str:
                     _click_label(page, label)
 
                 if opts.extract_js is not None:
-                    return _format_custom(page.evaluate(opts.extract_js))
+                    return format_custom(page.evaluate(opts.extract_js))
                 return extract_summary(page, brief=opts.brief)
             finally:
                 context.close()

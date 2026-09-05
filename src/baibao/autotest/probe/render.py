@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-__all__ = ["MAX_OUTPUT_CHARS", "format_summary"]
+__all__ = ["MAX_OUTPUT_CHARS", "format_custom", "format_summary"]
 
 # 摘要硬上限（字符）。超限截断并标注，保证单页输出对 AI 上下文友好。
 MAX_OUTPUT_CHARS = 6000
@@ -119,7 +119,7 @@ def format_summary(data: dict[str, Any], *, brief: bool = False) -> str:
     return md
 
 
-def _format_custom(result: object) -> str:
+def format_custom(result: object) -> str:
     """
     把自定义 JS 的返回值渲染成紧凑 JSON（不可序列化时降级 str，超限截断）。
     """

@@ -24,11 +24,16 @@ from __future__ import annotations
 
 import os
 import time
+from collections.abc import Generator
 from datetime import date
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
 from ..core.envutil import load_dotenv_if_present, normalize_base_url
+
+if TYPE_CHECKING:
+    from playwright.sync_api import Browser, Playwright
 
 # 可选加载项目根 .env（python-dotenv 未安装则跳过，直接读 os.environ）
 load_dotenv_if_present()
@@ -77,7 +82,7 @@ def slow_mo() -> int:
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="session")
-def playwright():
+def playwright() -> Generator[Playwright, None, None]:
     """
     session 级启动 Playwright。
     """
@@ -88,7 +93,7 @@ def playwright():
 
 
 @pytest.fixture(scope="session")
-def browser(playwright, is_headless, slow_mo):
+def browser(playwright: Playwright, is_headless: bool, slow_mo: int) -> Generator[Browser, None, None]:
     """
     session 级启动浏览器。
 
@@ -137,7 +142,7 @@ def unique_id() -> str:
 
 
 @pytest.fixture()
-def faker():
+def faker() -> Any:
     """
     ``Faker("zh_CN")`` 实例（中文假数据生成）。
 

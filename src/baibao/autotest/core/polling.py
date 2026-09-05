@@ -36,11 +36,12 @@ def poll_until(
         ``fn`` 的最后返回值：满足时为真值；超时时为最后一代结果（通常为 None）。
     """
     if sleep_ms is None:
-        def sleep_ms(ms: int) -> None:
+        def _default_sleep(ms: int) -> None:
             """
             默认等待：秒级 sleep（Playwright 场景请传 page.wait_for_timeout）。
             """
             time.sleep(ms / 1000)
+        sleep_ms = _default_sleep
     deadline = time.monotonic() + timeout_ms / 1000
     result: Any = None
     while True:

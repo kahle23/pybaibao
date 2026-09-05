@@ -33,6 +33,8 @@ OCR 模块，提供多种 OCR 策略实现。
      recognize("image.png", ocr_name="my")
 """
 
+from typing import Any
+
 from pykunlun.ai.ocr import OcrCfg, OcrEngine, OcrManager, OcrResult, RapidOcr
 
 from .easy_ocr import EasyOcr, langs_from_code
@@ -161,7 +163,7 @@ def remove_ocr_engine(ocr_name: str | None = None) -> None:
     _default_manager.unregister_engine(ocr_name)
 
 
-def recognize(image, ocr_name: str | None = None) -> str:
+def recognize(image: str | Any, ocr_name: str | None = None) -> str:
     """
     识别图片中的文字，返回纯文本结果。
 
@@ -175,7 +177,7 @@ def recognize(image, ocr_name: str | None = None) -> str:
     return get_ocr_engine(ocr_name).recognize(image)
 
 
-def recognize_with_details(image, ocr_name: str | None = None) -> list[OcrResult]:
+def recognize_with_details(image: str | Any, ocr_name: str | None = None) -> list[OcrResult]:
     """
     识别图片中的文字，返回包含位置与置信度的详细结果。
 
@@ -190,12 +192,12 @@ def recognize_with_details(image, ocr_name: str | None = None) -> list[OcrResult
 
 
 def recognize_and_draw(
-    image,
+    image: str | Any,
     color: tuple[int, int, int] = (0, 255, 0),
     thickness: int | None = None,
     output_path: str | None = None,
     ocr_name: str | None = None,
-):
+) -> Any:
     """
     识别图片中的文字，并在图片上绘制边界框与文本标签。
 

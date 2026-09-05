@@ -28,14 +28,18 @@ autotest = ["playwright>=1.40", "python-dotenv>=1.0", "faker"]
 
 [tool.mypy]
 python_version = "3.10"
-check_untyped_defs = true
-disallow_any_generics = true
-warn_return_any = true
-warn_unused_configs = true
+mypy_path = "src"
+strict = true
 
 [[tool.mypy.overrides]]
 module = ["easyocr", "paddleocr", "bottle", "playwright", "playwright.sync_api", "dotenv", "faker"]
 ignore_missing_imports = true
+
+# bottle 无类型标注，其路由装饰器（@app.get/@app.post/@app.error）会把
+# 被装饰的处理函数整体降级为 untyped（untyped-decorator），属第三方库噪声
+[[tool.mypy.overrides]]
+module = "baibao.ai.ocr.server"
+disable_error_code = ["untyped-decorator"]
 
 [tool.ruff]
 target-version = "py310"

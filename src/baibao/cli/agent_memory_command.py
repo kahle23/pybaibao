@@ -120,7 +120,7 @@ def _read_text_source(path: str | None) -> str | None:
 class _CustomEncoder(json.JSONEncoder):
     """自定义 JSON 编码器，处理日期时间类型。"""
 
-    def default(self, o):
+    def default(self, o: Any) -> Any:
         if isinstance(o, (datetime, date)):
             return o.isoformat()
         return super().default(o)

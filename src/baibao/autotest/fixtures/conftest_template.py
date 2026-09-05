@@ -21,9 +21,18 @@ conftest_template — 角色级 fixture 参考样板（**复制用模板，勿 i
 # ↓↓↓ 复制以下内容到项目根 conftest.py 后改造 ↓↓↓
 
 import os
+from collections.abc import Generator
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
+from playwright.sync_api import (
+    APIRequestContext,
+    Browser,
+    BrowserContext,
+    Page,
+    ViewportSize,
+)
 
 from baibao.autotest.core.login_state import (
     LoginCfg,
@@ -61,7 +70,7 @@ def _cfg(key: str, default: str = "") -> str:
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="session")
-def admin_storage_state(browser, base_url):
+def admin_storage_state(browser: Browser, base_url: str) -> str:
     """
     管理员登录态。首次登录后缓存到 ``.auth/admin.json``，12 小时内免登录。
     """
@@ -83,7 +92,7 @@ def admin_storage_state(browser, base_url):
 # ---------------------------------------------------------------------------
 
 @pytest.fixture()
-def admin_page(browser, admin_storage_state):
+def admin_page(browser: Browser, admin_storage_state: str) -> Generator[Page, None, None]:
     """
     已登录管理员的标准页面。
 
@@ -94,7 +103,7 @@ def admin_page(browser, admin_storage_state):
     """
     context = browser.new_context(
         storage_state=admin_storage_state,
-        viewport=LOGIN_CFG.viewport,
+        viewport=cast("ViewportSize | None", LOGIN_CFG.viewport),
     )
     page = context.new_page()
     page.set_default_timeout(15000)
@@ -105,20 +114,20 @@ def admin_page(browser, admin_storage_state):
 
 
 @pytest.fixture()
-def context(browser, admin_storage_state):
+def context(browser: Browser, admin_storage_state: str) -> Generator[BrowserContext, None, None]:
     """
     已登录管理员的浏览器上下文（供 ``api_context`` 等使用）。
     """
     ctx = browser.new_context(
         storage_state=admin_storage_state,
-        viewport=LOGIN_CFG.viewport,
+        viewport=cast("ViewportSize | None", LOGIN_CFG.viewport),
     )
     yield ctx
     ctx.close()
 
 
 @pytest.fixture()
-def api_context(context):
+def api_context(context: BrowserContext) -> APIRequestContext:
     """
     API 请求上下文（复用登录态 cookie）。供 :class:`baibao.autotest.api.ApiBase` 子类使用。
     """
@@ -130,7 +139,7 @@ def api_context(context):
 # ---------------------------------------------------------------------------
 
 @pytest.fixture()
-def asset_management_url(base_url) -> str:
+def asset_management_url(base_url: str) -> str:
     """
     资产管理页面 URL（hash 路由示例）。
     """
@@ -141,7 +150,7 @@ def asset_management_url(base_url) -> str:
 # 用例标记（按你的模块改造）
 # ---------------------------------------------------------------------------
 
-def pytest_configure(config):
+def pytest_configure(config: Any) -> None:
     """
     注册业务测试标记（smoke/crud/flow/form/query）。
     """
@@ -149,7 +158,7 @@ def pytest_configure(config):
         config.addinivalue_line("markers", f"{marker}: 业务测试标记")
 
 
-def pytest_collection_modifyitems(config, items):
+def pytest_collection_modifyitems(config: Any, items: list[Any]) -> None:
     """
     按测试文件名自动分配模块标记。
     """

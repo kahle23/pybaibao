@@ -9,7 +9,7 @@ from collections.abc import Callable
 from typing import IO, TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    import jinja2  # type: ignore[import-not-found]
+    import jinja2
 
 from pykunlun.util import modutil
 

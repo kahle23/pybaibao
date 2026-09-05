@@ -158,7 +158,7 @@ class OcrServerCommand(Command):
         # bottle 是 server 的唯一直接依赖，未安装时自动安装（与 EasyOcr/PaddleOcr
         # 的自动安装策略一致，保证「开箱即用」）。
         try:
-            import bottle  # noqa: F401
+            import bottle  # noqa: F401  # pyright: ignore[reportUnusedImport]
         except ImportError:
             success, msg = pip.install('bottle')
             if not success:

@@ -31,7 +31,7 @@ import json
 import threading
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from pykunlun.ai.ocr import OcrCfg, OcrEngine, OcrResult
 from pykunlun.util import logutil
@@ -245,13 +245,14 @@ def build_app(registry: OcrEngineRegistry, max_image_bytes: int) -> 'bottle.Bott
     # bottle 默认 MEMFILE_MAX 仅 100KB，而 JSON(base64) 请求体动辄数 MB；
     # 不调高的话 bottle 在 .request.json 内部就会抛 413，根本到不了下面的
     # _check_size 精确校验。base64 膨胀约 4/3，加 JSON 外壳按 2 倍留余量。
-    bottle.BaseRequest.MEMFILE_MAX = max_image_bytes * 2
+    # （bottle 未标注 MEMFILE_MAX 可写，运行时它就是普通类属性，赋值合法）
+    bottle.BaseRequest.MEMFILE_MAX = max_image_bytes * 2  # pyright: ignore[reportAttributeAccessIssue]
 
     app = bottle.Bottle()
 
     # 每个请求进入/结束各打一条日志（方法、路径、客户端、状态、耗时），
     # 覆盖全部路由与全部返回路径（成功 / 400 / 413 / 500 / 异常）。
-    def _on_request_start():
+    def _on_request_start() -> None:
         bottle.request.environ['baibao.ocr.t0'] = time.perf_counter()
         log.info(
             "[http] --> %s %s client=%s ctype=%s len=%s",
@@ -262,7 +263,7 @@ def build_app(registry: OcrEngineRegistry, max_image_bytes: int) -> 'bottle.Bott
             bottle.request.content_length or 0,
         )
 
-    def _on_request_end():
+    def _on_request_end() -> None:
         t0 = bottle.request.environ.get('baibao.ocr.t0')
         ms = (time.perf_counter() - t0) * 1000 if t0 is not None else -1
         log.info(
@@ -282,7 +283,7 @@ def build_app(registry: OcrEngineRegistry, max_image_bytes: int) -> 'bottle.Bott
         return {'success': False, 'error': message}
 
     @app.get('/')
-    def index():
+    def index() -> dict[str, Any]:
         return {
             'service': 'baibao-ocr',
             'engines': registry.names(),
@@ -290,14 +291,14 @@ def build_app(registry: OcrEngineRegistry, max_image_bytes: int) -> 'bottle.Bott
         }
 
     @app.get('/engines')
-    def engines():
+    def engines() -> dict[str, Any]:
         return {
             'engines': registry.names(),
             'default': registry.default_name,
         }
 
     @app.post('/ocr')
-    def ocr():
+    def ocr() -> Any:
         # ---- 1) 请求体总量预检（content-length 可得时）----
         # 预检只是「明显超限就早拒绝」的优化，精确校验由 _check_size 按解码后
         # 字节数完成。JSON(base64) 请求体比原图膨胀约 4/3，阈值取 2 倍以同时兼容
@@ -315,7 +316,9 @@ def build_app(registry: OcrEngineRegistry, max_image_bytes: int) -> 'bottle.Bott
 
         try:
             if ctype.startswith('application/json'):
-                payload = bottle.request.json or {}
+                # bottle 的 json/forms/files 成员是 DictProperty 描述符（无类型标注），
+                # 运行时分别是 dict / FormsDict，cast 到真实类型取值
+                payload = cast("dict[str, Any]", bottle.request.json) or {}
                 engine = payload.get('engine') or None
                 details = _parse_bool(payload.get('details', False))
 
@@ -333,11 +336,12 @@ def build_app(registry: OcrEngineRegistry, max_image_bytes: int) -> 'bottle.Bott
                     )
             else:
                 # multipart/form-data 或 application/x-www-form-urlencoded
-                forms = bottle.request.forms
+                forms = cast("bottle.FormsDict", bottle.request.forms)
                 engine = forms.get('engine') or None
                 details = _parse_bool(forms.get('details', ''))
 
-                upload = bottle.request.files.get('image')
+                files = cast("bottle.FormsDict", bottle.request.files)
+                upload = files.get('image')
                 path = forms.get('image_path')
                 if upload is not None and upload.file is not None:
                     raw = upload.file.read()
@@ -391,7 +395,7 @@ def build_app(registry: OcrEngineRegistry, max_image_bytes: int) -> 'bottle.Bott
 
     # 统一 JSON 错误输出，便于客户端解析
     @app.error(404)
-    def _e404(error):
+    def _e404(error: Any) -> str:
         bottle.response.content_type = 'application/json; charset=utf-8'
         return json.dumps(
             {'success': False, 'error': f"路由不存在: {bottle.request.path}"},
@@ -399,14 +403,14 @@ def build_app(registry: OcrEngineRegistry, max_image_bytes: int) -> 'bottle.Bott
         )
 
     @app.error(405)
-    def _e405(error):
+    def _e405(error: Any) -> str:
         bottle.response.content_type = 'application/json; charset=utf-8'
         return json.dumps(
             {'success': False, 'error': '请求方法不允许'}, ensure_ascii=False
         )
 
     @app.error(500)
-    def _e500(error):
+    def _e500(error: Any) -> str:
         bottle.response.content_type = 'application/json; charset=utf-8'
         msg = str(error.exception) if error.exception else '内部错误'
         return json.dumps(
@@ -457,7 +461,7 @@ def run_server(
             return self.client_address[0]
 
         # 关闭默认 access log（每行请求日志），关键事件由 baibao 日志接管
-        def log_message(self, format: str, *args) -> None:
+        def log_message(self, format: str, *args: Any) -> None:
             pass
 
     max_image_bytes = max_image_mb * 1024 * 1024

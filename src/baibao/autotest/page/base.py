@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from ..core.devtools import real_click
 from ..core.polling import poll_until
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from playwright.sync_api import Locator, Page
 
 
-def _pw_expect():
+def _pw_expect() -> Any:
     """
     惰性取 playwright 的 ``expect`` 断言函数（保持顶层不导入 playwright）。
     """
@@ -660,7 +660,7 @@ class BasePage:
         # 轮询等目标行（列表接口异步）；超时也返回 row（与原行为一致，由调用方断言）
         row = page.locator(f"tr:has-text('{keyword}')").first
 
-        def _found():
+        def _found() -> Locator | None:
             return row if row.count() else None
 
         return poll_until(

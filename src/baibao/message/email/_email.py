@@ -98,7 +98,7 @@ def remove_client(cfg_name: str | None = None) -> None:
         _clients.pop(cfg_name, None)
 
 
-def clear():
+def clear() -> None:
     """
     清空所有邮件客户端。
 

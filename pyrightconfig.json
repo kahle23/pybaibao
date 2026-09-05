@@ -1,0 +1,13 @@
+{
+  "include": ["src", "tests"],
+  "pythonVersion": "3.10",
+  "pythonPlatform": "Windows",
+  "typeCheckingMode": "strict",
+  "extraPaths": ["src"],
+  "reportMissingImports": "error",
+  "reportMissingTypeStubs": "none",
+  "reportUnknownMemberType": "none",
+  "reportUnknownVariableType": "none",
+  "reportUnknownArgumentType": "none",
+  "reportUnknownLambdaType": "none"
+}

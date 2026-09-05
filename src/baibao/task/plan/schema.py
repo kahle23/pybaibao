@@ -144,7 +144,7 @@ TABLES: dict[str, tuple[list[tuple[str, str, str]], list[str], str]] = {
 }
 
 
-def _sql_str(s: str) -> str:
+def sql_str(s: str) -> str:
     """转 SQL 单引号字符串字面量（``'`` → ``''`` 转义）。"""
     return "'" + s.replace("'", "''") + "'"
 
@@ -158,8 +158,8 @@ def ddl(base: str, table: str) -> str:
         table: 实际表名（已拼前缀）。
     """
     cols, keys, comment = TABLES[base]
-    col_lines = [f'    {c[0]} {c[1]} COMMENT {_sql_str(c[2])}' for c in cols]
+    col_lines = [f'    {c[0]} {c[1]} COMMENT {sql_str(c[2])}' for c in cols]
     key_lines = [f'    {k}' for k in keys]
     body = ',\n'.join(col_lines + key_lines)
     return (f'CREATE TABLE IF NOT EXISTS {table} (\n{body}\n) '
-            f'CHARACTER SET utf8mb4 COMMENT={_sql_str(comment)}')
+            f'CHARACTER SET utf8mb4 COMMENT={sql_str(comment)}')

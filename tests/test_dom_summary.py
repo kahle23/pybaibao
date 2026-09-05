@@ -4,10 +4,10 @@ import unittest
 from typing import Any
 
 from baibao.autotest.probe import MAX_OUTPUT_CHARS, build_target_url, format_summary
-from baibao.autotest.probe.render import _format_custom
+from baibao.autotest.probe.render import format_custom
 
 
-def _sample_data(**overrides) -> dict[str, Any]:
+def _sample_data(**overrides: Any) -> dict[str, Any]:
     """最小可渲染样本（probe 真实返回结构的子集）。"""
     data = {
         "title": "资产管理",
@@ -51,7 +51,7 @@ def _sample_data(**overrides) -> dict[str, Any]:
 class TestFormatSummary(unittest.TestCase):
     """format_summary：markdown 渲染。"""
 
-    def test_basic_sections(self):
+    def test_basic_sections(self) -> None:
         md = format_summary(_sample_data())
         self.assertIn("# 页面摘要：资产管理", md)
         self.assertIn("- URL：http://example.com/#/oa/asset", md)
@@ -65,12 +65,12 @@ class TestFormatSummary(unittest.TestCase):
         self.assertIn("已选：IT设备", md)
         self.assertIn("IT设备、办公设备、家具", md)
 
-    def test_empty_sections_omitted(self):
+    def test_empty_sections_omitted(self) -> None:
         md = format_summary(_sample_data(errors=[], tabs=[], messages=[]))
         self.assertNotIn("## 页签", md)
         self.assertNotIn("## 校验错误", md)
 
-    def test_blank_page_hint(self):
+    def test_blank_page_hint(self) -> None:
         data = {
             "title": "登录", "url": "http://example.com/#/login",
             "forms": [], "tables": [], "pagination": [], "buttons": [],
@@ -80,7 +80,7 @@ class TestFormatSummary(unittest.TestCase):
         md = format_summary(data)
         self.assertIn("页面无可见 Element Plus 结构", md)
 
-    def test_brief_mode(self):
+    def test_brief_mode(self) -> None:
         md = format_summary(_sample_data(), brief=True)
         # 骨架保留
         self.assertIn("[必填] 资产类型：select", md)
@@ -91,7 +91,7 @@ class TestFormatSummary(unittest.TestCase):
         self.assertNotIn("TH001", md)          # 首行样本
         self.assertNotIn("共 42 条", md)        # 分页数据
 
-    def test_hard_truncation(self):
+    def test_hard_truncation(self) -> None:
         data = _sample_data(
             forms=[
                 {"label": f"字段{i}", "required": False, "type": "文本",
@@ -108,19 +108,19 @@ class TestFormatSummary(unittest.TestCase):
 class TestBuildTargetUrl(unittest.TestCase):
     """build_target_url：目标参数规范化。"""
 
-    def test_full_url_passthrough(self):
+    def test_full_url_passthrough(self) -> None:
         self.assertEqual(
             build_target_url("http://x.com/#/a", "http://y.com"),
             "http://x.com/#/a",
         )
 
-    def test_hash_route(self):
+    def test_hash_route(self) -> None:
         self.assertEqual(
             build_target_url("#/it-asset", "http://x.com/"),
             "http://x.com/#/it-asset",
         )
 
-    def test_pure_route_recommended_on_git_bash(self):
+    def test_pure_route_recommended_on_git_bash(self) -> None:
         self.assertEqual(
             build_target_url("it-asset", "http://x.com"),
             "http://x.com/#/it-asset",
@@ -130,7 +130,7 @@ class TestBuildTargetUrl(unittest.TestCase):
             "http://x.com/#/it-asset",
         )
 
-    def test_msys_polluted_rejected(self):
+    def test_msys_polluted_rejected(self) -> None:
         with self.assertRaises(RuntimeError):
             build_target_url("#C:/Program Files/Git/it-asset", "http://x.com")
         with self.assertRaises(RuntimeError):
@@ -138,20 +138,20 @@ class TestBuildTargetUrl(unittest.TestCase):
 
 
 class TestFormatCustom(unittest.TestCase):
-    """_format_custom：自定义 JS 返回值的紧凑 JSON 渲染。"""
+    """format_custom：自定义 JS 返回值的紧凑 JSON 渲染。"""
 
-    def test_json_serializable(self):
+    def test_json_serializable(self) -> None:
         self.assertEqual(
-            _format_custom({"a": [1, "中"]}),
+            format_custom({"a": [1, "中"]}),
             '{"a": [1, "中"]}',
         )
 
-    def test_not_serializable_fallback_str(self):
-        text = _format_custom(object())
+    def test_not_serializable_fallback_str(self) -> None:
+        text = format_custom(object())
         self.assertTrue(text.startswith("<object"))
 
-    def test_truncation(self):
-        text = _format_custom("x" * (MAX_OUTPUT_CHARS + 10))
+    def test_truncation(self) -> None:
+        text = format_custom("x" * (MAX_OUTPUT_CHARS + 10))
         self.assertTrue(text.endswith("…（超出上限已截断）"))
 
 

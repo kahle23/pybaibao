@@ -27,7 +27,7 @@ log = logutil.getLogger(__name__)
 
 
 # region ======== 通用工具 ========
-def _mk(path: Path, desc: str = "", title: str = ""):
+def _mk(path: Path, desc: str = "", title: str = "") -> None:
     """
     创建目录；若提供说明则写入 README.md 作为导航与占位。
 
