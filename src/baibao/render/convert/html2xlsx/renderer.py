@@ -25,6 +25,15 @@ _PX_TO_EMU = 9525
 _BASE_FONT_PT = 11.0
 
 # 行内标签：文本连续拼接不换行；其余（p/div/li/table…）作为块级换行
+# 行高保险帽：避免极端文本把一行撑到荒谬高度（内容超出会截断显示，但不拖垮整表布局）
+_MAX_ROW_HEIGHT_PT = 220.0
+
+
+def _cap_height(raw: float) -> float:
+    """行高下限 14pt、上限 _MAX_ROW_HEIGHT_PT。"""
+    return min(_MAX_ROW_HEIGHT_PT, max(14.0, raw))
+
+
 _INLINE_TAGS = {"span", "b", "strong", "i", "em", "u", "a", "label", "small", "sub", "sup", "font"}
 
 
@@ -208,7 +217,8 @@ class _HtmlToXlsxRenderer:
         font_pt = style.font_size_pt or 9.0
         width_chars = self.profile.total_width_chars * span / self.base_cols
         seg_lines = sum(self._lines_for_width(seg, width_chars, font_pt) for seg in text.split("\n"))
-        self.sheet.row_dimensions[r].height = max(14.0, seg_lines * font_pt * self.profile.row_height_factor + 4)
+        self.sheet.row_dimensions[r].height = _cap_height(
+            seg_lines * font_pt * self.profile.row_height_factor + 4)
         self.last_content_row = max(self.last_content_row, r)
         self.row += 1
 
@@ -306,8 +316,8 @@ class _HtmlToXlsxRenderer:
                     )
                     lines = max(lines, cell_lines)
                     font_pt = max(font_pt, cell["style"].font_size_pt or 9.0)
-            self.sheet.row_dimensions[sheet_r].height = max(
-                14.0, lines * font_pt * self.profile.row_height_factor + 3)
+            self.sheet.row_dimensions[sheet_r].height = _cap_height(
+                lines * font_pt * self.profile.row_height_factor + 3)
         self.row += total_rows + 1  # 表格后空一行
 
     def _table_boundaries(self, table_cls: str | None, first_row: Any, max_cols: int) -> list[int]:
