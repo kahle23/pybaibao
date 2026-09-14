@@ -231,3 +231,59 @@ def test_warnings_deduplicated(tmp_path: Path) -> None:
     result, _ = _convert(tmp_path, html)
     spacing = [w for w in result.warnings if "letter-spacing" in w]
     assert len(spacing) == 1
+
+
+def test_html_comments_do_not_leak_into_cells(tmp_path: Path) -> None:
+    """HTML 注释不产出文本（外销合同 font-width 标签泄漏、印章容器注释的根因）。"""
+    html = """
+    <table class="t">
+      <tr><td class="font-inline"><!-- <span class="font-width">USD</span> --> USD 1,393.2</td></tr>
+    </table>
+    <div class="signature-block"><!-- 添加印章容器 --><div class="seal-container"><img src="" class="seal-image"></div></div>
+    """
+    _, wb = _convert(tmp_path, html)
+    ws = wb.active
+    cell_text = str(ws.cell(row=1, column=1).value or "")
+    assert "USD 1,393.2" in cell_text
+    assert "<span" not in cell_text and "font-width" not in cell_text
+    all_text = " ".join(str(c.value or "") for row in ws.iter_rows() for c in row)
+    assert "添加印章容器" not in all_text
+
+
+def test_ol_list_items_are_numbered(tmp_path: Path) -> None:
+    """<ol> 直接子项按序编号（复刻其它条款等有序列表观感）。"""
+    html = """
+    <div class="doc">
+      <div class="other-item">
+        <div class="label-item">其它条款</div>
+        <ol class="clauses-list">
+          <li>凭样品进行买卖</li>
+          <li>卖方送货物入买方仓库</li>
+        </ol>
+      </div>
+    </div>
+    """
+    profile = Html2XlsxProfile(container_class="doc")
+    _, wb = _convert(tmp_path, html, profile)
+    ws = wb.active
+    texts = [str(c.value or "") for row in ws.iter_rows() for c in row]
+    assert any(t.startswith("1. 凭样品") for t in texts)
+    assert any(t.startswith("2. 卖方送货物") for t in texts)
+
+
+def test_rowspan_cell_height_shared_across_rows(tmp_path: Path) -> None:
+    """rowspan 单元格内容行数按跨行数均摊，不再整份压给每条被跨的行。"""
+    long_line = "鉴（公）证机关（章）经办人年月日注释说明超长内容" * 3
+    html = f"""
+    <table class="sign-table">
+      <tr><td>标题</td><td rowspan="4">{long_line}</td></tr>
+      <tr><td>行1</td></tr>
+      <tr><td>行2</td></tr>
+      <tr><td>行3</td></tr>
+    </table>
+    """
+    _, wb = _convert(tmp_path, html)
+    ws = wb.active
+    heights = [ws.row_dimensions[r].height or 0 for r in range(1, 5)]
+    # 若不均摊，四行全部按整份内容行数计高（约 4×每行行高）；均摊后被跨行应明显更矮
+    assert max(heights) < 60.0, heights

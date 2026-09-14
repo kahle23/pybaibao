@@ -36,7 +36,7 @@ CSS 到 Excel 的映射口径：
 from baibao.office.excel import BorderStyle, CellStyle, ImageAnchor
 
 from .model import Html2XlsxProfile, Html2XlsxResult
-from .renderer import convert_html_to_xlsx
+from .renderer import Html2XlsxRenderer, convert_html_to_xlsx
 
 __all__ = [
     "BorderStyle",
@@ -44,5 +44,6 @@ __all__ = [
     "Html2XlsxProfile",
     "Html2XlsxResult",
     "ImageAnchor",
+    "Html2XlsxRenderer",
     "convert_html_to_xlsx",
 ]

@@ -37,11 +37,20 @@ def _cap_height(raw: float) -> float:
 _INLINE_TAGS = {"span", "b", "strong", "i", "em", "u", "a", "label", "small", "sub", "sup", "font"}
 
 
+# bs4 的非可见文本节点（按类名判定，避免引入 bs4 的模块级依赖）
+_NON_TEXT_STRING_CLASSES = {"Comment", "CData", "ProcessingInstruction", "Declaration", "Doctype"}
+
+
 def _block_text(node: Any) -> str:
     """
     块级感知的文本提取：行内内容连续拼接，块级内容之间换行，``<br>`` 转换行。
+
+    HTML 注释（如 ``<!-- <span>USD</span> -->``）与声明类节点不产出文本——
+    否则会以字面标签形式泄漏进单元格。
     """
     if node.name is None:
+        if node.__class__.__name__ in _NON_TEXT_STRING_CLASSES:
+            return ""
         return str(node)
     if node.name == "br":
         return "\n"
@@ -62,7 +71,7 @@ def _display_width(text: str) -> int:
 
 
 # region ======== 渲染器 ========
-class _HtmlToXlsxRenderer:
+class Html2XlsxRenderer:
     """
     单次转换的渲染上下文（openpyxl 依赖在构造时经 modutil 懒加载）。
     """
@@ -117,7 +126,8 @@ class _HtmlToXlsxRenderer:
     # endregion
 
     # region ======== 块级渲染 ========
-    def _render_block(self, block: Any, root: Any, base_style: CellStyle | None = None) -> None:
+    def _render_block(self, block: Any, root: Any, base_style: CellStyle | None = None,
+                      number_prefix: str | None = None) -> None:
         if block.name in ("script", "style", "br", "hr"):
             return
         if block.name == "table":
@@ -139,18 +149,23 @@ class _HtmlToXlsxRenderer:
         # 如 "标签：<span class='blank'>值</span>"）保持整行渲染，避免拆散标签与值。
         element_children = [c for c in block.children if getattr(c, "name", None)]
         direct_text = "".join(
-            str(c) for c in block.children if not getattr(c, "name", None)
+            _block_text(c) for c in block.children if not getattr(c, "name", None)
         ).strip()
         if (
             element_children
             and not direct_text
-            and all(c.get_text(strip=True) for c in element_children)
+            and all(_block_text(c).strip() for c in element_children)
         ):
             inherited = (base_style or CellStyle()).merge(
                 resolve_style(block, root, self.profile, self.warnings))
-            for child in element_children:
-                self._render_block(child, root, inherited)
+            # <ol> 下的直接子项按序编号（复刻 HTML 有序列表观感）
+            numbered = block.name == "ol"
+            for index, child in enumerate(element_children, 1):
+                self._render_block(child, root, inherited,
+                                   number_prefix=f"{index}. " if numbered else None)
             return
+        if number_prefix:
+            text = number_prefix + text
         style = (base_style or CellStyle()).merge(
             resolve_style(block, root, self.profile, self.warnings))
         style = style.merge(CellStyle(wrap_text=True, valign="top"))
@@ -314,6 +329,10 @@ class _HtmlToXlsxRenderer:
                         self._lines_for_width(seg, span_chars, cell["style"].font_size_pt or 9.0)
                         for seg in segs
                     )
+                    # 跨行单元格的内容行数按 rowspan 均摊到各行，不再整份压给每一条被跨的行
+                    row_span = int(cell["rs"])
+                    if row_span > 1:
+                        cell_lines = max(1, -(-cell_lines // row_span))
                     lines = max(lines, cell_lines)
                     font_pt = max(font_pt, cell["style"].font_size_pt or 9.0)
             self.sheet.row_dimensions[sheet_r].height = _cap_height(
@@ -464,6 +483,7 @@ def convert_html_to_xlsx(
     profile: Html2XlsxProfile | None = None,
     sheet_name: str | None = None,
     images: dict[str, bytes] | None = None,
+    renderer_class: type[Html2XlsxRenderer] | None = None,
 ) -> Html2XlsxResult:
     """
     把 HTML 转写为带样式的 xlsx 文件。
@@ -483,6 +503,6 @@ def convert_html_to_xlsx(
         ImportError: bs4/openpyxl 依赖自动安装失败时抛出。
         OSError: 输出路径不可写时抛出。
     """
-    renderer = _HtmlToXlsxRenderer(profile or Html2XlsxProfile(), images or {})
+    renderer = (renderer_class or Html2XlsxRenderer)(profile or Html2XlsxProfile(), images or {})
     return renderer.convert(html, Path(output_path), sheet_name)
 # endregion
