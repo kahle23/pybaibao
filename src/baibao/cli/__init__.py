@@ -23,6 +23,7 @@ from .path_command import PythonPathSetupCommand
 from .pip_command import PipInstallCommand, PipUpgradeCommand
 from .plan_task_command import PlanTaskCommand
 from .pypr_command import PyCleanCommand
+from .work_item_command import WorkItemCommand
 from .rdb_command import RdbCommand
 from .rdb_dump_command import RdbDumpCommand
 
@@ -53,3 +54,4 @@ command_manager.register(MoveJavaCommand())
 command_manager.register(AutotestCommand())
 command_manager.register(HookshotCommand())
 command_manager.register(OssCommand())
+command_manager.register(WorkItemCommand())
