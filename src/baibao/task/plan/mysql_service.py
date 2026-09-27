@@ -478,11 +478,14 @@ class MySqlPlanTaskService(PlanTaskService):
             if not rows:
                 log.warning("skip 未找到步骤 id=%s", id)
                 return False
+            # reason 落 result_summary（[已跳过] 前缀）：skip 不走 finish，这是跳过
+            # 原因进入后续 claim context 链的唯一通道（pending 态摘要必为 NULL，覆盖安全）
+            summary = f'[已跳过] {reason}' if reason else '[已跳过]'
             cur.execute(
                 f'UPDATE {t_step} '
-                f'SET status = %s, finished_at = %s, updated_at = %s '
+                f'SET status = %s, result_summary = %s, finished_at = %s, updated_at = %s '
                 f'WHERE id = %s AND status = %s',
-                ('skipped', now, now, id, 'pending'))
+                ('skipped', summary, now, now, id, 'pending'))
             if not cur.rowcount:
                 log.warning("步骤 id=%s 非 pending（%s），不可 skip", id, rows[0]['status'])
                 return False
@@ -518,7 +521,8 @@ class MySqlPlanTaskService(PlanTaskService):
                 log.warning("步骤 id=%s 状态为 %s，仅 failed/skipped 可 retry%s",
                             id, step['status'], "（force 可加 succeeded）" if not force else "")
                 return False
-            clear_summary = force and step['status'] == 'succeeded'
+            # skipped 复活同分支清 [已跳过] 摘要与 finished_at，防跳过标记残留
+            clear_summary = (force and step['status'] == 'succeeded') or step['status'] == 'skipped'
             sets = ('status = %s, max_retries = max_retries + 1, updated_at = %s'
                     if not clear_summary else
                     'status = %s, max_retries = max_retries + 1, result_summary = NULL, '
@@ -606,11 +610,12 @@ class MySqlPlanTaskService(PlanTaskService):
                                 'task: pending → running (first claim)')
                 else:
                     self._touch_heartbeat(cur, task_id)
-                # 续跑上下文包：任务 + 步骤 + run_id + 前序成功步骤摘要
+                # 续跑上下文包：任务 + 步骤 + run_id + 前序步骤摘要
+                # （succeeded=结果摘要；skipped=[已跳过] 原因，与依赖判定口径一致）
                 cur.execute(
                     f'SELECT seq, name, result_summary FROM {t_step} '
-                    f'WHERE task_id = %s AND status = %s ORDER BY seq',
-                    (task_id, 'succeeded'))
+                    f'WHERE task_id = %s AND status IN (%s,%s) ORDER BY seq',
+                    (task_id, 'succeeded', 'skipped'))
                 ctx = self._rows(cur)
                 cur.execute(f'SELECT * FROM {t_task} WHERE id = %s', (task_id,))
                 trow = self._task_row(self._rows(cur)[0])

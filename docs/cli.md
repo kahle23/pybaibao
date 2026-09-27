@@ -512,7 +512,7 @@ AI prompt 模板库（存/搜/取/渲染给 AI 的任务 prompt 模板）。完�
 ```bash
 python -m baibao ap init
 python -m baibao ap save --name code-review --content-file prompt.txt
-python -m baibao ap render code-review --var lang=python
+python -m baibao ap render code-review --set lang=python
 ```
 
 > 完整选项与块标记语法 `<!-- @block:x | default:on/off -->` 见 [agent_prompt.md](./ai/agent_prompt.md)。
