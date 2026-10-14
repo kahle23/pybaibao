@@ -13,17 +13,15 @@ runner — DOM 摘要探针的编排层。
 安装：``pip install "baibao[autotest]"``。
 """
 
-from __future__ import annotations
-
 import os
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
-from ..core.browser import launch_browser
-from ..core.devtools import real_click
-from ..core.login_state import (
+from ..browser import launch_browser
+from ..devtools import real_click
+from ..login_state import (
     LoginCfg,
     auth_state_path,
     is_auth_valid,
@@ -36,7 +34,6 @@ from .url import build_target_url
 if TYPE_CHECKING:
     from playwright.sync_api import Browser, BrowserContext, Page
 
-__all__ = ["ProbeOptions", "extract_summary", "run_probe", "run_probe_with"]
 
 
 @dataclass
@@ -80,7 +77,7 @@ class ProbeOptions:
     extract_js: str | None = None
 
 
-def extract_summary(page: Page, *, brief: bool = False) -> str:
+def extract_summary(page: "Page", *, brief: bool = False) -> str:
     """
     在已打开的 ``Page`` 上注入 :data:`EXTRACT_JS` 并返回 markdown 摘要。
     """
@@ -88,7 +85,7 @@ def extract_summary(page: Page, *, brief: bool = False) -> str:
     return format_summary(data, brief=brief)
 
 
-def _click_label(page: Page, label: str) -> None:
+def _click_label(page: "Page", label: str) -> None:
     """
     按标签文本点击表单控件（优先 el-select wrapper 的真实点击，用于展开下拉）。
 
@@ -118,7 +115,7 @@ def _click_label(page: Page, label: str) -> None:
 
 
 def _resolve_state_file(
-    browser: Browser, cfg: LoginCfg, auth_dir: Path, account: str,
+    browser: "Browser", cfg: LoginCfg, auth_dir: Path, account: str,
     base_url: str, username: str, password: str, captcha: str,
 ) -> Path:
     """
@@ -143,7 +140,7 @@ def _resolve_state_file(
     return state_file
 
 
-def _open_page(context: BrowserContext, target: str, base_url: str, settle_ms: int) -> Page:
+def _open_page(context: "BrowserContext", target: str, base_url: str, settle_ms: int) -> "Page":
     """
     在 context 中深链打开目标页并等待就绪（SPA 动态路由 404 自动重试）。
 

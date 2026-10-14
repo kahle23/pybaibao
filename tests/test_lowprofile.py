@@ -11,8 +11,8 @@ import unittest
 from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import patch
 
-from baibao.autotest.core.browser import launch_browser, launch_browser_persistent
-from baibao.autotest.core.lowprofile import (
+from baibao.autotest.browser import launch_browser, launch_browser_persistent
+from baibao.autotest.lowprofile import (
     human_pause,
     risk_wall_hit,
     wait_logged_in,
@@ -116,7 +116,7 @@ class TestHumanPause(unittest.TestCase):
 
     def test_pauses_random_seconds_and_returns_it(self) -> None:
         page = _FakePage()
-        with patch("baibao.autotest.core.lowprofile.random.uniform", return_value=5.234) as mock_uniform:
+        with patch("baibao.autotest.lowprofile.random.uniform", return_value=5.234) as mock_uniform:
             sec = human_pause(cast("Page", page))
         self.assertEqual(sec, 5.234)
         self.assertEqual(page.waits_ms, [5234])
@@ -124,7 +124,7 @@ class TestHumanPause(unittest.TestCase):
 
     def test_custom_bounds_forwarded(self) -> None:
         page = _FakePage()
-        with patch("baibao.autotest.core.lowprofile.random.uniform", return_value=1.5) as mock_uniform:
+        with patch("baibao.autotest.lowprofile.random.uniform", return_value=1.5) as mock_uniform:
             sec = human_pause(cast("Page", page), lo=1.0, hi=2.0)
         self.assertEqual(sec, 1.5)
         self.assertEqual(page.waits_ms, [1500])

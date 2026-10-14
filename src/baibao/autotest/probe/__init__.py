@@ -8,7 +8,8 @@ probe — DOM 摘要探针（原 ``dom_summary.py`` 拆分而来）。
   - :func:`extract_summary` / :func:`format_summary` — 提取与渲染
   - :func:`build_target_url` — 目标地址规范化（Git Bash MSYS 污染拦截）
 
-旧导入路径 ``baibao.autotest.dom_summary`` 由根目录 shim 继续保底。
+旧扁平路径 ``baibao.autotest.dom_summary`` 的根目录 shim 已移除（2026-10-14，
+用例重写期统一切换 ``baibao.autotest.probe``）。
 """
 
 from .extract_js import EXTRACT_JS

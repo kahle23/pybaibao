@@ -3,87 +3,50 @@ autotest — Playwright E2E 测试基础设施。
 
 把日常 Web 自动化测试中反复用到的能力封装成简洁 API：页面对象基类、浏览器启动、登录态缓存、接口基类、可选启用的 pytest fixture。
 
-核心特性：
+核心特性（按模块分层，门面只留入手点）：
 
   - :class:`BasePage` — Element Plus 组件操作 + 真实输入 + 对话框作用域
-  - :class:`LoginCfg` + :func:`do_login` — 数据驱动的登录流程
-  - :func:`save_storage_state` / :func:`is_auth_valid` — 登录态缓存（TTL）
-  - :class:`ApiBase` — 复用浏览器登录态的后端接口基类
-  - :func:`detect_chrome_path` / :func:`launch_browser` — 本地 Chrome 探测与启动
-  - :func:`launch_browser_persistent` / :func:`human_pause` / :func:`wall_hit` /
-    :func:`wait_logged_in` / :func:`wait_wall_cleared` —
-    风控敏感站点"低调运行"（持久化上下文 + 随机节奏 + 验证墙检测/即停 + 手动登录/过墙等待）
-  - :func:`run_probe` / :func:`extract_summary` — DOM 摘要探针（页面压缩成 KB 级 markdown）
+  - :class:`LoginCfg` + :func:`login_context` — 数据驱动的登录流程 + 登录态缓存复用
+  - :class:`ApiBase` — 复用浏览器登录态 cookie 的后端接口基类（Playwright ``APIRequestContext``）
+  - :class:`TokenSession` — requests 版 token 会话（captcha 登录 + 401 自动重登重放）
+  - :class:`NetWatch` — context 级流量观察引擎（黑白名单判写 + 受控写捕获）
+  - :class:`CaseRecorder` — 独立脚本式 E2E 的用例记录与执行骨架
+  - :func:`launch_browser` — 本地 Chrome 探测与启动
   - :mod:`fixtures` — opt-in pytest fixture（``pytest_plugins`` 启用）
 
-分包结构（旧扁平模块路径由根目录 shim 继续保底）::
+模块地图（**根目录散件 = 基础组件**，一眼可见核心入口；**子包 = 定制/加强组件**；
+其余能力一律走子模块路径，不在门面重导出）::
 
-    core/     浏览器、登录态、真实输入(devtools)、轮询(polling)、环境工具(envutil)、低调运行小件(lowprofile)
-    page/     BasePage 页面对象基类
-    api/      ApiBase 接口基类
+    （根）     browser、login_state、netwatch、recorder、polling、envutil、
+              devtools、lowprofile、textutil（数值/文本小件函数族）
+    page/     BasePage + ep_widgets（EP 弹层自由函数族）+ tables（表格读列/分页游走）
+    api/      ApiBase + TokenSession
     probe/    DOM 摘要探针（extract_js / url / render / runner）
     fixtures/ opt-in pytest fixture + conftest 样板
 
-按需从子模块导入，例如::
+分层纪律：根模块（基础组件）不得 import 子包（定制/加强组件）；子包 import 根天经地义。
 
-    from baibao.autotest.page import BasePage
-    from baibao.autotest.api import ApiBase
-    from baibao.autotest.core.login_state import LoginCfg, save_storage_state
-
-依赖：playwright 为重依赖，按需懒加载，不在模块顶层导入。
+依赖：playwright 为重依赖，按需懒加载，不在模块顶层导入（requests 同）。
 安装：``pip install "baibao[autotest]"``。
 """
 
-from . import (
-    api,
-    browser,
-    dom_summary,
-    login_state,
-    lowprofile,
-    page,
-)
-from .api import ApiBase
-from .core.browser import detect_chrome_path, launch_browser, launch_browser_persistent
-from .core.login_state import (
-    LoginCfg,
-    auth_state_path,
-    do_login,
-    is_auth_valid,
-    save_storage_state,
-)
-from .core.lowprofile import (
-    human_pause,
-    risk_wall_hit,
-    wait_logged_in,
-    wait_wall_cleared,
-    wall_hit,
-)
+from .api import ApiBase, TokenSession, TokenSessionCfg
+from .browser import launch_browser
+from .login_state import LoginCfg, login_context
+from .netwatch import NetWatch, NetWatchCfg
+from .recorder import CaseRecorder, SkipCase
 from .page import BasePage
-from .probe import extract_summary, format_summary, run_probe
 
 __all__ = [
     "ApiBase",
     "BasePage",
+    "CaseRecorder",
     "LoginCfg",
-    "api",
-    "auth_state_path",
-    "browser",
-    "detect_chrome_path",
-    "do_login",
-    "dom_summary",
-    "extract_summary",
-    "format_summary",
-    "human_pause",
-    "is_auth_valid",
+    "NetWatch",
+    "NetWatchCfg",
+    "SkipCase",
+    "TokenSession",
+    "TokenSessionCfg",
     "launch_browser",
-    "launch_browser_persistent",
-    "login_state",
-    "lowprofile",
-    "page",
-    "risk_wall_hit",
-    "run_probe",
-    "save_storage_state",
-    "wait_logged_in",
-    "wait_wall_cleared",
-    "wall_hit",
+    "login_context",
 ]

@@ -23,6 +23,7 @@
 | [`mojibake`](#mojibake) | 检测/修复源文件乱码 | `python -m baibao mojibake [路径] [选项]` |
 | [`move_java`](#move_java) | 迁移 Java 源文件到新包 | `python -m baibao move_java <src> <dest> [选项]` |
 | [`autotest`](#autotest)（`au`） | Web 自动化测试辅助（DOM 摘要探针） | `python -m baibao autotest probe <路由> [选项]` |
+| [`hookshot`](#hookshot) | Webhook 触发器管理（列出/触发/查状态） | `python -m baibao hookshot <list\|fire\|status> [选项]` |
 
 > `agent_memory` / `agent_prompt` / `plan_task` 子命令丰富、概念独立，本篇只给命令行调用差异，完整语义见各自的命令篇：[agent_memory.md](./ai/agent_memory.md)、[agent_prompt.md](./ai/agent_prompt.md)、[plan_task.md](./ai/plan_task.md)。`rdb` 的 SQL API 语义见 [db.md](./data/db.md)，`ocr` 的引擎参数语义见 [ai.md](./ai/ai.md)。
 
@@ -704,6 +705,27 @@ python -m baibao autotest probe "#/oa/asset" 2>/dev/null
 ```
 
 规划中（未实现，勿依赖）：`login`（预热/刷新角色登录态缓存）、`doctor`（环境自检）。
+
+---
+
+## hookshot
+
+Webhook 触发器管理（"钩爪枪，一发即中"）：把任意系统的一条触发链接（webhook / 触发器 URL / 一键触发接口）登记到 `.baibao/hookshot.config`，即可列出、触发、查询——等价于点网页上的触发按钮，不操作浏览器。**通用工具，不绑定具体系统**：成败只按 HTTP 状态码判定（2xx/3xx 成功），响应体原样输出不解析（Jpom 状态码映射等系统知识由调用方/AI 技能适配文档解读）。
+
+```bash
+# 列出已配置触发器（含备注，疑似凭证打码）
+python -m baibao hookshot list
+
+# 触发（--dry-run 仅打码预览不发请求；条目 env=prod 必须加 --yes）
+python -m baibao hookshot fire <别名> [--dry-run] [--yes]
+
+# 只读请求条目的 status_url，输出原始响应
+python -m baibao hookshot status <别名>
+```
+
+配置文件 `.baibao/hookshot.config`（JSON、UTF-8 无 BOM；当前目录 `.baibao/` 优先，其次 `~/.baibao/`，与 rdb.config 同语义）：顶层 key=触发器别名（建议 `项目名-环境`），条目字段 `system`（标签：jpom/jenkins/generic，命令不因它改变行为）、`trigger_url`（必填，后台原样整条复制）、`status_url`、`method`（默认 POST）、`headers`（字典）、`env`（"prod" 触发需 --yes）、`note`（备注）。含 token 不入 git；追加条目只加 key、严禁整文件覆盖。AI 技能侧（hookshot 技能，agent-skills 仓库）有各系统适配文档与配置模板。
+
+安全：触发 URL 即凭证——输出对疑似凭证自动打码（query 中键名含 token/secret/key/sign 的参数值、≥16 位十六进制的路径段、Authorization 头值）。退出码遵循框架约定：失败（配置缺失/别名未匹配/prod 未确认/请求失败）exit 1，成功 exit 0。
 
 ---
 

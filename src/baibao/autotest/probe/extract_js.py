@@ -7,7 +7,6 @@ extract_js — 注入页面的 DOM 提取脚本（纯数据，无 Python 逻辑�
 渲染见 :mod:`baibao.autotest.probe.render`。
 """
 
-__all__ = ["EXTRACT_JS"]
 
 # 注入页面的提取脚本：返回结构化 dict（元素全部经过可见性过滤与截断）。
 EXTRACT_JS = """() => {

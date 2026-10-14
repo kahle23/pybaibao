@@ -34,7 +34,7 @@ from playwright.sync_api import (
     ViewportSize,
 )
 
-from baibao.autotest.core.login_state import (
+from baibao.autotest.login_state import (
     LoginCfg,
     is_auth_valid,
     save_storage_state,
@@ -74,7 +74,7 @@ def admin_storage_state(browser: Browser, base_url: str) -> str:
     """
     管理员登录态。首次登录后缓存到 ``.auth/admin.json``，12 小时内免登录。
     """
-    from baibao.autotest.core.login_state import auth_state_path
+    from baibao.autotest.login_state import auth_state_path
 
     state_file = auth_state_path(AUTH_DIR, "admin")
     if is_auth_valid(state_file):

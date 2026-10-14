@@ -4,13 +4,10 @@ url — 探针目标地址规范化（纯函数）。
 把 CLI/脚本传入的 ``target``（完整 URL / hash 路由 / 纯路由）规范成可直接 ``page.goto`` 的 URL，并拦截 Git Bash (MSYS) 路径转换污染。
 """
 
-from __future__ import annotations
-
 import re
 
-from ..core.envutil import normalize_base_url
+from ..envutil import normalize_base_url
 
-__all__ = ["build_target_url"]
 
 # Git Bash (MSYS) 会把以 / 开头的参数转换成 Windows 路径：
 # "#/it-asset" → "#C:/Program Files/Git/it-asset"。检测到被污染的形式直接报错并给解法。

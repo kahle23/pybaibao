@@ -13,13 +13,11 @@ devtools — 浏览器开发工具协议（DevTools Protocol / CDP）薄封装�
 
 为什么需要"真实输入"：Element Plus el-select 在 el-dialog 内时，Playwright ``locator.click()`` 的合成事件会被 overlay 拦截。
 无法触发 Vue 的 pointerdown 处理链；CDP/page.mouse 发送的是浏览器底层真实输入，才能完整触发。
-本包 :func:`baibao.autotest.core.browser.launch_browser` 只启动 Chromium 系，因此默认路径始终走 CDP。
+本包 :func:`baibao.autotest.browser.launch_browser` 只启动 Chromium 系，因此默认路径始终走 CDP。
 Firefox/WebKit 分支供使用方自建内核的 Page 复用同一套交互逻辑。
 
 依赖：playwright（重依赖，按需懒加载，不在模块顶层导入）。
 """
-
-from __future__ import annotations
 
 import time
 from collections.abc import Callable
@@ -28,10 +26,9 @@ from typing import TYPE_CHECKING, Any, cast
 if TYPE_CHECKING:
     from playwright.sync_api import CDPSession, Page
 
-__all__ = ["engine_name", "new_session", "real_click"]
 
 
-def engine_name(page: Page) -> str:
+def engine_name(page: "Page") -> str:
     """
     当前页面所属的 Playwright 浏览器内核名。
 
@@ -46,7 +43,7 @@ def engine_name(page: Page) -> str:
     return browser.browser_type.name
 
 
-def new_session(page: Page) -> CDPSession:
+def new_session(page: "Page") -> "CDPSession":
     """
     创建 CDP 会话（DevTools Protocol 独有能力入口）。
 
@@ -64,7 +61,7 @@ def new_session(page: Page) -> CDPSession:
     return page.context.new_cdp_session(page)
 
 
-def real_click(page: Page, x: float, y: float) -> None:
+def real_click(page: "Page", x: float, y: float) -> None:
     """
     在视口坐标 ``(x, y)`` 发送真实鼠标点击（完整按下-释放序列）。
 
@@ -77,7 +74,7 @@ def real_click(page: Page, x: float, y: float) -> None:
         _click_via_mouse(page, x, y)
 
 
-def _click_via_cdp(page: Page, x: float, y: float) -> None:
+def _click_via_cdp(page: "Page", x: float, y: float) -> None:
     """
     Chromium 系：CDP ``Input.dispatchMouseEvent`` 完整事件序列。
 
@@ -104,7 +101,7 @@ def _click_via_cdp(page: Page, x: float, y: float) -> None:
         cdp.detach()
 
 
-def _click_via_mouse(page: Page, x: float, y: float) -> None:
+def _click_via_mouse(page: "Page", x: float, y: float) -> None:
     """
     Firefox/WebKit：``page.mouse`` 原生输入序列（等价语义）。
 

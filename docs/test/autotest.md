@@ -61,10 +61,10 @@ baibao.autotest
 | 模块 | 关键符号 | 用途 |
 |------|----------|------|
 | `baibao.autotest.page` | `BasePage` | 页面对象基类：Element Plus 组件操作 + 真实输入 + 对话框作用域 + 表格行列助手 |
-| `baibao.autotest.core.browser` | `detect_chrome_path` / `launch_browser` | 本地 Chrome 路径探测与浏览器启动 |
-| `baibao.autotest.core.login_state` | `LoginCfg` / `do_login` / `save_storage_state` / `is_auth_valid` | 数据驱动登录流程 + 登录态缓存（TTL） |
-| `baibao.autotest.core.devtools` | `real_click` / `new_session` / `engine_name` | 真实输入与 CDP 会话统一收口（跨内核） |
-| `baibao.autotest.core.polling` | `poll_until` | 通用轮询等待 |
+| `baibao.autotest.browser` | `detect_chrome_path` / `launch_browser` | 本地 Chrome 路径探测与浏览器启动 |
+| `baibao.autotest.login_state` | `LoginCfg` / `do_login` / `save_storage_state` / `is_auth_valid` | 数据驱动登录流程 + 登录态缓存（TTL） |
+| `baibao.autotest.devtools` | `real_click` / `new_session` / `engine_name` | 真实输入与 CDP 会话统一收口（跨内核） |
+| `baibao.autotest.polling` | `poll_until` | 通用轮询等待 |
 | `baibao.autotest.api` | `ApiBase` | 后端接口基类：复用浏览器登录态 cookie + 防御式 JSON 解析 |
 | `baibao.autotest.probe` | `run_probe` / `run_probe_with` / `ProbeOptions` / `extract_summary` | DOM 摘要探针：页面压缩成 KB 级 markdown（CLI `autotest probe`） |
 | `baibao.autotest.fixtures` | `browser` / `base_url` / `faker` 等 | opt-in pytest fixture（`pytest_plugins` 启用） |

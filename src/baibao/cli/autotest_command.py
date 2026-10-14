@@ -18,7 +18,7 @@ from typing import Any
 from pykunlun.cli import CliContext, Command
 from pykunlun.util import logutil
 
-from baibao.autotest.core.envutil import load_dotenv_if_present, normalize_base_url
+from baibao.autotest.envutil import load_dotenv_if_present, normalize_base_url
 
 log = logutil.getLogger(__name__)
 

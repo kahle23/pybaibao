@@ -6,11 +6,7 @@ envutil — 环境变量与配置的小工具。
   - :func:`normalize_base_url` — 去除 ``base_url`` 末尾斜杠（此前在 api/login_state/fixtures/probe/CLI 共 5 处各自 ``rstrip("/")``）。
 """
 
-from __future__ import annotations
-
 from pathlib import Path
-
-__all__ = ["load_dotenv_if_present", "normalize_base_url"]
 
 
 def _find_env_file(env_file: Path | None) -> Path | None:

@@ -13,16 +13,12 @@ base — 后端接口基类 ApiBase。
 依赖：playwright（仅类型注解，运行时 ``APIRequestContext`` 由调用方传入）。
 """
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, Any, cast
 
-from ..core.envutil import normalize_base_url
+from ..envutil import normalize_base_url
 
 if TYPE_CHECKING:
     from playwright.sync_api import APIRequestContext, APIResponse
-
-__all__ = ["ApiBase"]
 
 
 class ApiBase:
@@ -39,7 +35,7 @@ class ApiBase:
     """
 
     def __init__(
-        self, request: APIRequestContext, base_url: str,
+        self, request: "APIRequestContext", base_url: str,
         headers: dict[str, str] | None = None,
     ):
         self.request = request
@@ -50,7 +46,7 @@ class ApiBase:
     # 内部辅助
     # ------------------------------------------------------------------
 
-    def _post(self, path: str, data: dict[str, Any] | None = None) -> APIResponse:
+    def _post(self, path: str, data: dict[str, Any] | None = None) -> "APIResponse":
         """
         发起 POST 请求（JSON body）并返回响应对象。
         """
@@ -65,7 +61,7 @@ class ApiBase:
 
     def _get(
         self, path: str, params: dict[str, Any] | None = None,
-    ) -> APIResponse:
+    ) -> "APIResponse":
         """
         发起 GET 请求并返回响应对象。
         """
@@ -73,7 +69,7 @@ class ApiBase:
             f"{self.base_url}{path}", params=params or {}, headers=dict(self.headers),
         )
 
-    def _parse_json(self, resp: APIResponse) -> dict[str, Any]:
+    def _parse_json(self, resp: "APIResponse") -> dict[str, Any]:
         """
         解析响应 JSON。防御式：解析失败时返回原始文本与状态码。
         """

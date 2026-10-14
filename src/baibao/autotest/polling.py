@@ -5,13 +5,9 @@ polling — 通用轮询等待。
 此前 page.py 里同样的手写循环出现了 7 处（异步列表刷新、字典下拉异步渲染、loading 遮罩消失、远程搜索等场景）。
 """
 
-from __future__ import annotations
-
 import time
 from collections.abc import Callable
 from typing import Any
-
-__all__ = ["poll_until"]
 
 
 def poll_until(

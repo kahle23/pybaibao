@@ -4,12 +4,9 @@ render — DOM 摘要的 markdown 渲染（纯函数，无浏览器依赖）。
 把 :data:`baibao.autotest.probe.extract_js.EXTRACT_JS` 提取的结构化 dict 渲染成紧凑 markdown；自定义 JS 的返回值渲染成紧凑 JSON。
 """
 
-from __future__ import annotations
-
 import json
 from typing import Any
 
-__all__ = ["MAX_OUTPUT_CHARS", "format_custom", "format_summary"]
 
 # 摘要硬上限（字符）。超限截断并标注，保证单页输出对 AI 上下文友好。
 MAX_OUTPUT_CHARS = 6000

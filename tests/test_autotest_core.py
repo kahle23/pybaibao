@@ -12,10 +12,10 @@ from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import patch
 
 import baibao.autotest as at
-from baibao.autotest.core.devtools import engine_name, new_session, real_click
-from baibao.autotest.core.envutil import load_dotenv_if_present, normalize_base_url
-from baibao.autotest.core.login_state import auth_state_path
-from baibao.autotest.core.polling import poll_until
+from baibao.autotest.devtools import engine_name, new_session, real_click
+from baibao.autotest.envutil import load_dotenv_if_present, normalize_base_url
+from baibao.autotest.login_state import auth_state_path
+from baibao.autotest.polling import poll_until
 from baibao.autotest.probe import ProbeOptions, run_probe
 from baibao.autotest.probe import runner as probe_runner
 
@@ -251,30 +251,8 @@ class TestAuthStatePathAccount(unittest.TestCase):
         )
 
 
-class TestCompatShims(unittest.TestCase):
-    """旧扁平模块路径的等价性（browser-e2e-runner 技能等外部依赖这些路径）。"""
-
-    def test_shims_reexport_same_objects(self) -> None:
-        from baibao.autotest import (
-            browser as b_shim,
-        )
-        from baibao.autotest import (
-            dom_summary as ds_shim,
-        )
-        from baibao.autotest import (
-            login_state as ls_shim,
-        )
-        from baibao.autotest import (
-            probe,
-        )
-        from baibao.autotest.core import browser as b_core
-        from baibao.autotest.core import login_state as ls_core
-
-        self.assertIs(b_shim.launch_browser, b_core.launch_browser)
-        self.assertIs(ls_shim.LoginCfg, ls_core.LoginCfg)
-        self.assertIs(ds_shim.run_probe, probe.run_probe)
-        self.assertIs(ds_shim.format_summary, probe.format_summary)
-        self.assertIs(ds_shim.EXTRACT_JS, probe.EXTRACT_JS)
+class TestFacade(unittest.TestCase):
+    """顶层门面（baibao.autotest.__init__ 的 __all__）逐名可导入。"""
 
     def test_facade_all_resolves(self) -> None:
         for name in at.__all__:

@@ -7,21 +7,20 @@ base — 页面对象基类 BasePage。
 核心特性：
 
   - **Element Plus 组件操作**：el-select / el-date-picker / 远程搜索下拉 / 消息提示 / 表单校验 / 表格行列
-  - **真实输入**：经 :func:`baibao.autotest.core.devtools.real_click` 发送浏览器底层真实鼠标事件。
+  - **真实输入**：经 :func:`baibao.autotest.devtools.real_click` 发送浏览器底层真实鼠标事件。
     解决 el-select 在 el-dialog 内 Playwright 合成事件无法触发展开/选中的硬骨头（Vue 3 + Element Plus 已知兼容问题）。
   - **对话框作用域**：弹窗打开时自动把选择器限定到 ``.el-dialog`` 内部，避免误命中搜索栏等同名表单项
 
 依赖：playwright（重依赖，按需懒加载，不在模块顶层导入）。
 """
 
-from __future__ import annotations
-
 import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
-from ..core.devtools import real_click
-from ..core.polling import poll_until
+from ..devtools import real_click
+from ..polling import poll_until
+from . import ep_widgets
 
 if TYPE_CHECKING:
     from playwright.sync_api import Locator, Page
@@ -45,7 +44,7 @@ class BasePage:
         screenshot_dir: ``take_screenshot`` 的输出目录，默认 ``screenshots``。
     """
 
-    def __init__(self, page: Page, screenshot_dir: str = "screenshots") -> None:
+    def __init__(self, page: "Page", screenshot_dir: str = "screenshots") -> None:
         self.page = page
         self.screenshot_dir = screenshot_dir
         # 同名文件防 change 丢失的自增序号（见 upload_file）
@@ -56,14 +55,14 @@ class BasePage:
         """
         用浏览器底层真实事件点击坐标 ``(x, y)``。
 
-        委托 :func:`baibao.autotest.core.devtools.real_click`。
+        委托 :func:`baibao.autotest.devtools.real_click`。
         Chromium 系走 CDP ``Input.dispatchMouseEvent``（完整 mouseMoved→mousePressed→mouseReleased 序列）。
         Firefox/WebKit 走 ``page.mouse`` 等价原生序列。
         这是 el-select 在弹窗内唯一可靠的展开/选中方式。
         """
         real_click(self.page, x, y)
 
-    def _scope_form_item(self, form_item_label: str) -> Locator:
+    def _scope_form_item(self, form_item_label: str) -> "Locator":
         """
         定位 .el-form-item，自动限定作用域。
 
@@ -74,7 +73,7 @@ class BasePage:
             return dialog.locator(".el-form-item", has_text=form_item_label).first
         return self.page.locator(".el-form-item", has_text=form_item_label).first
 
-    def _select_wrapper(self, form_item_label: str) -> Locator:
+    def _select_wrapper(self, form_item_label: str) -> "Locator":
         """
         定位 el-select 的 .el-select__wrapper（弹窗内优先，label 精确匹配优先）。
 
@@ -105,7 +104,7 @@ class BasePage:
             return fuzzy_any.first
         raise RuntimeError(f"找不到「{form_item_label}」的 el-select wrapper")
 
-    def _expand_select(self, form_item_label: str, *, settle_ms: int = 400) -> Locator:
+    def _expand_select(self, form_item_label: str, *, settle_ms: int = 400) -> "Locator":
         """
         定位 el-select wrapper 并真实点击展开（select 系方法的公共前置）。
 
@@ -201,11 +200,40 @@ class BasePage:
     # region ======== Element Plus 组件 ========
     def collapse_dropdowns(self) -> None:
         """
-        收起所有残留下拉面板（CDP 点击视口左上角空白）。
+        收起所有残留下拉面板。
 
         残留面板会遮挡后续点击目标、并把下一个 select 的选项藏进第二层面板。
         不要用 Escape 收：焦点不在下拉上时 Esc 会冒泡关闭 el-dialog （close-on-press-escape 默认开启），弹窗会莫名消失。
+
+        261009 增补：无脑点视口空白 (2,2) 在模态容器（dialog/drawer）开着时不安全——
+        遮罩盖满视口，该点落在 .el-overlay 上，el-drawer 的 close-on-click-modal 会把
+        容器一起关掉（采购记录编辑抽屉实证）。故先探测 (2,2) 落点：命中遮罩则改点
+        「当前展开面板的 select 本体」（toggle 收起，目标明确）；找不到焦点 select 就
+        保持原状不乱点（宁留面板也不误关容器）。
         """
+        open_panels = self.page.evaluate(
+            "() => Array.from(document.querySelectorAll('.el-select-dropdown'))"
+            ".filter(d => d.offsetParent !== null).length"
+        )
+        if not open_panels:
+            return
+        on_mask = self.page.evaluate(
+            "() => { const el = document.elementFromPoint(2, 2);"
+            " return !!(el && el.closest && el.closest('.el-overlay')); }"
+        )
+        if on_mask:
+            # 点面板开着的那只 select 的「右缘箭头区」toggle 收起。
+            # 不能点 wrapper 中心：filterable 下拉的中心是 input，EP 对"点输入框"保持展开；
+            # 右缘箭头是纯 toggle 区，也避开多选标签的删除按钮（点标签叉会误删已选值）。
+            focused = self.page.locator(".el-select__wrapper.is-focused").first
+            box = focused.bounding_box() if focused.count() else None
+            if box:
+                try:
+                    self._cdp_click(box["x"] + box["width"] - 12, box["y"] + box["height"] / 2)
+                except Exception:
+                    pass
+            self.page.wait_for_timeout(200)
+            return
         try:
             self._cdp_click(2, 2)
         except Exception:
@@ -335,7 +363,7 @@ class BasePage:
         finally:
             self.collapse_dropdowns()
 
-    def upload_file(self, file: str | Path, nth: int = 0, scope: Locator | None = None) -> Path:
+    def upload_file(self, file: str | Path, nth: int = 0, scope: "Locator | None" = None) -> Path:
         """
         向弹窗内第 nth 个 el-upload 上传位传文件（同名文件防 change 丢失）。
 
@@ -368,7 +396,7 @@ class BasePage:
         return dst
 
     def select_table_select(
-        self, container: Locator, *, nth: int = 0, row_idx: int = 0,
+        self, container: "Locator", *, nth: int = 0, row_idx: int = 0,
         collapse: bool = True,
     ) -> str:
         """
@@ -413,7 +441,7 @@ class BasePage:
     # endregion
 
     # region ======== 对话框与消息 ========
-    def overlay(self) -> Locator:
+    def overlay(self) -> "Locator":
         """
         当前打开的弹窗或抽屉（优先弹窗，多层弹窗取最后打开的）。
 
@@ -428,30 +456,21 @@ class BasePage:
 
     def close_dialog(self) -> None:
         """
-        关闭当前对话框。
+        关闭当前对话框（委托 :func:`ep_widgets.close_dialog` 脚本实证清场链）。
+
+        行为升级说明（2026-10-14 实现单点化）：此前为单点 headerbtn（无弹窗时抛超时）；
+        现为 6 轮「footer 取消 → headerbtn → ESC」链式清场，无弹窗时静默通过。
         """
-        self.page.locator(".el-dialog__headerbtn:visible").last.click()
+        ep_widgets.close_dialog(self.page)
 
     def close_all_dialogs(self) -> None:
         """
-        关闭所有残留弹窗与确认框。
+        关闭所有残留弹窗/确认框/抽屉/overlay（委托 :func:`ep_widgets.close_any_dialog`）。
 
         残留弹窗的遮罩会挡住行操作按钮，导致后续用例连锁点击超时；
-        ElMessageBox（二次确认框）不是 .el-dialog，需一并处理。
+        清场链覆盖 message-box → dialog → drawer → overlay 四层。
         """
-        for _ in range(4):
-            has_dialog = self.page.locator(".el-dialog:visible").count()
-            has_box = self.page.locator(".el-message-box:visible").count()
-            if not has_dialog and not has_box:
-                return
-            self.page.keyboard.press("Escape")  # MessageBox 默认 Esc=取消；下拉面板优先收起
-            self.page.wait_for_timeout(400)
-            if self.page.locator(".el-dialog:visible").count():
-                try:
-                    self.close_dialog()
-                except Exception:
-                    pass
-                self.page.wait_for_timeout(400)
+        ep_widgets.close_any_dialog(self.page)
 
     def click_dialog_button(self, text: str = "确定") -> None:
         """
@@ -574,7 +593,7 @@ class BasePage:
     # endregion
 
     # region ======== 表格操作 ========
-    def get_table_row(self, keyword: str) -> Locator:
+    def get_table_row(self, keyword: str) -> "Locator":
         """
         获取表格中包含指定文本的行。
 
@@ -621,7 +640,7 @@ class BasePage:
     def filter_row(
         self, keyword: str, *, filter_selector: str | None = None, query_button: str = "查询",
         wait_after_query_ms: int = 1500, timeout: int = 12000,
-    ) -> Locator:
+    ) -> "Locator":
         """
         列表先按关键词筛选圈定再定位目标行。
 
@@ -653,14 +672,15 @@ class BasePage:
             inp.fill(keyword)
         except Exception:
             # placeholder 定位兜底（如搜索栏无 label 时）
-            page.locator("input[placeholder*='系列名称'], input[placeholder*='名称'], input[placeholder*='单号']").first.fill(keyword)
+            fallback = "input[placeholder*='系列名称'], input[placeholder*='名称'], input[placeholder*='单号']"
+            page.locator(fallback).first.fill(keyword)
         page.wait_for_timeout(300)
         page.locator(f"button:has-text('{query_button}')").first.click()
         page.wait_for_timeout(wait_after_query_ms)
         # 轮询等目标行（列表接口异步）；超时也返回 row（与原行为一致，由调用方断言）
         row = page.locator(f"tr:has-text('{keyword}')").first
 
-        def _found() -> Locator | None:
+        def _found() -> "Locator | None":
             return row if row.count() else None
 
         return poll_until(
@@ -668,7 +688,7 @@ class BasePage:
             sleep_ms=page.wait_for_timeout,
         ) or row
 
-    def fill_row_by_cells(self, row: Locator, col_map: dict[int, str]) -> None:
+    def fill_row_by_cells(self, row: "Locator", col_map: dict[int, str]) -> None:
         """
         按列序号填充可编辑表格行（新增/编辑行的单元格输入框）。
 

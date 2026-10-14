@@ -12,15 +12,13 @@ fixtures — 可选启用的 pytest fixture（自管理 Playwright 模式）。
   - ``today_str`` / ``faker`` / ``unique_id`` (function) — 通用测试数据
 
 **不**提供角色级 fixture（``storage_state`` / ``page`` / ``api_context``），它们与具体角色和登录流程相关。
-请在项目 conftest 中基于 :mod:`baibao.autotest.core.login_state` 自行实例化，参考 :mod:`baibao.autotest.fixtures.conftest_template`。
+请在项目 conftest 中基于 :mod:`baibao.autotest.login_state` 自行实例化，参考 :mod:`baibao.autotest.fixtures.conftest_template`。
 
 刻意**不**使用 pytest-playwright 的 ``context`` / ``page`` fixture。
 原因：Element Plus el-select 在弹窗内的事件兼容问题（pytest-playwright 托管的 context 无法可靠触发 Vue pointerdown）。
 
 依赖：需安装 ``baibao[autotest]``（playwright / python-dotenv / faker）。
 """
-
-from __future__ import annotations
 
 import os
 import time
@@ -30,7 +28,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from ..core.envutil import load_dotenv_if_present, normalize_base_url
+from ..envutil import load_dotenv_if_present, normalize_base_url
 
 if TYPE_CHECKING:
     from playwright.sync_api import Browser, Playwright
@@ -82,7 +80,7 @@ def slow_mo() -> int:
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="session")
-def playwright() -> Generator[Playwright, None, None]:
+def playwright() -> Generator["Playwright", None, None]:
     """
     session 级启动 Playwright。
     """
@@ -93,7 +91,7 @@ def playwright() -> Generator[Playwright, None, None]:
 
 
 @pytest.fixture(scope="session")
-def browser(playwright: Playwright, is_headless: bool, slow_mo: int) -> Generator[Browser, None, None]:
+def browser(playwright: "Playwright", is_headless: bool, slow_mo: int) -> Generator["Browser", None, None]:
     """
     session 级启动浏览器。
 
@@ -103,7 +101,7 @@ def browser(playwright: Playwright, is_headless: bool, slow_mo: int) -> Generato
       - ``true``  → 强制内置 Chromium（缺失自动下载，失败抛错）
       - ``false`` → 跳过内置，直接本地浏览器（``CHROME_PATH`` 显式路径优先）
     """
-    from ..core.browser import launch_browser
+    from ..browser import launch_browser
 
     raw = _cfg("USE_BUILTIN_CHROMIUM")
     if raw == "":
