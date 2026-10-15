@@ -6,6 +6,7 @@ textutil — E2E 断言常用的数值/文本小件。
 """
 
 import re
+from typing import Any, cast
 
 _NUM_RX = re.compile(r"-?\d+(?:\.\d+)?")      # num_in/nums_in 共用（模块级预编译）
 
@@ -27,10 +28,11 @@ def nums_in(text: object) -> list[float]:
 
 def to_int(x: object) -> int | None:
     """
-    宽容转 int（``"12"`` / ``12.0`` / ``12.5`` → ``12``；失败返回 None）。
+    宽容转 int（``"12"`` / ``12.0`` / ``12.5`` → 12；失败返回 None）。
     """
     try:
-        return int(float(x))
+        # 宽容转换契约：任意对象直接喂 float，转不动走 except（cast 收口静态检查）
+        return int(float(cast(Any, x)))
     except (TypeError, ValueError):
         return None
 
@@ -58,7 +60,7 @@ def fmt_qty(q: object) -> str:
     整数千分位（``1234567`` → ``"1,234,567"``）；转不成数字原样返回。
     """
     try:
-        return f"{int(float(q)):,}"
+        return f"{int(float(cast(Any, q))):,}"
     except (TypeError, ValueError):
         return str(q)
 
@@ -71,7 +73,7 @@ def js_num(v: object) -> str:
     """
     if v is None:
         return ""
-    f = float(v)
+    f = float(cast(Any, v))
     return str(int(f)) if f == int(f) else repr(f)
 
 

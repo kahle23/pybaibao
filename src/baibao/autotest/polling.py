@@ -7,16 +7,18 @@ polling — 通用轮询等待。
 
 import time
 from collections.abc import Callable
-from typing import Any
+from typing import TypeVar
+
+T = TypeVar("T")
 
 
 def poll_until(
-    fn: Callable[[], Any],
+    fn: Callable[[], T],
     *,
     timeout_ms: int,
     interval_ms: int = 400,
     sleep_ms: Callable[[int], None] | None = None,
-) -> Any:
+) -> T:
     """
     反复调用 ``fn`` 直到返回真值或超时。
 
@@ -29,7 +31,7 @@ def poll_until(
         sleep_ms: 等待函数（入参毫秒）。默认 ``time.sleep``；Playwright 场景传 ``page.wait_for_timeout``，等待期间可处理协议消息。
 
     Returns:
-        ``fn`` 的最后返回值：满足时为真值；超时时为最后一代结果（通常为 None）。
+        ``fn`` 的最后返回值（类型随 ``fn`` 推断）：满足时为真值；超时时为最后一代结果（通常为 None）。
     """
     if sleep_ms is None:
         def _default_sleep(ms: int) -> None:
@@ -39,7 +41,7 @@ def poll_until(
             time.sleep(ms / 1000)
         sleep_ms = _default_sleep
     deadline = time.monotonic() + timeout_ms / 1000
-    result: Any = None
+    result: T | None = None
     while True:
         result = fn()
         if result:

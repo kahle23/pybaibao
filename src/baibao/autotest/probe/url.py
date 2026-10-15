@@ -8,7 +8,6 @@ import re
 
 from ..envutil import normalize_base_url
 
-
 # Git Bash (MSYS) 会把以 / 开头的参数转换成 Windows 路径：
 # "#/it-asset" → "#C:/Program Files/Git/it-asset"。检测到被污染的形式直接报错并给解法。
 _MSYS_POLLUTED = re.compile(r"^#?[A-Za-z]:[\\/]")

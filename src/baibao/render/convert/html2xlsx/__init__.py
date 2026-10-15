@@ -42,8 +42,8 @@ __all__ = [
     "BorderStyle",
     "CellStyle",
     "Html2XlsxProfile",
+    "Html2XlsxRenderer",
     "Html2XlsxResult",
     "ImageAnchor",
-    "Html2XlsxRenderer",
     "convert_html_to_xlsx",
 ]

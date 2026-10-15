@@ -233,7 +233,7 @@ class MySqlWorkItemService:
             parts = f'，参与者 {len(participants)} 人' if participants else ''
             self._event(cur, item_id, 'created',
                         f'事项创建: {title}（type={item_type}, 状态={status}'
-                        f'{f'，展开 {n_stage} 个阶段' if n_stage else ''}{parts}）',
+                        f'{f"，展开 {n_stage} 个阶段" if n_stage else ""}{parts}）',
                         operator=creator)
         return item_id
 
@@ -339,7 +339,7 @@ class MySqlWorkItemService:
             cur.execute('DELETE FROM work_stage WHERE item_id = %s', (item_id,))
             cur.execute('DELETE FROM work_event WHERE item_id = %s', (item_id,))
             cur.execute('DELETE FROM work_item WHERE id = %s', (item_id,))
-            return cur.rowcount > 0
+            return bool(cur.rowcount)
     # endregion
 
     # region ======== 阶段（执行链） ========
@@ -499,7 +499,7 @@ class MySqlWorkItemService:
             rows = self._rows(cur)
             if not rows:
                 return None
-            refs = _jload(rows[0].get('refs')) or []
+            refs: list[Any] = _jload(rows[0].get('refs')) or []
             entry = {'kind': kind, 'ref': ref}
             if note:
                 entry['note'] = note

@@ -35,7 +35,8 @@ def get_paddleocr_version() -> str | None:
     决定是否需要安装、以及给出明确的错误提示。
     """
     try:
-        import paddleocr
+        # 重型可选依赖，检查环境不装（mypy 走 overrides 豁免；pyright 行级豁免）
+        import paddleocr  # pyright: ignore[reportMissingImports]
         return getattr(paddleocr, '__version__', None)
     except Exception:
         return None
@@ -90,7 +91,9 @@ class PaddleOcrV2(OcrEngine):
         super().__init__(cfg)
 
         try:
-            from paddleocr import PaddleOCR
+            # paddleocr 是重型可选依赖，检查环境不装（mypy 走 overrides 豁免）；
+            # pyright 无按模块豁免机制，缺包报错与导入绑定 Unknown 在此行级豁免
+            from paddleocr import PaddleOCR  # pyright: ignore[reportMissingImports, reportUnknownVariableType]
         except ImportError as e:
             raise ImportError(
                 "paddleocr 未安装，无法初始化 PaddleOcrV2。\n"
@@ -100,7 +103,8 @@ class PaddleOcrV2(OcrEngine):
 
         self._lang: str = cfg.lang
         self._use_angle_cls: bool = cfg.use_angle_cls
-        self._ocr = PaddleOCR(use_angle_cls=cfg.use_angle_cls, lang=cfg.lang)
+        # paddleocr 无类型标注（项目不做 stubs）：实例收口为显式 Any（同 V3 口径）
+        self._ocr: Any = PaddleOCR(use_angle_cls=cfg.use_angle_cls, lang=cfg.lang)
 
     @property
     def lang(self) -> str:
@@ -185,7 +189,7 @@ class PaddleOcrV3(OcrEngine):
         super().__init__(cfg)
 
         try:
-            from paddleocr import PaddleOCR
+            from paddleocr import PaddleOCR  # pyright: ignore[reportMissingImports, reportUnknownVariableType]
         except ImportError as e:
             raise ImportError(
                 "paddleocr 未安装，无法初始化 PaddleOcrV3。\n"

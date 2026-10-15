@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "baibao"
-version = "0.0.10"
+version = "0.0.11"
 description = "百宝，方便好用的 Python 常用功能库。把日常开发中反复用到的能力封装成简洁的 API，开箱即用。"
 readme = "README.md"
 license = "GPL-3.0-or-later"
@@ -13,7 +13,7 @@ authors = [
     {name = "Kahle"}
 ]
 dependencies = [
-    "pykunlun>=0.0.7",
+    "pykunlun>=0.0.8",
 ]
 
 [tool.setuptools.packages.find]
@@ -21,7 +21,13 @@ where = ["src"]
 
 [project.optional-dependencies]
 all = ["easyocr>=1.7.0", "paddleocr>=2.7.0", "opencv-python>=4.8.0", "numpy>=1.24.0", "bottle>=0.12"]
-dev = ["pytest", "ruff", "mypy"]
+# openpyxl/beautifulsoup4：tests/render/convert/test_html2xlsx.py 在收集期直接
+# import openpyxl 读回产物校验，转换路径另需 bs4（源码侧为 modutil 懒加载），
+# 不预装则整份测试在收集阶段即 ImportError 中断
+# numpy/opencv-python/jinja2/bottle：类型检查走真包路线（numpy/jinja2/opencv 自带
+# py.typed，装上即得完整类型；bottle 无类型标注，装上只为消缺包报错，Unknown
+# 靠源码内边界收口 cast），版本下界与 all/easyocr/paddleocr extras 保持一致
+dev = ["pytest", "ruff", "mypy", "openpyxl", "beautifulsoup4", "numpy>=1.24.0", "opencv-python>=4.8.0", "jinja2", "bottle>=0.12"]
 easyocr = ["easyocr>=1.7.0", "opencv-python>=4.8.0", "numpy>=1.24.0"]
 paddleocr = ["paddleocr>=2.7.0", "opencv-python>=4.8.0", "numpy>=1.24.0"]
 autotest = ["playwright>=1.40", "python-dotenv>=1.0", "faker", "requests>=2.28"]
@@ -34,9 +40,12 @@ python_version = "3.10"
 mypy_path = "src"
 strict = true
 
-# oss2 经 modutil 延迟导入（AliyunOssClient.get_driver），未安装时不应被判错
+# oss2 经 modutil 延迟导入（AliyunOssClient.get_driver），未安装时不应被判错；
+# numpy/cv2/jinja2 已进 dev extra 走真包检查（装上后 mypy 自动改用真实类型），
+# 此处豁免是未装 dev extra 环境的兜底；easyocr/paddleocr/bottle 属重型/无类型
+# 可选依赖，按实际 import 的模块名豁免
 [[tool.mypy.overrides]]
-module = ["easyocr", "paddleocr", "bottle", "playwright", "playwright.sync_api", "dotenv", "faker", "oss2", "requests"]
+module = ["easyocr", "paddleocr", "bottle", "playwright", "playwright.sync_api", "dotenv", "faker", "oss2", "requests", "numpy", "cv2", "jinja2"]
 ignore_missing_imports = true
 
 # bottle 无类型标注，其路由装饰器（@app.get/@app.post/@app.error）会把

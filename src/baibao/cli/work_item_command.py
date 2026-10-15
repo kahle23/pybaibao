@@ -40,7 +40,7 @@ import json
 import os
 import sys
 from datetime import date, datetime
-from typing import Any
+from typing import Any, cast
 
 from pykunlun.cli import CliContext, Command
 from pykunlun.util import logutil
@@ -362,11 +362,16 @@ class WorkItemCommand(Command):
             except json.JSONDecodeError as e:
                 log.error("stages JSON 解析失败: %s", e)
                 return False
+            # 迭代走 Any 别名：isinstance 收窄后 mypy 视 raw 为 list[Any]（cast 冗余）、
+            # pyright 视为 list[Unknown]（级联报错），双检查器口径分裂处用别名隔离
+            items: Any = raw
             if not isinstance(raw, list) or not raw or \
-                    any(not isinstance(s, dict) or not s.get('name') for s in raw):
+                    any(not isinstance(s, dict) or not cast("dict[str, Any]", s).get('name')
+                        for s in items):
                 log.error("stages 须为非空 JSON 数组且每个元素含 name")
                 return False
-            stages = raw
+            # raw 已逐元素校验过 dict 形态，cast 回真实形状（isinstance 收窄 Unknown）
+            stages = cast("list[dict[str, Any]]", raw)
         elif ns.no_stages:
             stages = None
         else:

@@ -14,7 +14,8 @@ exit code"的重复模式收敛成一个 :class:`CaseRecorder`。适用于**不�
 
 import json
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 
 class SkipCase(Exception):
@@ -115,7 +116,7 @@ class CaseRecorder:
             return True
         except SkipCase as sk:
             self.blocked(name, str(sk))
-        except Exception as e:  # noqa: BLE001 —— 兜底记 FAIL，不中断整轮
+        except Exception as e:  # 兜底记 FAIL，不中断整轮
             self.record(name, False, repr(e)[:220])
         return False
 

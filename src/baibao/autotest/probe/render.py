@@ -7,7 +7,6 @@ render — DOM 摘要的 markdown 渲染（纯函数，无浏览器依赖）。
 import json
 from typing import Any
 
-
 # 摘要硬上限（字符）。超限截断并标注，保证单页输出对 AI 上下文友好。
 MAX_OUTPUT_CHARS = 6000
 

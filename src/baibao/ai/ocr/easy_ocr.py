@@ -81,7 +81,9 @@ class EasyOcr(OcrEngine):
         super().__init__(cfg)
 
         try:
-            import easyocr
+            # easyocr 是重型可选依赖，检查环境不装（mypy 走 overrides 豁免）；
+            # pyright 无按模块豁免机制，缺包报错在此行级豁免
+            import easyocr  # pyright: ignore[reportMissingImports]
         except ImportError:
             success, msg = pip.install('easyocr')
             if not success:
@@ -89,13 +91,13 @@ class EasyOcr(OcrEngine):
                     f"easyocr 库未安装，自动安装失败: {msg}\n"
                     "请手动运行: pip install easyocr"
                 )
-            import easyocr
+            import easyocr  # pyright: ignore[reportMissingImports]
 
         self._langs: list[str] = langs_from_code(cfg.lang)
         self._gpu: bool = cfg.gpu
         # easyocr 无类型标注（项目不做 stubs）：实例收口为显式 Any——
         # reportUnknown* 只报 Unknown、不报显式 Any；返回结构在用到处按真实形状注解。
-        self._reader: Any = easyocr.Reader(
+        self._reader: Any = easyocr.Reader(  # pyright: ignore[reportUnknownMemberType]
             lang_list=self._langs,
             gpu=self._gpu,
         )

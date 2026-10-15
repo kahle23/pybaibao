@@ -158,6 +158,8 @@ def launch_browser(
     slow_mo: int = 0,
     use_builtin_chromium: bool | None = None,
     chrome_path: str | None = None,
+    args: list[str] | None = None,
+    window_size: str | None = None,
 ) -> "Browser":
     """
     启动浏览器（自管理 Playwright 模式）。
@@ -182,20 +184,115 @@ def launch_browser(
 
     Returns:
         Playwright ``Browser`` 实例，调用方负责 ``browser.close()``。
+
+    窗口尺寸（``window_size``）——**默认 auto 铺满，框架默认 1280×720 只是兜底**：
+
+      - 默认 ``None`` / ``"auto"``：启动前按 OS 当前会话实测主屏分辨率，转成与显式
+        ``"宽x高"`` 完全相同的铺满参数（无头时自动跳过）；
+      - ``"宽x高"``（如 ``"1920x1080"``）：显式注入 ``--window-position=0,0``
+        + ``--window-size=宽,高`` + ``--force-device-scale-factor=1``；
+      - ``"default"``：不注入任何窗口参数，回到框架默认 1280×720（低配/特殊场景兜底）。
+
+      背景（为什么 WxH 必须带 force-scale-factor）：Windows 显示缩放 ≠100% 时
+      Chromium 按**逻辑坐标**解释 ``--window-size``——150% 缩放下逻辑全屏只有
+      1280×720，传 1920,1080 会被钳回 1280×720（RDP 会话同理不可靠）；
+      ``--force-device-scale-factor=1`` 让逻辑=物理，WxH 才是真实尺寸。
+      需求尺寸不能超过物理屏幕（系统级钳制，代码绕不过）。
+
+      auto 为什么在 OS 层实测、而不是启动后页面里读 ``screen.width``：
+      Playwright context 默认带 viewport 仿真，服务端会同时下发
+      ``Emulation.setDeviceMetricsOverride`` 与 ``Page.setScreenSizeOverride``，
+      把 ``window.screen`` 一并仿真成 viewport 尺寸——非持久 context 即使传
+      ``viewport=None``，服务端也会补回默认 1280×720，页面实测永远 720p；
+      且启动后用 CDP 改临时窗口大小传导不到后续 context 的新窗口。
+      只有启动参数能一次铺满所有后续窗口；OS 实测失败（无显示器/探测异常）
+      才回退 "default"——框架 1280×720 是最后兜底。
+
+      AI 观察阶梯：用户没提窗口 → 默认（auto 铺满）；用户说"窗口太小" → 显式
+      ``"宽x高"``（一般 ``"1920x1080"``）；用户仍说小 → 停下问用户实际环境
+      （分辨率/远程桌面/缩放比例），不要盲目加大。
     """
+
+    # 窗口尺寸：默认 auto 铺满；"default"=框架默认 1280×720（兜底逃生门）。
+    # 无头无窗口概念，auto 无意义（显式 WxH 仍照传）。
+    if headless and (window_size is None or window_size.strip().lower() == "auto"):
+        ws = "default"
+    else:
+        ws = (window_size or "auto").strip().lower()
+    # auto → 启动前 OS 实测主屏，复用显式 WxH 的铺满参数链
+    if ws == "auto":
+        detected = _detect_screen_size()
+        ws = f"{detected[0]}x{detected[1]}" if detected else "default"
 
     def launch(extra: dict[str, Any]) -> "Browser":
         launch_kwargs: dict[str, Any] = {"headless": headless, **extra}
         if slow_mo > 0:
             launch_kwargs["slow_mo"] = slow_mo
+        merged_args = list(args) if args else []
+        # 调用方显式传过 --window-size 时不覆盖（调用方优先）
+        if ws and ws not in ("default", "none", "auto") and not any(a.startswith("--window-size") for a in merged_args):
+            w, sep, h = ws.partition("x")
+            if not (sep and w.isdigit() and h.isdigit()):
+                raise ValueError(
+                    "window_size 仅支持 'auto' / 'default' / '宽x高'（如 '1920x1080'），"
+                    f"收到: {window_size!r}"
+                )
+            merged_args = [
+                "--window-position=0,0",
+                f"--window-size={w},{h}",
+                "--force-device-scale-factor=1",
+                *merged_args,
+            ]
+        if merged_args:
+            launch_kwargs["args"] = merged_args
         return playwright.chromium.launch(**launch_kwargs)
 
-    return _run_chromium_chain(
+    browser = _run_chromium_chain(
         launch,
         headless=headless,
         use_builtin_chromium=use_builtin_chromium,
         chrome_path=chrome_path,
     )
+    return browser
+
+
+def _detect_screen_size() -> tuple[int, int] | None:
+    """OS 级探测当前会话主屏分辨率（物理像素，尽力而为，失败返回 None）。
+
+    天然跟随当前会话：RDP 断开重连、分辨率切换后重跑即得新值。
+    不能改成页面里读 ``screen.width`` 实测——Playwright 会把 ``window.screen``
+    仿真成 context viewport（默认 1280×720），实测永远拿到仿真值（详见
+    :func:`launch_browser` 的窗口尺寸说明）。
+    """
+    try:
+        if sys.platform.startswith("win"):
+            import ctypes
+
+            user32 = ctypes.windll.user32
+            width = user32.GetSystemMetrics(0)
+            height = user32.GetSystemMetrics(1)
+            # DPI 虚拟化：DPI-unaware 进程拿到的是逻辑像素，乘系统缩放比还原物理；
+            # 进程本身 DPI-aware 时拿到的已是物理值，放大后由系统钳回屏幕，结果同为铺满。
+            try:
+                scale = ctypes.windll.shcore.GetScaleFactorForDevice(0)
+                width = round(width * scale / 100)
+                height = round(height * scale / 100)
+            except Exception:
+                pass
+            if width > 0 and height > 0:
+                return width, height
+        else:
+            import tkinter
+
+            root = tkinter.Tk()
+            root.withdraw()
+            width, height = root.winfo_screenwidth(), root.winfo_screenheight()
+            root.destroy()
+            if width > 0 and height > 0:
+                return width, height
+    except Exception:
+        return None
+    return None
 
 
 def launch_browser_persistent(

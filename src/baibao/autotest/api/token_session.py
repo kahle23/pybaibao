@@ -26,26 +26,25 @@ token_session — token 型后端接口的 requests 会话（自动处理登录�
 
 import json
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from importlib.util import find_spec
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     import requests
 
 
-def _requests() -> "type[requests]":
+def _ensure_requests() -> None:
     """
-    惰性取 requests 模块（未安装时给可读指引；不在模块顶层导入，
-    保证无 requests 环境不受牵连）。
+    惰性探测 requests（未安装时给可读指引；不在模块顶层导入，
+    保证无 requests 环境不受牵连——实导入由调用处函数内完成）。
     """
-    try:
-        import requests
-    except ImportError as e:
+    if find_spec("requests") is None:
         raise ImportError(
             "token_session 需要 requests：pip install 'baibao[autotest]' 或 pip install requests",
-        ) from e
-    return requests
+        )
 
 
 @dataclass
@@ -81,32 +80,32 @@ class TokenSessionCfg:
 
     base_url: str = ""
     login_path: str = ""
-    login_payload: Callable[[str, str, str | None], dict] = field(
+    login_payload: Callable[[str, str, str | None], dict[str, Any]] = field(
         default_factory=lambda: _default_login_payload,
     )
     captcha_path: str | None = None
-    captcha_id_from: Callable[[dict], str | None] = field(
+    captcha_id_from: Callable[[dict[str, Any]], str | None] = field(
         default_factory=lambda: _captcha_id_from_data,
     )
     captcha_value: str | Callable[[], str] = "1"
     token_header: str = "Authorization"
-    token_from: Callable[[dict], str | None] = field(
+    token_from: Callable[[dict[str, Any]], str | None] = field(
         default_factory=lambda: _token_from_data,
     )
-    unauthorized_when: Callable[[dict | None, int], bool] = field(
+    unauthorized_when: Callable[[dict[str, Any] | None, int], bool] = field(
         default_factory=lambda: _unauthorized_default,
     )
     ok_code: int = 200
     timeout_s: int = 40
     conn_retries: int = 0
     conn_retry_sleep_s: float = 8.0
-    extra_headers: dict[str, str] = field(default_factory=dict)
+    extra_headers: dict[str, str] = field(default_factory=dict[str, str])
     auth_state: Path | None = None
     token_state_key: str = ""
     write_back_auth_state: bool = False
 
 
-def _default_login_payload(account: str, password: str, captcha_id: str | None) -> dict:
+def _default_login_payload(account: str, password: str, captcha_id: str | None) -> dict[str, Any]:
     """
     IMP 形态默认登录体：account/password +（有验证码时）captchaId/captchaVal。
     """
@@ -117,23 +116,26 @@ def _default_login_payload(account: str, password: str, captcha_id: str | None) 
     return body
 
 
-def _captcha_id_from_data(resp: dict) -> str | None:
+def _captcha_id_from_data(resp: dict[str, Any]) -> str | None:
     """
     从验证码端点响应抽 captchaId（默认 ``data.captchaId``）。
+
+    isinstance 守卫会让 pyright 把收窄结果标成 ``dict[Unknown, ...]`` 级联报错，
+    经 cast(Any) 隔离后取值、再按真实形状收口（mypy/pyright 双绿口径）。
     """
-    data = resp.get("data") if isinstance(resp, dict) else None
-    return data.get("captchaId") if isinstance(data, dict) else None
+    data: Any = cast(Any, resp).get("data") if isinstance(resp, dict) else None
+    return cast("dict[str, Any]", data).get("captchaId") if isinstance(data, dict) else None
 
 
-def _token_from_data(resp: dict) -> str | None:
+def _token_from_data(resp: dict[str, Any]) -> str | None:
     """
-    从登录响应抽 token（默认 ``data.token``）。
+    从登录响应抽 token（默认 ``data.token``；收窄隔离口径同上）。
     """
-    data = resp.get("data") if isinstance(resp, dict) else None
-    return data.get("token") if isinstance(data, dict) else None
+    data: Any = cast(Any, resp).get("data") if isinstance(resp, dict) else None
+    return cast("dict[str, Any]", data).get("token") if isinstance(data, dict) else None
 
 
-def _unauthorized_default(body: dict | None, status: int) -> bool:
+def _unauthorized_default(body: dict[str, Any] | None, status: int) -> bool:
     """
     登录失效判定：HTTP 401 或 body ``code == 401``。
     """
@@ -159,7 +161,7 @@ class TokenSession:
         self.account = account
         self.password = password
         self.base_url = cfg.base_url.rstrip("/")
-        self._sess: "requests.Session | None" = None
+        self._sess: requests.Session | None = None
         self._token: str | None = None
         # 缓存 token 已被服务端判失效后置位——后续 _ensure_ready 跳过缓存直走 HTTP 登录，
         # 否则 401 重放会反复读到同一份过期缓存
@@ -182,8 +184,13 @@ class TokenSession:
         for origin in state.get("origins", []):
             for item in origin.get("localStorage", []):
                 if item.get("name") == self.cfg.token_state_key:
-                    tok = item.get("value")
-                    return tok if tok else None
+                    tok = (item.get("value") or "").strip()
+                    # 2026-10-14 S12 试点首验修正：IMP FE 以 JSON.stringify 落 localStorage
+                    # （maToken 实存值带首尾双引号）——原样读出会把引号带进 Authorization 头，
+                    # 后端解析失败统一包装成 code=500「操作失败！」（误似业务异常）。剥引号。
+                    if len(tok) >= 2 and tok[0] == '"' and tok[-1] == '"':
+                        tok = tok[1:-1]
+                    return tok or None
         return None
 
     def _write_back_token(self, token: str) -> None:
@@ -199,7 +206,9 @@ class TokenSession:
             for origin in state.get("origins", []):
                 for item in origin.get("localStorage", []):
                     if item.get("name") == self.cfg.token_state_key:
-                        item["value"] = token
+                        # 保持原缓存格式（IMP FE 存 JSON.stringify 带引号形态；读侧已兼容裸值）
+                        item["value"] = (f'"{token}"' if str(item.get("value", "")).strip().startswith('"')
+                                         else token)
                         hit = True
             if not hit:
                 if not state.get("origins"):
@@ -221,7 +230,8 @@ class TokenSession:
             raise RuntimeError(
                 "token 失效且未配置 login_path——无法自动重登"
                 f"（auth_state={self.cfg.auth_state}）")
-        requests = _requests()
+        _ensure_requests()
+        import requests  # 函数内导入（懒加载语义），requests 自带 py.typed 走真类型
         s = self._sess or requests.Session()
 
         def _retry(fn: Callable[[], Any]) -> Any:
@@ -239,8 +249,10 @@ class TokenSession:
 
         captcha_id = None
         if self.cfg.captcha_path:
+            # URL 在 lambda 外拼好：mypy 对闭包内的属性收窄不可靠（captcha_path 可空）
+            cap_url = self.base_url + self.cfg.captcha_path
             cap = _retry(lambda: s.get(
-                self.base_url + self.cfg.captcha_path,
+                cap_url,
                 timeout=self.cfg.timeout_s).json())
             captcha_id = self.cfg.captcha_id_from(cap)
             if not captcha_id:
@@ -251,7 +263,9 @@ class TokenSession:
             body["captchaVal"] = cv() if callable(cv) else cv
         r = _retry(lambda: s.post(self.base_url + self.cfg.login_path, json=body,
                                   timeout=self.cfg.timeout_s).json())
-        tok = self.cfg.token_from(r) if isinstance(r, dict) else None
+        # isinstance 会把 Any 收窄成 Unknown 联合并污染 r 的后续使用，经别名隔离
+        r_body: Any = r
+        tok = self.cfg.token_from(cast("dict[str, Any]", r_body)) if isinstance(r_body, dict) else None
         if not tok:
             raise RuntimeError(f"API 登录失败: {str(r)[:200]}")
         s.headers[self.cfg.token_header] = tok
@@ -269,14 +283,16 @@ class TokenSession:
             return self._sess
         tok = None if self._auth_state_failed else self._token_from_auth_state()
         if tok:
-            requests = _requests()
+            _ensure_requests()
+            import requests
             s = requests.Session()
             s.headers[self.cfg.token_header] = tok
             s.headers.update(self.cfg.extra_headers)
             self._sess, self._token = s, tok
             return s
         self._login()
-        return self._sess  # type: ignore[return-value]
+        assert self._sess is not None  # _login 成功必置会话
+        return self._sess
 
     def reset(self) -> None:
         """
@@ -297,9 +313,9 @@ class TokenSession:
     # ------------------------------------------------------------------
 
     def request(
-        self, method: str, path: str, body: dict | None = None,
+        self, method: str, path: str, body: dict[str, Any] | None = None,
         *, _retried: bool = False, **kwargs: Any,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         发请求并解析 JSON；登录失效时重登一次原样重放。
         """
@@ -315,36 +331,38 @@ class TokenSession:
             return self.request(method, path, body, _retried=True, **kwargs)
         return out
 
-    def get(self, path: str, **kwargs: Any) -> dict:
+    def get(self, path: str, **kwargs: Any) -> dict[str, Any]:
         """
         GET 请求（401 自愈同 :meth:`request`）。
         """
         return self.request("GET", path, None, **kwargs)
 
-    def post(self, path: str, body: dict | None = None, **kwargs: Any) -> dict:
+    def post(self, path: str, body: dict[str, Any] | None = None, **kwargs: Any) -> dict[str, Any]:
         """
         POST 请求（401 自愈同 :meth:`request`）。
         """
         return self.request("POST", path, body, **kwargs)
 
-    def delete(self, path: str, **kwargs: Any) -> dict:
+    def delete(self, path: str, **kwargs: Any) -> dict[str, Any]:
         """
         DELETE 请求（401 自愈同 :meth:`request`）。
         """
         return self.request("DELETE", path, None, **kwargs)
 
     @staticmethod
-    def _parse_json(r: "requests.Response") -> dict:
+    def _parse_json(r: "requests.Response") -> dict[str, Any]:
         """
         防御式 JSON 解析（非 JSON 包成 ``_rawText``/``_status``）。
         """
         try:
-            out = r.json()
-            return out if isinstance(out, dict) else {"_wrapped": out, "_status": r.status_code}
+            out: Any = r.json()
+            if isinstance(out, dict):
+                return cast("dict[str, Any]", out)
+            return {"_wrapped": out, "_status": r.status_code}
         except ValueError:
             return {"_rawText": r.text[:200], "_status": r.status_code}
 
-    def unwrap(self, resp: dict, what: str = "") -> Any:
+    def unwrap(self, resp: dict[str, Any], what: str = "") -> Any:
         """
         断言 body ``code == ok_code`` 并返回 ``data``（否则抛 AssertionError）。
         """

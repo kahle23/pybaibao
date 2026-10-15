@@ -12,7 +12,8 @@ BasePage 的 ``get_row_cell``/``click_row_action`` 按"行 keyword"定位；
 ``page`` 仅用于 ``wait_for_timeout``（协议消息等待）。
 """
 
-from typing import TYPE_CHECKING, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from playwright.sync_api import Locator, Page
@@ -52,7 +53,7 @@ def header_texts(container: "Locator | Page") -> list[str]:
     表头文本列表（含固定列；用于口径探测/列存在性判定）。
     """
     headers = container.locator(".el-table__header-wrapper th")
-    out = []
+    out: list[str] = []
     for i in range(headers.count()):
         try:
             out.append((headers.nth(i).inner_text() or "").strip())
@@ -101,7 +102,7 @@ def cells_texts(cells: "Locator") -> list[str]:
     """
     cell 集合逐个取文本（异常项跳过）。
     """
-    out = []
+    out: list[str] = []
     for i in range(cells.count()):
         try:
             out.append((cells.nth(i).inner_text() or "").strip())

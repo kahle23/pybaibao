@@ -24,7 +24,7 @@ netwatch — context 级流量观察引擎。
 
 import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from .polling import poll_until
 
@@ -198,9 +198,9 @@ class NetWatch:
                 if path.endswith(self.cfg.hard_contains_read_suffixes):
                     return None
                 return r.kind
-        for r in self.cfg.hard_method_frag:
-            if method == r.method and r.frag in path:
-                return r.kind
+        for rm in self.cfg.hard_method_frag:
+            if method == rm.method and rm.frag in path:
+                return rm.kind
         return None
 
     def _controlled_kind(self, method: str, path: str) -> str | None:
@@ -215,9 +215,9 @@ class NetWatch:
         for r in self.cfg.controlled_contains:
             if r.frag in path:
                 return r.kind
-        for r in self.cfg.controlled_method_frag:
-            if method == r.method and r.frag in path:
-                return r.kind
+        for rm in self.cfg.controlled_method_frag:
+            if method == rm.method and rm.frag in path:
+                return rm.kind
         return None
 
     # ------------------------------------------------------------------
@@ -333,7 +333,8 @@ class NetWatch:
         """
         for e in reversed(self.write_since(mark, kind)):
             try:
-                return json.loads(e.get("req_post") or "{}")
+                parsed: dict[str, Any] = json.loads(e.get("req_post") or "{}")
+                return parsed
             except Exception:
                 continue
         return {}
@@ -346,7 +347,8 @@ class NetWatch:
         for e in reversed(self.reqs[q0:]):
             if frag in (e.get("url") or "") and e.get("post"):
                 try:
-                    return json.loads(e["post"])
+                    parsed: dict[str, Any] = json.loads(e["post"])
+                    return parsed
                 except Exception:
                     continue
         return {}
@@ -356,7 +358,7 @@ class NetWatch:
         mark 之后 URL 含 ``frag`` 的全部 POST 请求体（逐个 JSON 解析，跳过失败项）。
         """
         q0 = mark["q"] if isinstance(mark, dict) else 0
-        out = []
+        out: list[dict[str, Any]] = []
         for e in self.reqs[q0:]:
             if frag not in (e.get("url") or "") or e.get("method") != "POST" or not e.get("post"):
                 continue
@@ -370,8 +372,11 @@ class NetWatch:
         """
         事件响应体是否为 ``code == ok_code`` 的业务成功体（不是则返回 None）。
         """
-        b = (e or {}).get("body")
-        return b if isinstance(b, dict) and b.get("code") == self.cfg.ok_code else None
+        b = e.get("body") if e else None
+        if not isinstance(b, dict):  # isinstance 会把 Any 收窄成 dict[Unknown, ...]，cast 回真实形状
+            return None
+        bd = cast("dict[str, Any]", b)
+        return bd if bd.get("code") == self.cfg.ok_code else None
 
     def last_ok_body(
         self, mark: dict[str, int] | None, frag: str, include_any: bool = False,

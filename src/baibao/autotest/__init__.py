@@ -34,8 +34,8 @@ from .api import ApiBase, TokenSession, TokenSessionCfg
 from .browser import launch_browser
 from .login_state import LoginCfg, login_context
 from .netwatch import NetWatch, NetWatchCfg
-from .recorder import CaseRecorder, SkipCase
 from .page import BasePage
+from .recorder import CaseRecorder, SkipCase
 
 __all__ = [
     "ApiBase",

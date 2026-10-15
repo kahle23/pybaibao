@@ -125,7 +125,7 @@ def do_login(
         for _ in range(int(cfg.success_timeout_ms / 1000)):
             page.wait_for_timeout(1000)
             tok = page.evaluate(
-                "() => localStorage.getItem(%r) || ''" % cfg.success_token_key) or ""
+                f"() => localStorage.getItem({cfg.success_token_key!r}) || ''") or ""
             if tok:
                 break
         if not tok:
@@ -156,10 +156,32 @@ def _settle_load(page: "Page", cfg: LoginCfg) -> None:
 
 
 def _click_login_button(page: "Page", cfg: LoginCfg) -> None:
-    """点登录钮：login_button_text 优先（文字 + 可选范围），否则 login_button_selector。"""
+    """点登录钮：login_button_text 优先（文字 + 可选范围），否则 login_button_selector。
+
+    scope 命中的若是容器（form/div 等）则自动下钻取容器内可见按钮——容器几何中心
+    多落在输入框区，点中心等于永远点不到钮（2026-10-14 IMP 登录页实证：scope
+    "form:visible" 时点击坐标 y≈378 落输入框、登录钮 y≥463，登录请求不发出）。
+    scope 本身就是按钮时下钻为空、原样点自己，行为不变。
+    """
     if cfg.login_button_text:
         loc = page.locator(cfg.login_button_scope or "button", has_text=cfg.login_button_text)
-        (loc.last if cfg.login_button_pick_last else loc.first).click()
+        target = loc.last if cfg.login_button_pick_last else loc.first
+        try:
+            is_container = target.count() and target.evaluate(
+                "el => !['BUTTON','INPUT','A'].includes(el.tagName.toUpperCase())"
+                " && el.getAttribute('role') !== 'button'"
+            )
+            if is_container:
+                inner_all = ("button:visible, input[type=submit]:visible, "
+                             "input[type=button]:visible, [role=button]:visible")
+                inner = target.locator(inner_all, has_text=cfg.login_button_text)
+                if not inner.count():  # 按钮文字不在文本内容里（如 input value）→ 退回不限文字
+                    inner = target.locator(inner_all)
+                if inner.count():
+                    target = inner.first
+        except Exception:
+            pass  # 探测失败保持原行为（点 scope 命中元素本身）
+        target.click()
     else:
         page.locator(cfg.login_button_selector).click()
 

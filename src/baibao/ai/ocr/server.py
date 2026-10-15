@@ -177,7 +177,9 @@ def _decode_image_bytes(raw: bytes) -> 'np.ndarray[Any, np.dtype[Any]]':
     import cv2
     import numpy as np
 
-    arr = np.frombuffer(raw, dtype=np.uint8)
+    # numpy 2.x 自带 stub 的 frombuffer 首个重载把 buffer 参数标为 Unknown
+    # （上游 stub 缺陷，本侧改不了），行级豁免
+    arr = np.frombuffer(raw, dtype=np.uint8)  # pyright: ignore[reportUnknownMemberType]
     img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
     if img is None:
         raise ValueError(

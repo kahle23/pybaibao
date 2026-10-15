@@ -353,14 +353,15 @@ def poll_toast(
             msg = page.locator(f"{cls}:visible")
             n = msg.count()
         except Exception:
-            n = 0
-        for i in range(n):
-            try:
-                txt = (msg.nth(i).inner_text() or "").strip()
-            except Exception:
-                continue
-            if keyword is None or keyword in txt:
-                return txt
+            pass  # locator/count 异常按本轮无 toast 处理（仍走轮间隔等待）
+        else:
+            for i in range(n):
+                try:
+                    txt = (msg.nth(i).inner_text() or "").strip()
+                except Exception:
+                    continue
+                if keyword is None or keyword in txt:
+                    return txt
         page.wait_for_timeout(gap_ms)
     return None
 
